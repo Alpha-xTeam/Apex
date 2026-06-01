@@ -1,4 +1,4 @@
-# Apex — Project Guide
+# CyberArena — Project Guide
 
 ## Supabase Project
 - **Project ID**: `yevtnyokixocpihpdwqu`
@@ -13,7 +13,7 @@ Frontend (React) → Python Backend (FastAPI :8080) → Supabase Edge Functions 
 
 ## Data & Backend Rules
 1. **Frontend** calls Python backend at `VITE_API_URL` (default: `http://localhost:8080/api`).
-2. **Python backend** proxies auth and XP operations to existing Supabase Edge Functions (`apex-auth`, `apex-xp`).
+2. **Python backend** proxies auth and XP operations to existing Supabase Edge Functions (`cyberarena-auth`, `cyberarena-xp`).
 3. **Python backend** handles AI training generation directly via Groq API (`llama-3.3-70b-versatile`).
 4. **Database** is Supabase PostgreSQL — schema changes still use `supabase_*` MCP tools.
 5. **No direct database queries from frontend** — all data goes through the Python backend.
@@ -28,8 +28,8 @@ Frontend (React) → Python Backend (FastAPI :8080) → Supabase Edge Functions 
 ## Backend API Endpoints
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/auth` | Signup / Login (proxied to `apex-auth`) |
-| POST | `/api/xp` | Get / Add XP (proxied to `apex-xp`) |
+| POST | `/api/auth` | Signup / Login (proxied to `cyberarena-auth`) |
+| POST | `/api/xp` | Get / Add XP (proxied to `cyberarena-xp`) |
 | POST | `/api/training/generate` | Generate training via Groq AI |
 | POST | `/api/training/evaluate` | Evaluate code fix via Groq AI |
 

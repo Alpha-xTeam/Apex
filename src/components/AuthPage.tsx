@@ -31,7 +31,7 @@ export const AuthPage: React.FC<{ onBack: () => void; onAuth: () => void }> = ({
         return;
       }
 
-      localStorage.setItem('apex_session', JSON.stringify(data));
+      localStorage.setItem('cyberarena_session', JSON.stringify(data));
       onAuth();
     } catch {
       setError('تعذر الاتصال بالخادم');
@@ -50,7 +50,7 @@ export const AuthPage: React.FC<{ onBack: () => void; onAuth: () => void }> = ({
           <p className="auth-subtitle">
             {mode === 'login'
               ? 'مرحباً بعودتك! سجل دخولك لمواصلة التدريب.'
-              : 'ابدأ رحلتك التدريبية مع Apex.'}
+              : 'ابدأ رحلتك التدريبية مع CyberArena.'}
           </p>
         </div>
 

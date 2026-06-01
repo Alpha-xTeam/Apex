@@ -1,74 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Shield, 
-  Globe, 
-  Network, 
   Lock, 
-  AlertTriangle, 
   Zap, 
   GraduationCap, 
   Lightbulb, 
-  ArrowLeft 
+  ArrowLeft,
+  ChevronDown
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
-
-const CATEGORIES = [
-  {
-    id: 'cybersecurity',
-    title: 'الأمن السيبراني',
-    desc: 'احمِ الأنظمة والشبكات من الهجمات الرقمية',
-    gradient: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)',
-    accent: '#00d4aa',
-    icon: <Shield size={24} />,
-    paths: [
-      {
-        id: 'web-security',
-        title: 'أمن تطبيقات الويب',
-        desc: 'اكتشف وأصلح الثغرات في تطبيقات الويب',
-        icon: <Globe size={22} />,
-        modules: [
-          { id: 'xss', title: 'XSS - هجمات الحقن البرمجي', desc: 'تعلم كيف تهاجم وتدافع ضد Cross-Site Scripting' },
-          { id: 'sql-injection', title: 'SQL Injection - حقن قواعد البيانات', desc: 'اختراق قواعد البيانات عبر الاستعلامات الخبيثة' },
-          { id: 'csrf', title: 'CSRF - تزوير الطلبات', desc: 'احمِ تطبيقاتك من هجمات التزوير عبر المواقع' },
-          { id: 'auth-bypass', title: 'ثغرات المصادقة', desc: 'اختبر وتجاوز أنظمة تسجيل الدخول الضعيفة' },
-          { id: 'misconfig', title: 'التكوين الأمني الخاطئ', desc: 'اكتشف الثغرات الناتجة عن الإعدادات غير الآمنة' },
-        ],
-      },
-      {
-        id: 'network-security',
-        title: 'أمن الشبكات',
-        desc: 'تحليل وحماية البنية التحتية للشبكات',
-        icon: <Network size={22} />,
-        modules: [
-          { id: 'packet-analysis', title: 'تحليل الحزم', desc: 'اقرأ و حلل حركة المرور على الشبكة' },
-          { id: 'firewall', title: 'جدران الحماية', desc: 'ابنِ وأعد تكوين جدران الحماية' },
-          { id: 'scanning', title: 'مسح الشبكات', desc: 'استخدم أدوات المسح لاكتشاف الثغرات' },
-        ],
-      },
-      {
-        id: 'cryptography',
-        title: 'التشفير',
-        desc: 'فك شفرات وابنِ أنظمة تشفير قوية',
-        icon: <Lock size={22} />,
-        modules: [
-          { id: 'encryption-basics', title: 'أساسيات التشفير', desc: 'افهم كيف تعمل خوارزميات التشفير' },
-          { id: 'hash-cracking', title: 'كسر الهاش', desc: 'تعلم تقنيات كسر كلمات المرور المشفرة' },
-        ],
-      },
-      {
-        id: 'incident-response',
-        title: 'الاستجابة للحوادث',
-        desc: 'تعامل مع الاختراقات والهجمات الإلكترونية',
-        icon: <AlertTriangle size={22} />,
-        modules: [
-          { id: 'log-analysis', title: 'تحليل السجلات', desc: 'اقرأ سجلات الخادم لاكتشاف الاختراق' },
-          { id: 'forensics', title: 'الأدلة الرقمية', desc: 'اجمع وحلل الأدلة بعد الاختراق' },
-        ],
-      },
-    ],
-  },
-];
 
 const LEVELS = [
   { name: 'مبتدئ', minXp: 0, color: '#00d4aa' },
@@ -92,40 +33,86 @@ function getNextLevelXp(xp: number) {
   return LEVELS[LEVELS.length - 1].minXp;
 }
 
+interface DBChallenge {
+  id: string;
+  title: string;
+  module: string;
+  category: string;
+  path: string;
+  difficulty: string;
+  xpReward: number;
+}
+
 interface DashboardProps {
   user: { id: string; name: string; email: string };
-  onSelectPath: (categoryId: string, pathId: string) => void;
+  onSelectChallenge: (categoryId: string, pathId: string, moduleId: string, moduleTitle: string, teamRole: 'red' | 'blue', challengeId?: string) => void;
+  onViewProfile: () => void;
   onLogout: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectPath, onLogout }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, onViewProfile, onLogout }) => {
   const [xp, setXp] = useState(0);
   const [completed, setCompleted] = useState(0);
   const [xpAnim, setXpAnim] = useState(false);
+  
+  const [blueChallenges, setBlueChallenges] = useState<DBChallenge[]>([]);
+  const [redChallenges, setRedChallenges] = useState<DBChallenge[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeSection, setActiveSection] = useState<{ teamId: string; category: string; challenges: DBChallenge[] } | null>(null);
 
   useEffect(() => {
-    const fetchXp = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch(`${API_URL}/xp`, {
+        // Fetch XP
+        const xpRes = await fetch(`${API_URL}/xp`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'get', user_id: user.id }),
         });
-        const data = await res.json();
-        if (data.xp !== undefined) {
-          setXp(data.xp);
-          setCompleted(data.completed_trainings || 0);
+        const xpData = await xpRes.json();
+        if (xpData.xp !== undefined) {
+          setXp(xpData.xp);
+          setCompleted(xpData.completed_trainings || 0);
           setTimeout(() => setXpAnim(true), 100);
         }
-      } catch {}
+
+        // Fetch DB Challenges
+        const [blueRes, redRes] = await Promise.all([
+          fetch(`${API_URL}/training/list?team_role=blue&limit=1000`),
+          fetch(`${API_URL}/training/list?team_role=red&limit=1000`)
+        ]);
+        const blueData = await blueRes.json();
+        const redData = await redRes.json();
+        
+        if (blueData.challenges) setBlueChallenges(blueData.challenges);
+        if (redData.challenges) setRedChallenges(redData.challenges);
+      } catch (err) {
+        console.error('Error fetching dashboard data', err);
+      } finally {
+        setLoading(false);
+      }
     };
-    fetchXp();
-  }, []);
+    fetchData();
+  }, [user.id]);
 
   const initial = user.name?.charAt(0) || '?';
   const level = getLevel(xp);
   const nextLevelXp = getNextLevelXp(xp);
   const xpProgress = nextLevelXp > 0 ? Math.min((xp / nextLevelXp) * 100, 100) : 100;
+
+  // Group challenges by category
+  const groupByCategory = (challenges: DBChallenge[]) => {
+    const groups: { [cat: string]: DBChallenge[] } = {};
+    challenges.forEach(c => {
+      const cat = c.category || 'تحديات عامة';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(c);
+    });
+    return groups;
+  };
+
+  const blueGroups = groupByCategory(blueChallenges);
+  const redGroups = groupByCategory(redChallenges);
 
   const hexToRgb = (hex: string) => {
     try {
@@ -138,6 +125,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectPath, onLogo
     }
   };
 
+  const teamsData = [
+    {
+      id: 'blue',
+      title: 'الفريق الأزرق (المدافع)',
+      desc: 'تحديات دفاعية لاكتشاف الثغرات وتأمين الأنظمة',
+      accent: '#4b8bff',
+      icon: <Shield size={24} />,
+      groups: blueGroups
+    },
+    {
+      id: 'red',
+      title: 'الفريق الأحمر (المهاجم)',
+      desc: 'تحديات هجومية لاكتشاف واستغلال الثغرات',
+      accent: '#ff4b4b',
+      icon: <Zap size={24} />,
+      groups: redGroups
+    }
+  ];
+
+  const openSection = (teamId: string, category: string, challenges: DBChallenge[]) => {
+    setActiveSection({ teamId, category, challenges });
+  };
+
+  const closeSection = () => {
+    setActiveSection(null);
+  };
+
   return (
     <div className="dash-page">
       {/* Background neon ambient glowing blobs */}
@@ -145,9 +159,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectPath, onLogo
       <div className="dash-bg-blob-2" />
 
       <header className="dash-header">
-        <a href="/" className="dash-logo">APEX<sup>®</sup></a>
+        <a href="/" className="dash-logo">CyberArena</a>
         <div className="dash-header-right">
-          <div className="dash-user-badge">
+          <div className="dash-user-badge" onClick={onViewProfile} style={{ cursor: 'pointer' }}>
             <span className="dash-level" style={{ background: level.color + '18', color: level.color, borderColor: level.color + '33' }}>
               {level.name}
             </span>
@@ -194,45 +208,123 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectPath, onLogo
         </div>
 
         {/* Category Sections */}
-        {CATEGORIES.map((cat) => (
-          <section key={cat.id} className="dash-category">
-            <div className="dash-category-header">
-              <span className="dash-category-icon">{cat.icon}</span>
+        <div className="dash-category-header" style={{ marginTop: '40px', padding: '0 20px' }}>
+          <span className="dash-category-icon"><Shield size={24} /></span>
+          <div>
+            <h2 className="dash-category-title">تحديات الأمن السيبراني (مباشرة من قاعدة البيانات)</h2>
+            <p className="dash-category-desc">اختر التحدي مباشرة للبدء</p>
+          </div>
+        </div>
+
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.6)' }}>جاري تحميل التحديات من قاعدة البيانات...</div>
+        ) : (
+          <div className="dash-teams-grid">
+            {teamsData.map((team) => (
+          <section key={team.id} className="dash-category dash-team-card" style={{ marginTop: '20px' }}>
+            <div className="dash-category-header" style={{ padding: '0 20px', marginBottom: '20px' }}>
+              <span className="dash-category-icon" style={{ color: team.accent }}>{team.icon}</span>
               <div>
-                <h2 className="dash-category-title">{cat.title}</h2>
-                <p className="dash-category-desc">{cat.desc}</p>
+                <h3 className="dash-category-title" style={{ color: team.accent, fontSize: '20px' }}>{team.title}</h3>
+                <p className="dash-category-desc">{team.desc}</p>
               </div>
             </div>
 
-            <div className="dash-paths-scroll">
-              <div className="dash-paths-row">
-                {cat.paths.map((path) => (
-                  <button
-                    key={path.id}
-                    className="dash-path-card"
-                    onClick={() => onSelectPath(cat.id, path.id)}
-                    style={{ 
-                      '--accent': cat.accent,
-                      '--accent-rgb': hexToRgb(cat.accent)
-                    } as React.CSSProperties}
-                  >
-                    <div className="dash-path-icon-wrapper" style={{ background: cat.accent + '12' }}>
-                      <span className="dash-path-icon">{path.icon}</span>
-                    </div>
-                    <h3 className="dash-path-title">{path.title}</h3>
-                    <p className="dash-path-desc">{path.desc}</p>
-                    <div className="dash-path-footer">
-                      <span className="dash-path-modules" style={{ color: cat.accent }}>{path.modules.length} وحدات تدريبية</span>
-                      <span className="dash-path-arrow" style={{ color: cat.accent }}>
-                        <ArrowLeft size={16} />
-                      </span>
-                    </div>
-                  </button>
-                ))}
+            {activeSection && activeSection.teamId === team.id ? (
+              <div style={{ padding: '0 20px' }}>
+                <button
+                  onClick={closeSection}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'rgba(255,255,255,0.6)',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    marginBottom: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontFamily: 'var(--font-arabic)'
+                  }}
+                >
+                  <ArrowLeft size={16} />
+                  العودة للأقسام
+                </button>
+                <h3 style={{ color: team.accent, fontSize: '24px', marginBottom: '20px' }}>{activeSection.category}</h3>
+                <div className="dash-paths-row">
+                  {activeSection.challenges.map((challenge) => (
+                    <button
+                      key={challenge.id}
+                      className="dash-path-card"
+                      onClick={() => onSelectChallenge(challenge.category, challenge.path, challenge.module, challenge.title, team.id as 'red' | 'blue', challenge.id)}
+                      style={{
+                        '--accent': team.accent,
+                        '--accent-rgb': hexToRgb(team.accent)
+                      } as React.CSSProperties}
+                    >
+                      <div className="dash-path-icon-wrapper" style={{ background: team.accent + '12' }}>
+                        <span className="dash-path-icon" style={{ color: team.accent }}><Lock size={22} /></span>
+                      </div>
+                      <h3 className="dash-path-title" style={{ fontSize: '15px', marginTop: '10px' }}>{challenge.title}</h3>
+                      <p className="dash-path-desc">النوع: {challenge.module}<br/>المستوى: <strong style={{ color: team.accent }}>{challenge.difficulty}</strong></p>
+                      <div className="dash-path-footer">
+                        <span className="dash-path-modules" style={{ color: team.accent }}>
+                          جائزة: {challenge.xpReward} XP
+                        </span>
+                        <span className="dash-path-arrow" style={{ color: team.accent }}>
+                          <ArrowLeft size={16} />
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="dash-category-cards-grid">
+                {Object.keys(team.groups).map(category => {
+                  const challenges = team.groups[category];
+
+                  return (
+                    <div key={category} className="dash-category-card-wrap">
+                      <button
+                        className="dash-path-card"
+                        onClick={() => openSection(team.id, category, challenges)}
+                        style={{
+                          width: '100%',
+                          textAlign: 'right',
+                          '--accent': team.accent,
+                          '--accent-rgb': hexToRgb(team.accent)
+                        } as React.CSSProperties}
+                      >
+                        <div className="dash-path-icon-wrapper" style={{ background: team.accent + '12' }}>
+                          <span className="dash-path-icon" style={{ color: team.accent }}><Lock size={22} /></span>
+                        </div>
+                        <h3 className="dash-path-title" style={{ marginTop: '10px' }}>{category}</h3>
+                        <p className="dash-path-desc">اضغط لعرض التحديات الخاصة بهذا القسم</p>
+                        <div className="dash-path-footer">
+                          <span className="dash-path-modules" style={{ color: team.accent }}>
+                            {challenges.length} تحدي
+                          </span>
+                          <span className="dash-path-arrow" style={{ color: team.accent }}>
+                            <ChevronDown size={16} />
+                          </span>
+                        </div>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            
+            {Object.keys(team.groups).length === 0 && (
+              <div style={{ padding: '0 20px', color: 'rgba(255,255,255,0.4)', fontSize: '14px', marginBottom: '20px' }}>
+                لا توجد تحديات متوفرة لهذا الفريق حالياً.
+              </div>
+            )}
           </section>
         ))}
+          </div>
+        )}
 
         <section className="dash-tips">
           <h3>

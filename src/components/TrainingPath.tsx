@@ -1,9 +1,21 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 interface Module {
   id: string;
   title: string;
   desc: string;
+}
+
+interface DBChallenge {
+  id: string;
+  title: string;
+  module: string;
+  category: string;
+  path: string;
+  difficulty: string;
+  xpReward: number;
 }
 
 interface PathData {
@@ -53,18 +65,57 @@ const PATHS: Record<string, Record<string, PathData>> = {
 interface TrainingPathProps {
   categoryId: string;
   pathId: string;
-  onSelectModule: (moduleId: string, moduleTitle: string) => void;
+  teamRole?: 'red' | 'blue';
+  onSelectModule: (moduleId: string, moduleTitle: string, challengeId?: string) => void;
   onBack: () => void;
 }
 
-export const TrainingPath: React.FC<TrainingPathProps> = ({ categoryId, pathId, onSelectModule, onBack }) => {
+export const TrainingPath: React.FC<TrainingPathProps> = ({ categoryId, pathId, teamRole = 'blue', onSelectModule, onBack }) => {
   const path = PATHS[categoryId]?.[pathId];
+  
+  const [dbChallenges, setDbChallenges] = useState<DBChallenge[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchChallenges = async () => {
+      try {
+        const res = await fetch(`${API_URL}/training/list?team_role=${teamRole}&limit=2000`);
+        const data = await res.json();
+        if (data.challenges) {
+          // Filter challenges belonging only to the current path
+          const filtered = data.challenges.filter((c: DBChallenge) => c.path === pathId);
+          setDbChallenges(filtered);
+        }
+      } catch (err) {
+        console.error('Failed to fetch challenges:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchChallenges();
+  }, [teamRole, pathId]);
+
   if (!path) return null;
+
+  // Use DB challenges if they exist, otherwise fallback to static modules
+  const itemsToRender = dbChallenges.length > 0 
+    ? dbChallenges.map(c => ({
+        id: c.id,
+        moduleId: c.module,
+        title: c.title,
+        desc: `تحدي حول ${c.module} - مستوى: ${c.difficulty} - جائزة: ${c.xpReward} XP`,
+      }))
+    : path.modules.map(m => ({
+        id: m.id,
+        moduleId: m.id, // For static modules, id is moduleId
+        title: m.title,
+        desc: m.desc,
+      }));
 
   return (
     <div className="dash-page">
       <header className="dash-header">
-        <a href="/" className="dash-logo">APEX<sup>®</sup></a>
+        <a href="/" className="dash-logo">CyberArena</a>
         <div className="dash-header-right">
           <button onClick={onBack} className="path-back-link">← العودة للرئيسية</button>
         </div>
@@ -77,21 +128,25 @@ export const TrainingPath: React.FC<TrainingPathProps> = ({ categoryId, pathId, 
         </div>
 
         <div className="path-timeline">
-          {path.modules.map((mod, index) => (
-            <div key={mod.id} className="path-step">
-              <div className="path-step-line">
-                <div className="path-step-dot">{index + 1}</div>
-                {index < path.modules.length - 1 && <div className="path-step-connector" />}
-              </div>
-              <button className="path-step-card" onClick={() => onSelectModule(mod.id, mod.title)}>
-                <div className="path-step-content">
-                  <h3>{mod.title}</h3>
-                  <p>{mod.desc}</p>
+          {loading ? (
+            <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.6)', padding: '40px' }}>جاري تحميل التحديات...</div>
+          ) : (
+            itemsToRender.map((item, index) => (
+              <div key={item.id} className="path-step">
+                <div className="path-step-line">
+                  <div className="path-step-dot">{index + 1}</div>
+                  {index < itemsToRender.length - 1 && <div className="path-step-connector" />}
                 </div>
-                <span className="path-step-start">ابدأ التحدي ←</span>
-              </button>
-            </div>
-          ))}
+                <button className="path-step-card" onClick={() => onSelectModule(item.moduleId, item.title, item.id)}>
+                  <div className="path-step-content">
+                    <h3>{item.title}</h3>
+                    <p>{item.desc}</p>
+                  </div>
+                  <span className="path-step-start">ابدأ التحدي ←</span>
+                </button>
+              </div>
+            ))
+          )}
         </div>
       </main>
     </div>

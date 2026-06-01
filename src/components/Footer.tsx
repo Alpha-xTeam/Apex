@@ -6,7 +6,7 @@ export const Footer: React.FC = () => {
       <div className="footer-inner">
         <div className="footer-grid">
           <div className="footer-brand">
-            <a href="/" className="footer-logo">APEX<sup>®</sup></a>
+            <a href="/" className="footer-logo">CyberArena</a>
             <p className="footer-desc">
               منصة التدريب التكنولوجي عبر محاكاة الذكاء الاصطناعي. نعدّك لسوق العمل قبل أن تخطو إليه.
             </p>
@@ -21,7 +21,7 @@ export const Footer: React.FC = () => {
 
           <div className="footer-links">
             <h4 className="footer-heading">التواصل</h4>
-            <a href="mailto:hello@apex.com">hello@apex.com</a>
+            <a href="mailto:hello@cyberarena.com">hello@cyberarena.com</a>
             <a href="#">دعم فني</a>
             <a href="#">الشراكات</a>
           </div>
@@ -34,7 +34,7 @@ export const Footer: React.FC = () => {
         </div>
 
         <div className="footer-bottom">
-          <p>© {new Date().getFullYear()} Apex. جميع الحقوق محفوظة.</p>
+          <p>© {new Date().getFullYear()} CyberArena. جميع الحقوق محفوظة.</p>
         </div>
       </div>
     </footer>

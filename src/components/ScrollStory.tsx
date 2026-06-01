@@ -30,6 +30,13 @@ const STAGES = [
 export const ScrollStory: React.FC = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState(0);
+  const progressRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (progressRef.current) {
+      progressRef.current.style.width = `${progress * 100}%`;
+    }
+  }, [progress]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -89,7 +96,7 @@ export const ScrollStory: React.FC = () => {
         <div className="scroll-story-progress">
           <div
             className="scroll-story-progress-bar"
-            style={{ width: `${progress * 100}%` }}
+            ref={progressRef}
           />
         </div>
       </div>

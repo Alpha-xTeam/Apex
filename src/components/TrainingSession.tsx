@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Terminal, 
-  Cpu, 
-  Shield, 
-  Loader2, 
-  CheckCircle, 
+import {
+  Terminal,
+  Cpu,
+  Shield,
+  Loader2,
+  CheckCircle,
   Flame,
   Globe,
   Lock,
@@ -19,12 +19,14 @@ import {
   FolderOpen,
   Folder,
   Search,
-  Power
+  Power,
+  Download
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 interface TrainingData {
+  id?: string;
   title: string;
   story: string;
   type: string;
@@ -47,11 +49,13 @@ interface TrainingSessionProps {
   categoryId: string;
   pathId: string;
   moduleId: string;
+  teamRole?: 'red' | 'blue';
+  challengeId?: string;
   onBack: () => void;
 }
 
 export const TrainingSession: React.FC<TrainingSessionProps> = ({
-  moduleTitle, categoryId, pathId, moduleId, onBack,
+  moduleTitle, categoryId, pathId, moduleId, teamRole = 'red', challengeId, onBack,
 }) => {
   const [training, setTraining] = useState<TrainingData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,12 +65,12 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
   const [isCorrect, setIsCorrect] = useState(false);
   const [error, setError] = useState('');
   const [showVuln, setShowVuln] = useState(false);
-  
+
   // Simulated step & progress states
   const [simulatedStep, setSimulatedStep] = useState(0);
   const [simulatedPercent, setSimulatedPercent] = useState(0);
   const [simulatedTitle, setSimulatedTitle] = useState('جاري التفكير...');
-  
+
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const hasCalledRef = useRef(false);
 
@@ -84,13 +88,13 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
     terminal: { isOpen: false, isMinimized: false, zIndex: 12, x: 80, y: 120 },
     notepad: { isOpen: false, isMinimized: false, zIndex: 13, x: 160, y: 80 }
   });
-  
+
   const [activeWindow, setActiveWindow] = useState('fileExplorer');
   const [explorerPath, setExplorerPath] = useState('C:\\');
   const [isStartMenuOpen, setIsStartMenuOpen] = useState(false);
-  
+
   // Notepad state
-  const [notepadTitle, setNotepadTitle] = useState('Apex_Readme.txt');
+  const [notepadTitle, setNotepadTitle] = useState('CyberArena_Readme.txt');
   const [notepadContent, setNotepadContent] = useState('');
 
   // Swiss-Army Cryptanalysis tool states
@@ -98,16 +102,16 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
   const [decrypterOutput, setDecrypterOutput] = useState('');
   const [decrypterType, setDecrypterType] = useState('base64_decode');
   const [caesarShift, setCaesarShift] = useState(3);
-  
+
   // Windows Drag-and-drop state management
   const [draggingWindow, setDraggingWindow] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [activeZIndex, setActiveZIndex] = useState(15);
 
   // Windows Desktop navigable directory contents dynamically synced with the active dynamic challenge expected flag!
-  const rawExpected = training?.expectedAnswer || 'APEX{C3RPT0_M15S10N_SUCCESS}';
+  const rawExpected = training?.expectedAnswer || 'CyberArena{C3RPT0_M15S10N_SUCCESS}';
   const primaryExpected = rawExpected.split('|')[0].trim();
-  
+
   let dynamicB64 = '';
   try {
     dynamicB64 = btoa(primaryExpected);
@@ -119,14 +123,14 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
     'C:\\': [
       { type: 'dir', name: 'Secrets', desc: 'مجلد محمي للملفات الحساسة' },
       { type: 'dir', name: 'System32', desc: 'ملفات نظام ويندوز الأساسية' },
-      { type: 'file', name: 'Apex_Readme.txt', desc: 'ملف المساعدة والتعليمات', content: 'مرحباً بك في نظام المهمات السيبرانية من APEX!\nاستخدم أدوات التشفير وموجه الأوامر والملفات المتاحة لتجاوز التحديات واكتشاف الأعلام.' }
+      { type: 'file', name: 'CyberArena_Readme.txt', desc: 'ملف المساعدة والتعليمات', content: 'مرحباً بك في نظام المهمات السيبرانية من CyberArena!\nاستخدم أدوات التشفير وموجه الأوامر والملفات المتاحة لتجاوز التحديات واكتشاف الأعلام.' }
     ],
     'C:\\Secrets': [
       { type: 'file', name: 'secret.enc', desc: 'ملف استخباراتي مشفر', content: dynamicB64 },
       { type: 'file', name: 'flag.txt', desc: 'ملف الإشارة المباشر', content: `العلم الخاص بك هو:\n${primaryExpected}` }
     ],
     'C:\\System32': [
-      { type: 'file', name: 'kernel32.dll', desc: 'مكتبة النظام الأساسية', content: 'APEX SYSTEM WINDOWS KERNEL CORE DLL REGISTERED SUCCESSFULLY' },
+      { type: 'file', name: 'kernel32.dll', desc: 'مكتبة النظام الأساسية', content: 'CyberArena SYSTEM WINDOWS KERNEL CORE DLL REGISTERED SUCCESSFULLY' },
       { type: 'file', name: 'cmd.exe', desc: 'موجه الأوامر التنفيذي', content: 'Command Executor' }
     ],
     'C:\\Users\\Admin\\Documents': [
@@ -140,8 +144,8 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
   // Terminal history state
   const [cmdInput, setCmdInput] = useState('');
   const [cmdHistory, setCmdHistory] = useState<string[]>([
-    'APEX(R) CYBERSEC OS [Version 11.2.2026]',
-    '(c) APEX Security Systems Corporation. All rights reserved.',
+    'CyberArena(R) CYBERSEC OS [Version 11.2.2026]',
+    '(c) CyberArena Security Systems Corporation. All rights reserved.',
     '',
     'اكتب help لعرض قائمة الأوامر المتاحة.'
   ]);
@@ -162,13 +166,13 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!draggingWindow) return;
-      
+
       const desktop = document.querySelector('.windows-desktop');
       const rect = desktop?.getBoundingClientRect();
       if (rect) {
         let newX = e.clientX - rect.left - dragOffset.x;
         let newY = e.clientY - rect.top - dragOffset.y;
-        
+
         // Boundaries checks
         newX = Math.max(0, Math.min(newX, rect.width - 250));
         newY = Math.max(0, Math.min(newY, rect.height - 100));
@@ -205,6 +209,87 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
     generateTraining();
   }, []);
 
+  const prettyPrintHtml = (input: string) => {
+    const compact = input.replace(/>\s+</g, '><').trim();
+    const withBreaks = compact
+      .replace(/></g, '>\n<')
+      .replace(/(<script[^>]*>)/gi, '$1\n')
+      .replace(/(<\/script>)/gi, '\n$1')
+      .replace(/(<style[^>]*>)/gi, '$1\n')
+      .replace(/(<\/style>)/gi, '\n$1');
+
+    const lines = withBreaks.split('\n').map(line => line.trim()).filter(Boolean);
+    let indent = 0;
+    const out: string[] = [];
+
+    for (const line of lines) {
+      const isClosingTag = /^<\//.test(line);
+      const isOpeningTag = /^<[^!/][^>]*>$/.test(line) && !/\/>$/.test(line) && !line.includes('</');
+      if (isClosingTag) indent = Math.max(indent - 1, 0);
+      out.push(`${'  '.repeat(indent)}${line}`);
+      if (isOpeningTag) indent += 1;
+    }
+
+    return out.join('\n');
+  };
+
+  const formatInlineJs = (input: string) => {
+    const normalized = input
+      .replace(/\r\n/g, '\n')
+      .replace(/\s*([{};])\s*/g, '$1\n')
+      .replace(/\n+/g, '\n')
+      .trim();
+
+    const lines = normalized.split('\n').map(line => line.trim()).filter(Boolean);
+    let indent = 0;
+    const out: string[] = [];
+
+    for (const line of lines) {
+      const startsWithClose = line.startsWith('}');
+      if (startsWithClose) indent = Math.max(indent - 1, 0);
+
+      out.push(`${'  '.repeat(indent)}${line}`);
+
+      const openCount = (line.match(/\{/g) || []).length;
+      const closeCount = (line.match(/\}/g) || []).length;
+      indent = Math.max(indent + openCount - closeCount, 0);
+    }
+
+    return out.join('\n');
+  };
+
+  const normalizeCodeForEditor = (rawCode: string, fileName: string) => {
+    let code = (rawCode || '')
+      .replace(/\r\n/g, '\n')
+      .replace(/\\r\\n/g, '\n')
+      .replace(/\\n/g, '\n')
+      .trim();
+
+    const lowerFile = fileName.toLowerCase();
+
+    if (lowerFile.endsWith('.json')) {
+      try {
+        return JSON.stringify(JSON.parse(code), null, 2);
+      } catch {
+        return code;
+      }
+    }
+
+    if (lowerFile.endsWith('.html') || code.includes('<html') || code.includes('<!DOCTYPE')) {
+      const withFormattedScripts = code.replace(
+        /(<script[^>]*>)([\s\S]*?)(<\/script>)/gi,
+        (_match, openTag, scriptBody, closeTag) => `${openTag}\n${formatInlineJs(scriptBody)}\n${closeTag}`
+      );
+      return prettyPrintHtml(withFormattedScripts);
+    }
+
+    if (lowerFile.endsWith('.sql') && !code.includes('\n')) {
+      return code.replace(/;\s*/g, ';\n').trim();
+    }
+
+    return code;
+  };
+
   const generateTraining = async () => {
     setLoading(true);
     setShowResult(false);
@@ -228,7 +313,7 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
         const res = await fetch(`${API_URL}/training/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ module: moduleTitle, path: pathId, category: categoryId, moduleId }),
+          body: JSON.stringify({ module: moduleId || moduleTitle, path: pathId, category: categoryId, moduleId, teamRole, challengeId }),
         });
 
         if (!res.ok) {
@@ -242,7 +327,7 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
         fetchedTraining = data.training || data;
       } catch (err: any) {
         console.warn('Supabase Edge function is offline or timed out. Gracefully degrading to ultra-secure premium offline fallback challenge...');
-        
+
         // --- PREMIUM OFFLINE FALLBACK CHALLENGES ---
         if (pathId === 'web-security') {
           fetchedTraining = {
@@ -254,7 +339,7 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>بوابة التعليقات الآمنة - APEX</title>
+    <title>بوابة التعليقات الآمنة - CyberArena</title>
     <style>
         body { font-family: sans-serif; background: #0f172a; color: #fff; padding: 20px; text-align: center; }
         .card { background: #1e293b; padding: 24px; border-radius: 12px; max-width: 500px; margin: 40px auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
@@ -299,7 +384,7 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>بوابة التعليقات الآمنة - APEX</title>
+    <title>بوابة التعليقات الآمنة - CyberArena</title>
     <style>
         body { font-family: sans-serif; background: #0f172a; color: #fff; padding: 20px; text-align: center; }
         .card { background: #1e293b; padding: 24px; border-radius: 12px; max-width: 500px; margin: 40px auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
@@ -340,9 +425,9 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
 </html>`,
             vulnerabilityLocation: "سطر 32: استخدام خاصية innerHTML بدلاً من textContent يعرض الموقع لثغرات حقن البرمجيات الخبيثة XSS.",
             hints: [
-                "ابحث عن الكود المكتوب بـ JavaScript في الجزء السفلي من ملف index.html.",
-                "الثغرة واضحة وتكمن في سطر newComment.innerHTML = commentText.",
-                "لتأمين الخلل بشكل سليم، قم بتغيير innerHTML إلى textContent."
+              "ابحث عن الكود المكتوب بـ JavaScript في الجزء السفلي من ملف index.html.",
+              "الثغرة واضحة وتكمن في سطر newComment.innerHTML = commentText.",
+              "لتأمين الخلل بشكل سليم، قم بتغيير innerHTML إلى textContent."
             ],
             expectedAnswer: "alert(1)|img src=x onerror|script|onerror",
             explanation: "ثغرة XSS تظهر عند دمج مدخلات المستخدم مباشرة مع الكود التنفيذي للصفحة دون تنظيف، مما يسمح للمهاجم بتنفيذ نصوص برمجية خبيثة في متصفح الزائر.",
@@ -356,9 +441,9 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
             type: "cryptography",
             task: "افتح مستكشف الملفات في نظام التشغيل المحاكي، وانتقل إلى مجلد Secrets ثم انقر نقراً مزدوجاً على الملف secret.enc لفتحه وإرساله للأداة، أو انسخه واستخدم أداة فك التشفير السيبرانية Crypto Decryptor مع اختيار خوارزمية Base64 Decode للحصول على العلم.",
             hints: [
-                "المجلد المطلوب هو C:\\Secrets",
-                "الملف المستهدف هو secret.enc",
-                "افتح أداة فك التشفير واختر خوارزمية Base64 Decode لفك التشفير والحصول على العلم."
+              "المجلد المطلوب هو C:\\Secrets",
+              "الملف المستهدف هو secret.enc",
+              "افتح أداة فك التشفير واختر خوارزمية Base64 Decode لفك التشفير والحصول على العلم."
             ],
             expectedAnswer: "APEX{DEC_SUCCESS_2026}",
             explanation: "تشفير Base64 هو ترميز ثنائي لنقل البيانات النصية بسهولة وليس خوارزمية تشفير أمنية، ويمكن فكه فوراً بأي أداة فك ترميز.",
@@ -377,13 +462,13 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
         setSimulatedPercent(i);
         await new Promise((r) => setTimeout(r, 70));
       }
-      
+
       setSimulatedStep(1);
       for (let i = 21; i <= 40; i += 2) {
         setSimulatedPercent(i);
         await new Promise((r) => setTimeout(r, 70));
       }
-      
+
       setSimulatedStep(2);
       setSimulatedTitle('جاري صياغة السيناريو السيبراني القتالي...');
       for (let i = 41; i <= 60; i += 2) {
@@ -422,7 +507,7 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
         await new Promise((r) => setTimeout(r, 600));
 
         setEditorFiles({
-          'index.html': fetchedTraining.htmlPreview || fetchedTraining.code || '<!-- Code not loaded -->',
+          'index.html': normalizeCodeForEditor(fetchedTraining.htmlPreview || fetchedTraining.code || '<!-- Code not loaded -->', 'index.html'),
           'security_config.json': `{
   "security": {
     "xss_filtering": false,
@@ -432,7 +517,7 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
   },
   "database": {
     "driver": "sqlite",
-    "storage": "./data/apex_db.sqlite"
+    "storage": "./data/cyberarena_db.sqlite"
   }
 }`,
           'database.sql': `-- قاعدة بيانات تحدي: ${fetchedTraining.title}
@@ -462,13 +547,13 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
   const handleSubmit = async () => {
     const userAnswer = answer.trim().toLowerCase();
     const expected = training?.expectedAnswer?.toLowerCase() || '';
-    
+
     // Bidirectional matching to accept both raw flags and formatted flags (e.g., with or without APEX{} wrapper)
     const correct = expected.split('|').some((e: string) => {
       const trimmedExpected = e.trim();
       if (!userAnswer || !trimmedExpected) return false;
       return (
-        userAnswer.includes(trimmedExpected) || 
+        userAnswer.includes(trimmedExpected) ||
         trimmedExpected.includes(userAnswer) ||
         userAnswer.replace(/[^a-z0-9]/g, '') === trimmedExpected.replace(/[^a-z0-9]/g, '')
       );
@@ -479,7 +564,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
 
     if (correct && training) {
       try {
-        const raw = localStorage.getItem('apex_session') || '{}';
+        const raw = localStorage.getItem('cyberarena_session') || '{}';
         const session = JSON.parse(raw);
         const userData = session.user || session;
         const userId = userData.id;
@@ -490,7 +575,22 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
             body: JSON.stringify({ action: 'add_xp', user_id: userId, xp_amount: training.xpReward }),
           });
         }
-      } catch {}
+
+        if (training.id) {
+          fetch(`${API_URL}/training/solved`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              challengeId: training.id,
+              teamRole,
+              module: training.type || moduleId || moduleTitle,
+              path: pathId,
+              category: categoryId,
+              difficulty: training.difficulty || 'متوسط'
+            })
+          }).catch(err => console.error('Error reporting solved challenge:', err));
+        }
+      } catch { }
     }
   };
 
@@ -516,7 +616,8 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         body: JSON.stringify({
           action: 'evaluate',
           originalChallenge: training,
-          userCode
+          userCode,
+          teamRole
         })
       });
 
@@ -524,11 +625,11 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
       const data = await res.json();
       const result = data.evaluation;
       setEvalResult(result);
-      
+
       if (result.secured) {
         setIsCorrect(true);
         setShowResult(true);
-        const raw = localStorage.getItem('apex_session') || '{}';
+        const raw = localStorage.getItem('cyberarena_session') || '{}';
         const session = JSON.parse(raw);
         const userData = session.user || session;
         const userId = userData.id;
@@ -720,15 +821,15 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
     setCmdInput('');
   };
 
-  const isWebChallenge = 
-    !pathId.toLowerCase().includes('crypto') && 
-    !categoryId.toLowerCase().includes('crypto') && 
+  const isWebChallenge =
+    !pathId.toLowerCase().includes('crypto') &&
+    !categoryId.toLowerCase().includes('crypto') &&
     pathId !== 'basics-crypto';
   const hasLog = training?.type === 'analyze_log';
 
   if (error) {
     return (
-      <div 
+      <div
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -743,7 +844,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         }}
         dir="rtl"
       >
-        <div 
+        <div
           style={{
             maxWidth: '440px',
             width: '100%',
@@ -759,8 +860,8 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
           <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '12px', color: '#f3f4f6' }}>فشل تحميل المختبر</h2>
           <p style={{ color: '#9ca3af', marginBottom: '24px', fontSize: '14px', lineHeight: '1.6' }}>{error}</p>
           <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-            <button 
-              onClick={generateTraining} 
+            <button
+              onClick={generateTraining}
               style={{
                 padding: '10px 20px',
                 borderRadius: '12px',
@@ -777,8 +878,8 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
             >
               إعادة المحاولة 🔄
             </button>
-            <button 
-              onClick={onBack} 
+            <button
+              onClick={onBack}
               style={{
                 padding: '10px 20px',
                 borderRadius: '12px',
@@ -803,7 +904,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
 
   if (loading || !training) {
     return (
-      <div 
+      <div
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -843,7 +944,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
           pointerEvents: 'none'
         }} />
 
-        <div 
+        <div
           style={{
             maxWidth: '576px',
             width: '100%',
@@ -877,10 +978,10 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
 
           {/* Progress bar container */}
           <div style={{ width: '100%', height: '10px', backgroundColor: '#030712', borderRadius: '9999px', overflow: 'hidden', marginBottom: '16px', border: '1px solid #1f2937' }}>
-            <div 
-              style={{ 
-                height: '100%', 
-                background: 'linear-gradient(90deg, #6366f1, #a855f7, #ec4899)', 
+            <div
+              style={{
+                height: '100%',
+                background: 'linear-gradient(90deg, #6366f1, #a855f7, #ec4899)',
                 width: `${simulatedPercent}%`,
                 transition: 'width 0.3s ease-out',
                 boxShadow: '0 0 12px rgba(99, 102, 241, 0.5)',
@@ -903,7 +1004,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
               const active = simulatedStep >= step.id;
               return (
                 <div key={step.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div 
+                  <div
                     style={{
                       width: '20px',
                       height: '20px',
@@ -933,11 +1034,16 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
   }
 
   return (
-    <div className="dash-page session-page">
+    <div className={`dash-page session-page team-${teamRole}`}>
       <header className="dash-header">
         <a href="/" className="dash-logo">APEX<sup>®</sup></a>
         <div className="dash-header-right">
           <div className="session-top-bar">
+            {teamRole === 'blue' ? (
+              <span className="team-role-badge blue-team-badge">🛡️ الفريق الأزرق (مدافع)</span>
+            ) : (
+              <span className="team-role-badge red-team-badge">🎯 الفريق الأحمر (مهاجم)</span>
+            )}
             <span className="session-badge">{moduleTitle}</span>
             <span className={`session-diff ${training.difficulty === 'مبتدئ' ? 'easy' : training.difficulty === 'متوسط' ? 'medium' : 'hard'}`}>
               {training.difficulty}
@@ -954,19 +1060,19 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
       <main className="session-split">
         {/* LEFT WORKSPACE: WEB PREVIEW + VS CODE OR WINDOWS DESKTOP SIMULATOR */}
         <div className="session-left">
-          
+
           {isWebChallenge ? (
             /* --- WEB VIEW --- */
             <div className="session-browser">
               <div className="session-browser-tabs">
-                <button 
+                <button
                   className={`browser-tab ${!isOpenEditor ? 'active' : ''}`}
                   onClick={() => setIsOpenEditor(false)}
                 >
                   <Globe size={14} style={{ marginLeft: '6px' }} />
                   <span>الموقع التفاعلي (المعاينة)</span>
                 </button>
-                <button 
+                <button
                   className={`browser-tab code-editor-tab-btn ${isOpenEditor ? 'active' : ''}`}
                   onClick={() => setIsOpenEditor(true)}
                 >
@@ -981,7 +1087,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                   {isOpenEditor ? 'vscode://workspace/apex-challenge-security' : 'https://apex-train.com/lab-preview'}
                 </div>
                 {isOpenEditor && (
-                  <button 
+                  <button
                     className="editor-eval-btn"
                     onClick={handleEvaluateFix}
                     disabled={isEvaluating}
@@ -992,7 +1098,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                         <span>جاري التقييم...</span>
                       </>
                     ) : (
-                      <span>🔍 تحقق من الحل</span>
+                      <span>{teamRole === 'blue' ? '✅ أكملت الإصلاح' : '🔍 تحقق من الحل'}</span>
                     )}
                   </button>
                 )}
@@ -1020,17 +1126,17 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                     <div className="vscode-sidebar">
                       <div className="sidebar-header">EXPLORER</div>
                       <div className="sidebar-tree">
-                        <div className="tree-project-title">APEX_PROJECT</div>
-                        
-                        <button 
+                        <div className="tree-project-title">CyberArena_PROJECT</div>
+
+                        <button
                           className={`tree-file ${selectedFile === 'index.html' ? 'active' : ''}`}
                           onClick={() => setSelectedFile('index.html')}
                         >
                           <FileText size={14} className="text-orange-500" />
                           <span>index.html</span>
                         </button>
-                        
-                        <button 
+
+                        <button
                           className={`tree-file ${selectedFile === 'security_config.json' ? 'active' : ''}`}
                           onClick={() => setSelectedFile('security_config.json')}
                         >
@@ -1038,7 +1144,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                           <span>security_config.json</span>
                         </button>
 
-                        <button 
+                        <button
                           className={`tree-file ${selectedFile === 'database.sql' ? 'active' : ''}`}
                           onClick={() => setSelectedFile('database.sql')}
                         >
@@ -1055,7 +1161,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                           <span>{selectedFile}</span>
                         </div>
                       </div>
-                      
+
                       <div className="editor-workspace">
                         <div className="line-numbers">
                           {Array.from({ length: (editorFiles[selectedFile] || '').split('\n').length + 2 }).map((_, i) => (
@@ -1135,10 +1241,10 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
               )}
 
               {/* Windows Draggable Containers */}
-              
+
               {/* 1. File Explorer Window */}
               {windowsState.fileExplorer.isOpen && (
-                <div 
+                <div
                   className={`window-frame ${activeWindow === 'fileExplorer' ? 'active' : ''}`}
                   style={{ zIndex: windowsState.fileExplorer.zIndex, left: `${windowsState.fileExplorer.x}px`, top: `${windowsState.fileExplorer.y}px` }}
                   onClick={() => focusWindow('fileExplorer')}
@@ -1168,9 +1274,9 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                       </div>
                       <div className="explorer-files-grid">
                         {(directoryStructure[explorerPath] || []).map((item, idx) => (
-                          <div 
+                          <div
                             key={idx}
-                            className="explorer-file-item" 
+                            className="explorer-file-item"
                             onDoubleClick={() => handleExplorerItemDoubleClick(item)}
                           >
                             {item.type === 'dir' ? (
@@ -1190,14 +1296,14 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
 
               {/* 2. Cryptography tools Window */}
               {windowsState.cryptoTools.isOpen && (
-                <div 
+                <div
                   className={`window-frame ${activeWindow === 'cryptoTools' ? 'active' : ''}`}
                   style={{ zIndex: windowsState.cryptoTools.zIndex, left: `${windowsState.cryptoTools.x}px`, top: `${windowsState.cryptoTools.y}px` }}
                   onClick={() => focusWindow('cryptoTools')}
                   dir="rtl"
                 >
                   <div className="window-header" onMouseDown={(e) => handleMouseDown(e, 'cryptoTools')}>
-                    <span className="window-title">أدوات فك التشفير السيبرانية - APEX Swiss Tools</span>
+                    <span className="window-title">أدوات فك التشفير السيبرانية - CyberArena Swiss Tools</span>
                     <div className="window-controls">
                       <button onClick={(e) => { e.stopPropagation(); closeWindow('cryptoTools'); }} className="control-btn close">
                         <X size={12} />
@@ -1207,13 +1313,13 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                   <div className="window-body crypto-body">
                     <div className="crypto-tool-row">
                       <label>النص المراد تشفيره أو فكه (Input Text):</label>
-                      <textarea 
-                        value={decrypterInput} 
+                      <textarea
+                        value={decrypterInput}
                         onChange={(e) => setDecrypterInput(e.target.value)}
                         placeholder="اكتب أو الصق النص هنا..."
                       />
                     </div>
-                    
+
                     <div className="crypto-tool-row-actions">
                       <div className="select-wrapper">
                         <label>الخوارزمية / العملية:</label>
@@ -1234,11 +1340,11 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                       {(decrypterType === 'caesar_decode' || decrypterType === 'caesar_encode') && (
                         <div className="shift-wrapper">
                           <label>قيمة الإزاحة:</label>
-                          <input 
-                            type="number" 
-                            min="1" 
-                            max="25" 
-                            value={caesarShift} 
+                          <input
+                            type="number"
+                            min="1"
+                            max="25"
+                            value={caesarShift}
                             onChange={(e) => setCaesarShift(parseInt(e.target.value) || 3)}
                             style={{ width: '60px', padding: '4px', background: '#0b0e14', color: '#fff', border: '1px solid #333', borderRadius: '4px' }}
                           />
@@ -1258,7 +1364,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
 
               {/* 3. Terminal/CMD Window */}
               {windowsState.terminal.isOpen && (
-                <div 
+                <div
                   className={`window-frame ${activeWindow === 'terminal' ? 'active' : ''}`}
                   style={{ zIndex: windowsState.terminal.zIndex, left: `${windowsState.terminal.x}px`, top: `${windowsState.terminal.y}px` }}
                   onClick={() => focusWindow('terminal')}
@@ -1280,9 +1386,9 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                     </div>
                     <form onSubmit={handleTerminalSubmit} className="cmd-form-input">
                       <span>{explorerPath}&gt;</span>
-                      <input 
-                        type="text" 
-                        value={cmdInput} 
+                      <input
+                        type="text"
+                        value={cmdInput}
                         onChange={(e) => setCmdInput(e.target.value)}
                         autoFocus
                         spellCheck={false}
@@ -1294,7 +1400,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
 
               {/* 4. Notepad Window Clone */}
               {windowsState.notepad.isOpen && (
-                <div 
+                <div
                   className={`window-frame ${activeWindow === 'notepad' ? 'active' : ''}`}
                   style={{ zIndex: windowsState.notepad.zIndex, left: `${windowsState.notepad.x}px`, top: `${windowsState.notepad.y}px`, width: '400px', height: '300px' }}
                   onClick={() => focusWindow('notepad')}
@@ -1309,7 +1415,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                     </div>
                   </div>
                   <div className="window-body notepad-body">
-                    <textarea 
+                    <textarea
                       className="notepad-textarea"
                       value={notepadContent}
                       readOnly
@@ -1322,7 +1428,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
               <div className="desktop-taskbar" dir="rtl">
                 <button className="start-btn" onClick={() => setIsStartMenuOpen(!isStartMenuOpen)}>💻 ابدأ</button>
                 <div className="taskbar-tabs">
-                  <button 
+                  <button
                     className={`task-tab ${windowsState.fileExplorer.isOpen ? 'active' : ''}`}
                     onClick={() => {
                       if (windowsState.fileExplorer.isOpen) focusWindow('fileExplorer');
@@ -1331,7 +1437,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                   >
                     مستكشف الملفات
                   </button>
-                  <button 
+                  <button
                     className={`task-tab ${windowsState.cryptoTools.isOpen ? 'active' : ''}`}
                     onClick={() => {
                       if (windowsState.cryptoTools.isOpen) focusWindow('cryptoTools');
@@ -1340,7 +1446,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                   >
                     أدوات التشفير
                   </button>
-                  <button 
+                  <button
                     className={`task-tab ${windowsState.terminal.isOpen ? 'active' : ''}`}
                     onClick={() => {
                       if (windowsState.terminal.isOpen) focusWindow('terminal');
@@ -1350,7 +1456,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                     CMD
                   </button>
                   {windowsState.notepad.isOpen && (
-                    <button 
+                    <button
                       className={`task-tab ${activeWindow === 'notepad' ? 'active' : ''}`}
                       onClick={() => focusWindow('notepad')}
                     >
@@ -1378,7 +1484,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         {/* RIGHT WORKSPACE: TASK, STORY & ANSWERS */}
         <div className="session-right">
           <div className="session-right-scroll">
-            
+
             {/* AI evaluation result alert */}
             {evalResult && (
               <div className={`eval-feedback-alert ${evalResult.secured ? 'success' : 'fail'}`}>
@@ -1404,30 +1510,134 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
               <p>{training.task}</p>
             </div>
 
-            {hasLog && training.logData && (
-              <div className="session-log-box">
-                <div className="session-log-header">
-                  <Terminal size={14} style={{ marginLeft: '6px' }} />
-                  <span>سجلات النظام</span>
-                </div>
-                <pre className="session-log-body"><code>{training.logData}</code></pre>
-              </div>
-            )}
+            {(() => {
+              let downloadableFile: string | null = null;
+              let logPreviewText: string | null = null;
+              
+              if (training.logData) {
+                try {
+                  const parsedLog = JSON.parse(training.logData);
+                  if (parsedLog && typeof parsedLog === 'object' && parsedLog.downloadable_file) {
+                    downloadableFile = parsedLog.downloadable_file;
+                    logPreviewText = parsedLog.preview || '';
+                  } else {
+                    logPreviewText = training.logData;
+                  }
+                } catch (e) {
+                  logPreviewText = training.logData;
+                }
+              }
+
+              return (
+                <>
+                  {downloadableFile && (
+                    <div className="session-file-download-box" style={{
+                      background: 'rgba(99, 102, 241, 0.08)',
+                      border: '1px dashed rgba(99, 102, 241, 0.3)',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      marginBottom: '20px',
+                      textAlign: 'right',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px'
+                    }} dir="rtl">
+                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#818cf8', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        📁 ملف التحدي المرفق جاهز للتحميل
+                      </span>
+                      <p style={{ fontSize: '13px', color: '#9ca3af', margin: 0 }}>
+                        يتطلب هذا التحدي العملي تحميل ملف وتحليله باستخدام أدواتك الخاصة.
+                      </p>
+                      <a
+                        href={`${API_URL.replace('/api', '')}/challenge_files/${downloadableFile}`}
+                        download={downloadableFile}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          background: '#6366f1',
+                          color: '#fff',
+                          padding: '10px 16px',
+                          borderRadius: '8px',
+                          fontWeight: 'bold',
+                          textDecoration: 'none',
+                          fontSize: '14px',
+                          transition: 'background 0.2s',
+                          width: 'fit-content'
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.background = '#4f46e5'}
+                        onMouseOut={(e) => e.currentTarget.style.background = '#6366f1'}
+                      >
+                        <Download size={16} />
+                        <span>تحميل ملف التحدي ({downloadableFile.split('_').slice(3).join('_') || downloadableFile})</span>
+                      </a>
+                    </div>
+                  )}
+
+                  {logPreviewText && (hasLog || downloadableFile) && (
+                    <div className="session-log-box">
+                      <div className="session-log-header">
+                        <Terminal size={14} style={{ marginLeft: '6px' }} />
+                        <span>{downloadableFile ? 'معاينة من سجلات النظام / محتوى الملف' : 'سجلات النظام'}</span>
+                      </div>
+                      <pre className="session-log-body"><code>{logPreviewText}</code></pre>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             {!showResult && (
               <>
-                {(!isWebChallenge || !isOpenEditor) && (
-                  <div className="session-answer-area">
-                    <label className="session-answer-label">✏️ تقديم الإجابة أو العلم (Flag)</label>
-                    <textarea
-                      className="session-answer-input"
-                      placeholder="اكتب إجابتك هنا..."
-                      value={answer}
-                      onChange={(e) => setAnswer(e.target.value)}
-                      dir="auto"
-                      spellCheck={false}
-                    />
-                  </div>
+                {teamRole === 'blue' && isWebChallenge ? (
+                  <button
+                    className="session-submit eval-btn-blue"
+                    onClick={handleEvaluateFix}
+                    disabled={isEvaluating}
+                  >
+                    {isEvaluating ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" style={{ marginLeft: '8px' }} />
+                        <span>جاري فحص الإصلاح...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check size={18} style={{ marginLeft: '8px' }} />
+                        <span>✅ أكملت الإصلاح</span>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <>
+                    {(!isWebChallenge || !isOpenEditor) && (
+                      <div className="session-answer-area">
+                        <label className="session-answer-label">
+                          {teamRole === 'red' ? '🎯 أدخل الـ Payload أو العلم (Flag)' : '✏️ تقديم الإجابة أو العلم (Flag)'}
+                        </label>
+                        <textarea
+                          className="session-answer-input"
+                          placeholder={teamRole === 'red' ? "أدخل حمولة الاختراق (Payload)..." : "اكتب إجابتك هنا..."}
+                          value={answer}
+                          onChange={(e) => setAnswer(e.target.value)}
+                          dir="auto"
+                          spellCheck={false}
+                        />
+                      </div>
+                    )}
+
+                    {(!isWebChallenge || !isOpenEditor) && (
+                      <button
+                        className={`session-submit ${teamRole === 'red' ? 'submit-red' : 'submit-blue'}`}
+                        onClick={handleSubmit}
+                      >
+                        <Check size={18} style={{ marginLeft: '8px' }} />
+                        <span>{teamRole === 'red' ? '🎯 أرسل الاستغلال' : 'تأكيد الإجابة'}</span>
+                      </button>
+                    )}
+                  </>
                 )}
 
                 <div className="session-hints">
@@ -1442,13 +1652,6 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                     </div>
                   )}
                 </div>
-
-                {(!isWebChallenge || !isOpenEditor) && (
-                  <button className="session-submit" onClick={handleSubmit}>
-                    <Check size={18} style={{ marginLeft: '8px' }} />
-                    <span>تأكيد الإجابة</span>
-                  </button>
-                )}
               </>
             )}
 
@@ -1458,7 +1661,11 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                 <span className="session-result-emoji">
                   {isCorrect ? <CheckCircle size={36} className="text-emerald-400" /> : <AlertTriangle size={36} className="text-rose-500" />}
                 </span>
-                <h3>{isCorrect ? 'إجابة صحيحة!' : 'إجابة خاطئة، حاول مرة أخرى!'}</h3>
+                <h3>
+                  {isCorrect
+                    ? (teamRole === 'blue' ? '🛡️ تم تأمين الكود بنجاح!' : '🎯 تم تنفيذ الاختراق بنجاح!')
+                    : (teamRole === 'blue' ? '⚠️ الكود غير آمن أو لم يتم إصلاح الثغرة!' : '❌ استغلال خاطئ، لم يتم الحصول على العلم!')}
+                </h3>
                 <div className="session-result-xp">
                   {isCorrect ? `+${training.xpReward} XP 🚀` : '0 XP'}
                 </div>
@@ -1480,20 +1687,20 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
 };
 
 const DatabaseIcon: React.FC<{ size?: number; className?: string }> = ({ size = 16, className = "" }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    width={size} 
-    height={size} 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
     className={className}
   >
-    <ellipse cx="12" cy="5" rx="9" ry="3"/>
-    <path d="M3 5V19A9 3 0 0 0 21 19V5"/>
-    <path d="M3 12A9 3 0 0 0 21 12"/>
+    <ellipse cx="12" cy="5" rx="9" ry="3" />
+    <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+    <path d="M3 12A9 3 0 0 0 21 12" />
   </svg>
 );

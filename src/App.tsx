@@ -8,15 +8,16 @@ import { ScrollStory } from './components/ScrollStory';
 import { Footer } from './components/Footer';
 import { AuthPage } from './components/AuthPage';
 import { Dashboard } from './components/Dashboard';
+import { Profile } from './components/Profile';
 import { TrainingPath } from './components/TrainingPath';
 import { TrainingSession } from './components/TrainingSession';
 
-type Page = 'home' | 'auth' | 'dashboard' | 'training-path' | 'training-session';
+type Page = 'home' | 'auth' | 'dashboard' | 'profile' | 'training-path' | 'training-session';
 
 function App() {
   const getStoredUser = () => {
     try {
-      const raw = localStorage.getItem('apex_session');
+      const raw = localStorage.getItem('cyberarena_session');
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       const userData = parsed.user || parsed;
@@ -31,11 +32,19 @@ function App() {
   const storedUser = getStoredUser();
   const [page, setPage] = useState<Page>(storedUser ? 'dashboard' : 'home');
   const [user, setUser] = useState<{ id: string; name: string; email: string } | null>(storedUser);
-  const [nav, setNav] = useState<{ categoryId: string; pathId: string; moduleId: string; moduleTitle: string }>({
+  const [nav, setNav] = useState<{
+    categoryId: string;
+    pathId: string;
+    moduleId: string;
+    moduleTitle: string;
+    teamRole: 'red' | 'blue';
+    challengeId?: string;
+  }>({
     categoryId: '',
     pathId: '',
     moduleId: '',
     moduleTitle: '',
+    teamRole: 'blue',
   });
 
   const handleAuth = () => {
@@ -57,18 +66,19 @@ function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('apex_session');
+    localStorage.removeItem('cyberarena_session');
     setUser(null);
     setPage('home');
   };
 
-  const handleSelectPath = (categoryId: string, pathId: string) => {
-    setNav({ ...nav, categoryId, pathId });
-    setPage('training-path');
+  // Challenge grid card → Training Session
+  const handleSelectChallenge = (categoryId: string, pathId: string, moduleId: string, moduleTitle: string, teamRole: 'red' | 'blue', challengeId?: string) => {
+    setNav({ categoryId, pathId, moduleId, moduleTitle, teamRole, challengeId });
+    setPage('training-session');
   };
 
-  const handleSelectModule = (moduleId: string, moduleTitle: string) => {
-    setNav({ ...nav, moduleId, moduleTitle });
+  const handleSelectChallengeFromPath = (moduleId: string, moduleTitle: string, challengeId?: string) => {
+    setNav(prev => ({ ...prev, moduleId, moduleTitle, challengeId }));
     setPage('training-session');
   };
 
@@ -93,14 +103,24 @@ function App() {
       )}
 
       {page === 'dashboard' && user && (
-        <Dashboard user={user} onSelectPath={handleSelectPath} onLogout={handleLogout} />
+        <Dashboard 
+          user={user} 
+          onSelectChallenge={handleSelectChallenge} 
+          onViewProfile={() => setPage('profile')}
+          onLogout={handleLogout} 
+        />
+      )}
+
+      {page === 'profile' && user && (
+        <Profile user={user} onBack={() => setPage('dashboard')} />
       )}
 
       {page === 'training-path' && (
         <TrainingPath
           categoryId={nav.categoryId}
           pathId={nav.pathId}
-          onSelectModule={handleSelectModule}
+          teamRole={nav.teamRole}
+          onSelectModule={handleSelectChallengeFromPath}
           onBack={() => setPage('dashboard')}
         />
       )}
@@ -111,7 +131,9 @@ function App() {
           categoryId={nav.categoryId}
           pathId={nav.pathId}
           moduleId={nav.moduleId}
-          onBack={() => setPage('training-path')}
+          teamRole={nav.teamRole}
+          challengeId={nav.challengeId}
+          onBack={() => setPage('dashboard')}
         />
       )}
     </>

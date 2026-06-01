@@ -13,7 +13,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogin, onLogout }) => {
     <nav className="navbar">
       <div className="nav-left">
         <a href="/" className="logo">
-          APEX<sup>®</sup>
+          CyberArena
         </a>
         <div className="nav-links">
           <a href="#concept">الفكرة</a>

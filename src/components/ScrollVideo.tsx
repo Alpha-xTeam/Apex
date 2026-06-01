@@ -60,19 +60,7 @@ export const ScrollVideo: React.FC = () => {
           key={index}
           src={getFramePath(index + 1)}
           alt={`Frame ${index + 1}`}
-          className="scroll-background-frame"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            opacity: preloaded && index === activeFrame ? 1 : 0,
-            zIndex: index === activeFrame ? 2 : 1,
-            pointerEvents: 'none',
-            transition: 'none', // Instant swap for flawless motion
-          }}
+          className={`scroll-background-frame ${preloaded && index === activeFrame ? 'active' : ''}`}
         />
       ))}
       <div className="grain-overlay" />
