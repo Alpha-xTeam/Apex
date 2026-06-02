@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
+import { About } from './components/About';
 import { Concept } from './components/Concept';
 import { Features } from './components/Features';
-import { Goal } from './components/Goal';
+import { Pills } from './components/Pills';
 import { ScrollStory } from './components/ScrollStory';
+import { Goal } from './components/Goal';
 import { Footer } from './components/Footer';
 import { AuthPage } from './components/AuthPage';
 import { Dashboard } from './components/Dashboard';
@@ -12,8 +14,30 @@ import { Profile } from './components/Profile';
 import { TrainingPath } from './components/TrainingPath';
 import { TrainingSession } from './components/TrainingSession';
 import { Leaderboard } from './components/Leaderboard';
+import { LegalPage } from './components/LegalPage';
+import { Intro, hasSeenIntro } from './components/Intro';
+import { useScrollReveal } from './hooks/useScrollReveal';
 
-type Page = 'home' | 'auth' | 'dashboard' | 'profile' | 'training-path' | 'training-session' | 'leaderboard';
+type Page = 'home' | 'auth' | 'dashboard' | 'profile' | 'training-path' | 'training-session' | 'leaderboard' | 'legal';
+
+export function navigateTo(page: Page) {
+  window.dispatchEvent(new CustomEvent('apex:navigate', { detail: page }));
+}
+
+function Home() {
+  useScrollReveal();
+  return (
+    <div className="z-home">
+      <Hero />
+      <About />
+      <Concept />
+      <Pills />
+      <Features />
+      <ScrollStory />
+      <Goal />
+    </div>
+  );
+}
 
 function App() {
   const getStoredUser = () => {
@@ -33,6 +57,7 @@ function App() {
   const storedUser = getStoredUser();
   const [page, setPage] = useState<Page>(storedUser ? 'dashboard' : 'home');
   const [user, setUser] = useState<{ id: string; name: string; email: string } | null>(storedUser);
+  const [showIntro, setShowIntro] = useState<boolean>(() => !storedUser && !hasSeenIntro());
   const [nav, setNav] = useState<{
     categoryId: string;
     pathId: string;
@@ -72,6 +97,16 @@ function App() {
     setPage('home');
   };
 
+  // Listen for global navigation events from anywhere in the app
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const page = (e as CustomEvent<Page>).detail;
+      setPage(page);
+    };
+    window.addEventListener('apex:navigate', handler);
+    return () => window.removeEventListener('apex:navigate', handler);
+  }, []);
+
   // Challenge grid card → Training Session
   const handleSelectChallenge = (categoryId: string, pathId: string, moduleId: string, moduleTitle: string, teamRole: 'red' | 'blue', challengeId?: string) => {
     setNav({ categoryId, pathId, moduleId, moduleTitle, teamRole, challengeId });
@@ -85,23 +120,18 @@ function App() {
 
   return (
     <>
+      {showIntro && <Intro onComplete={() => setShowIntro(false)} />}
       {page === 'home' && <Navbar user={user} onLogin={() => setPage('auth')} onLogout={handleLogout} />}
       {page === 'home' ? (
-        <div className="app-container">
-          <main className="content-wrapper">
-            <Hero />
-            <Concept />
-            <Features />
-            <ScrollStory />
-            <Goal />
-          </main>
-        </div>
+        <Home />
       ) : null}
       {page === 'home' && <Footer />}
 
       {page === 'auth' && (
         <AuthPage onBack={() => setPage('home')} onAuth={handleAuth} />
       )}
+
+      {page === 'legal' && <LegalPage />}
 
       {page === 'dashboard' && user && (
         <Dashboard
