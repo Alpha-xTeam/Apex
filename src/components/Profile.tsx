@@ -1,13 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Award, 
-  Verified, 
-  Clock, 
-  ChevronLeft, 
-  Download, 
+import {
+  Award,
+  ChevronLeft,
+  Download,
   ShieldCheck,
-  Star
+  Trophy,
+  Zap,
+  Calendar,
+  Hash,
+  Edit3,
+  Check,
+  X,
+  LogOut,
+  Lock,
+  Activity,
+  Shield,
+  Cpu,
+  Globe,
+  Fingerprint,
+  Crosshair,
 } from 'lucide-react';
+import { ShieldMark } from './ShieldMark';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
@@ -22,15 +35,50 @@ interface Certificate {
 interface ProfileProps {
   user: { id: string; name: string; email: string };
   onBack: () => void;
+  onLogout: () => void;
 }
 
-export const Profile: React.FC<ProfileProps> = ({ user, onBack }) => {
+const LEVELS = [
+  { name: 'مبتدئ', minXp: 0, color: '#10b981', rank: 'L1' },
+  { name: 'متقدم', minXp: 200, color: '#f59e0b', rank: 'L2' },
+  { name: 'خبير', minXp: 600, color: '#ef4444', rank: 'L3' },
+  { name: 'سايبر ماستر', minXp: 1500, color: '#8b5cf6', rank: 'L4' },
+];
+
+function getLevel(xp: number) {
+  let level = LEVELS[0];
+  for (const l of LEVELS) if (xp >= l.minXp) level = l;
+  return level;
+}
+
+function getNextLevelXp(xp: number) {
+  for (const l of LEVELS) if (xp < l.minXp) return l.minXp;
+  return LEVELS[LEVELS.length - 1].minXp;
+}
+
+// Stable pseudo hash from user id (for display only)
+function makeHash(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
+  const hex = Math.abs(h).toString(16).padStart(8, '0');
+  return (hex + hex.split('').reverse().join('')).slice(0, 16).toUpperCase();
+}
+
+export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
   const [xp, setXp] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [showCert, setShowCert] = useState<Certificate | null>(null);
   const [customName, setCustomName] = useState(user.name);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(user.name);
+  const [now, setNow] = useState(() => new Date());
   const certRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -44,18 +92,13 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack }) => {
         setXp(data.xp || 0);
         setCompletedCount(data.completed_trainings || 0);
 
-        // Fetch real certificates from DB
-        console.log("Fetching certificates for user:", user.id);
         const certRes = await fetch(`${API_URL}/certificates`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'list', user_id: user.id }),
         });
         const certData = await certRes.json();
-        console.log("Certificates received:", certData);
-        if (certData.certificates) {
-          setCertificates(certData.certificates);
-        }
+        if (certData.certificates) setCertificates(certData.certificates);
       } catch (err) {
         console.error('Error fetching profile:', err);
       }
@@ -63,157 +106,380 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack }) => {
     fetchUserData();
   }, [user.id]);
 
-  const levels = [
-    { name: 'مبتدئ', min: 0, color: '#00d4aa' },
-    { name: 'متقدم', min: 200, color: '#ffb300' },
-    { name: 'خبير', min: 600, color: '#ff4d4d' },
-    { name: 'سايبر ماستر', min: 1500, color: '#a855f7' }
-  ];
-
-  const userLevel = levels.slice().reverse().find(l => xp >= l.min) || levels[0];
+  const level = getLevel(xp);
+  const nextLevelXp = getNextLevelXp(xp);
+  const xpProgress = nextLevelXp > 0 ? Math.min((xp / nextLevelXp) * 100, 100) : 100;
+  const isMaxLevel = xp >= LEVELS[LEVELS.length - 1].minXp;
+  const userHash = makeHash(user.id || user.email);
+  const joinDate = new Date(2024, 0, 1);
+  const daysActive = Math.max(1, Math.floor((now.getTime() - joinDate.getTime()) / 86_400_000));
 
   const handleDownloadCert = async (_cert: Certificate) => {
     if (!certRef.current) return;
-    
-    // Check if libraries are loaded from CDN
     if (!(window as any).html2canvas || !(window as any).jspdf) {
       alert('جاري تحميل أدوات تحويل PDF... يرجى الانتظار ثانية واحدة.');
       return;
     }
-
     try {
       const canvas = await (window as any).html2canvas(certRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: "#ffffff"
+        backgroundColor: '#ffffff',
       });
-      
       const imgData = canvas.toDataURL('image/png');
       const { jsPDF } = (window as any).jspdf;
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'px',
-        format: [canvas.width, canvas.height]
+        format: [canvas.width, canvas.height],
       });
-      
       pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
       pdf.save(`Certificate-${_cert.category}.pdf`);
     } catch (error) {
-      console.error("PDF Export error:", error);
+      console.error('PDF Export error:', error);
       alert('حدث خطأ أثناء تحميل الملف، سنقوم بفتح نافذة الطباعة كبديل.');
       window.print();
     }
   };
 
+  const saveName = () => {
+    if (editedName.trim()) {
+      setCustomName(editedName.trim());
+      setIsEditingName(false);
+    }
+  };
+
   return (
     <div className="profile-page" dir="rtl">
-      <div className="profile-blur-1" />
-      <div className="profile-blur-2" />
+      {/* Decorative background */}
+      <div className="profile-grid-bg" aria-hidden="true" />
+      <div className="profile-glow profile-glow-1" aria-hidden="true" />
+      <div className="profile-glow profile-glow-2" aria-hidden="true" />
+      <div className="profile-scanline" aria-hidden="true" />
 
-      <header className="profile-header">
-        <button onClick={onBack} className="profile-back-btn">
-          <ChevronLeft size={20} />
-          العودة للوحة التحكم
-        </button>
-        <span className="profile-brand">CyberArena</span>
-      </header>
-
-      <main className="profile-content">
-        {/* User Identity Card */}
-        <section className="profile-id-card">
-          <div className="profile-avatar-large">
-            {user.name?.charAt(0) || 'U'}
-          </div>
-          <div className="profile-user-info">
-            <h1>{user.name}</h1>
-            <p>{user.email}</p>
-            <div className="profile-tier-badge" style={{ backgroundColor: userLevel.color + '22', color: userLevel.color, borderColor: userLevel.color + '44' }}>
-              <Star size={14} fill={userLevel.color} />
-              {userLevel.name}
+      <header className="dash-header">
+        <div className="dash-header-inner">
+          <a href="/" className="dash-logo">CyberArena</a>
+          <div className="dash-header-right">
+            <div className="profile-status-pill">
+              <span className="profile-status-dot" />
+              <span>اتصال آمن</span>
             </div>
-          </div>
-          <div className="profile-stats-row">
-            <div className="p-stat">
-              <span className="p-stat-val">{xp}</span>
-              <span className="p-stat-lbl">XP مجموع النقاط</span>
-            </div>
-            <div className="p-stat">
-              <span className="p-stat-val">{completedCount}</span>
-              <span className="p-stat-lbl">تحدي مكتمل</span>
-            </div>
-          </div>
-        </section>
-
-        {/* Certificates Section */}
-        <section className="profile-certs-section">
-          <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Award size={24} className="text-yellow-500" />
-              <h2>الشهادات الرقمية الذكية</h2>
-            </div>
-            <button 
-              onClick={() => setShowCert({
-                category: "Web Security Foundation",
-                id: 'preview',
-                issue_date: new Date().toISOString(),
-                verify_code: "APEX-TEMP-2026",
-                details: { full_name: customName || "Hasan Ali Hasan" }
-              })}
-              style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#9ca3af', fontSize: '12px', cursor: 'pointer' }}
-            >
-              معاينة القالب
+            <button onClick={onBack} className="dash-back-pill">
+              <ChevronLeft size={16} />
+              <span>العودة للوحة التحكم</span>
+            </button>
+            <button onClick={onLogout} className="dash-logout">
+              <LogOut size={14} />
+              <span>خروج</span>
             </button>
           </div>
+        </div>
+      </header>
 
-          <div style={{ marginBottom: '24px', background: 'rgba(31, 41, 55, 0.4)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#9ca3af' }}>الاسم الذي سيظهر على الشهادة:</label>
-            <input 
-              type="text" 
-              value={customName} 
-              onChange={(e) => setCustomName(e.target.value)}
-              style={{ width: '100%', padding: '12px', background: '#0b0e14', color: '#fff', border: '1px solid #333', borderRadius: '8px', fontFamily: 'inherit' }}
-              placeholder="ادخل الاسم الكامل للشهادة..."
-            />
-          </div>
-          
-          {certificates.length === 0 ? (
-            <div className="empty-certs">
-              <ShieldCheck size={48} className="text-slate-700" />
-              <p>لم تحصل على أي شهادات بعد. اكمل مساراً تعليمياً كاملاً للحصول على شهادتك الأولى!</p>
-            </div>
-          ) : (
-            <div className="certs-grid">
-              {certificates.map(cert => (
-                <div key={cert.id} className="cert-card" onClick={() => setShowCert(cert)}>
-                  <div className="cert-card-icon">
-                    <Verified size={32} className="text-indigo-400" />
-                  </div>
-                  <div className="cert-card-info">
-                    <h3>شهادة اتمام: {cert.category}</h3>
-                    <div className="cert-meta">
-                      <span><Clock size={12} /> {new Date(cert.issue_date).toLocaleDateString('ar-EG')}</span>
-                      <span><Verified size={12} /> {cert.verify_code}</span>
-                    </div>
-                  </div>
-                  <button className="cert-view-btn">
-                    عرض الشهادة
-                  </button>
+      <main className="profile-main">
+        <div className="profile-container">
+          {/* HERO: identity + shield visual */}
+          <section className="profile-hero">
+            <div className="profile-hero-card">
+              <div className="profile-hero-left">
+                <div className="profile-hero-eyebrow">
+                  <Fingerprint size={14} />
+                  <span>هوية المتدرب</span>
                 </div>
-              ))}
+                <h1 className="profile-hero-title">مرحباً بعودتك، {customName?.split(' ')[0] || 'متدرب'}</h1>
+                <p className="profile-hero-sub">
+                  أنت متصل الآن بمنصة CyberArena التدريبية. رحلتك في عالم الأمن السيبراني مستمرة.
+                </p>
+
+                <div className="profile-hero-stats">
+                  <div className="profile-hero-stat">
+                    <span className="profile-hero-stat-label">المستوى</span>
+                    <span className="profile-hero-stat-value" style={{ color: level.color }}>
+                      {level.name}
+                    </span>
+                  </div>
+                  <div className="profile-hero-stat-divider" />
+                  <div className="profile-hero-stat">
+                    <span className="profile-hero-stat-label">الرتبة</span>
+                    <span className="profile-hero-stat-value mono">{level.rank}</span>
+                  </div>
+                  <div className="profile-hero-stat-divider" />
+                  <div className="profile-hero-stat">
+                    <span className="profile-hero-stat-label">النقاط</span>
+                    <span className="profile-hero-stat-value mono">{xp.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <div className="profile-progress">
+                  <div className="profile-progress-info">
+                    <span>التقدم للمستوى التالي</span>
+                    <span className="mono" style={{ color: level.color }}>
+                      {isMaxLevel ? '◆ أعلى مستوى' : `${xp} / ${nextLevelXp}`}
+                    </span>
+                  </div>
+                  <div className="profile-progress-bar">
+                    <div
+                      className="profile-progress-fill"
+                      style={{ width: `${xpProgress}%`, background: level.color }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="profile-hero-right">
+                <div className="profile-shield-stage">
+                  <div className="profile-shield-halo" />
+                  <ShieldMark size="lg" className="profile-shield" />
+                  <div className="profile-shield-orbit profile-shield-orbit-1" />
+                  <div className="profile-shield-orbit profile-shield-orbit-2" />
+                </div>
+                <div className="profile-hero-tagline">
+                  <Lock size={12} />
+                  <span>درعك الرقمي • مُفعّل</span>
+                </div>
+              </div>
             </div>
-          )}
-        </section>
+
+            <div className="profile-hero-bottom">
+              <div className="profile-meta-item">
+                <Hash size={14} />
+                <span className="profile-meta-label">ID</span>
+                <span className="mono profile-meta-value">{userHash}</span>
+              </div>
+              <div className="profile-meta-divider" />
+              <div className="profile-meta-item">
+                <Calendar size={14} />
+                <span className="profile-meta-label">نشط منذ</span>
+                <span className="profile-meta-value">{daysActive} يوم</span>
+              </div>
+              <div className="profile-meta-divider" />
+              <div className="profile-meta-item">
+                <Activity size={14} />
+                <span className="profile-meta-label">آخر نشاط</span>
+                <span className="profile-meta-value">الآن</span>
+              </div>
+            </div>
+          </section>
+
+          {/* IDENTITY EDIT + ACCOUNT INFO */}
+          <section className="profile-section profile-id-section">
+            <div className="profile-section-head">
+              <div className="profile-section-title">
+                <span className="profile-section-tag">
+                  <Shield size={12} />
+                  <span>الحساب</span>
+                </span>
+                <h2>معلومات الحساب</h2>
+              </div>
+            </div>
+
+            <div className="profile-id-grid">
+              <div className="profile-field">
+                <label>
+                  <Edit3 size={12} />
+                  <span>الاسم الظاهر</span>
+                </label>
+                {isEditingName ? (
+                  <div className="profile-field-edit">
+                    <input
+                      type="text"
+                      value={editedName}
+                      onChange={(e) => setEditedName(e.target.value)}
+                      autoFocus
+                    />
+                    <button onClick={saveName} className="profile-field-save" aria-label="حفظ">
+                      <Check size={14} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsEditingName(false);
+                        setEditedName(customName);
+                      }}
+                      className="profile-field-cancel"
+                      aria-label="إلغاء"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="profile-field-read">
+                    <span>{customName || user.email}</span>
+                    <button onClick={() => setIsEditingName(true)} aria-label="تعديل">
+                      <Edit3 size={14} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="profile-field">
+                <label>
+                  <Globe size={12} />
+                  <span>البريد الإلكتروني</span>
+                </label>
+                <div className="profile-field-read profile-field-read-mono">
+                  <span>{user.email}</span>
+                </div>
+              </div>
+
+              <div className="profile-field">
+                <label>
+                  <Fingerprint size={12} />
+                  <span>معرّف المتدرب</span>
+                </label>
+                <div className="profile-field-read profile-field-read-mono">
+                  <span>{userHash}</span>
+                </div>
+              </div>
+
+              <div className="profile-field">
+                <label>
+                  <Cpu size={12} />
+                  <span>المنطقة</span>
+                </label>
+                <div className="profile-field-read">
+                  <span>🇮🇶 بابل، العراق</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* 4 METRIC CARDS */}
+          <section className="profile-metrics">
+            <div className="profile-metric">
+              <div className="profile-metric-icon" style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>
+                <Zap size={20} />
+              </div>
+              <div className="profile-metric-body">
+                <span className="profile-metric-value mono">{xp.toLocaleString()}</span>
+                <span className="profile-metric-label">نقاط الخبرة</span>
+              </div>
+              <div className="profile-metric-spark" />
+            </div>
+
+            <div className="profile-metric">
+              <div className="profile-metric-icon" style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981' }}>
+                <Crosshair size={20} />
+              </div>
+              <div className="profile-metric-body">
+                <span className="profile-metric-value mono">{completedCount}</span>
+                <span className="profile-metric-label">مهمة مكتملة</span>
+              </div>
+              <div className="profile-metric-spark" />
+            </div>
+
+            <div className="profile-metric">
+              <div className="profile-metric-icon" style={{ background: 'rgba(139,92,246,0.12)', color: '#8b5cf6' }}>
+                <Award size={20} />
+              </div>
+              <div className="profile-metric-body">
+                <span className="profile-metric-value mono">{certificates.length}</span>
+                <span className="profile-metric-label">شهادة ممنوحة</span>
+              </div>
+              <div className="profile-metric-spark" />
+            </div>
+
+            <div className="profile-metric">
+              <div className="profile-metric-icon" style={{ background: `${level.color}1f`, color: level.color }}>
+                <Trophy size={20} />
+              </div>
+              <div className="profile-metric-body">
+                <span className="profile-metric-value" style={{ color: level.color }}>{level.name}</span>
+                <span className="profile-metric-label">الرتبة الحالية</span>
+              </div>
+              <div className="profile-metric-spark" />
+            </div>
+          </section>
+
+          {/* CERTIFICATES */}
+          <section className="profile-section">
+            <div className="profile-section-head">
+              <div className="profile-section-title">
+                <span className="profile-section-tag">
+                  <Award size={12} />
+                  <span>الإنجازات</span>
+                </span>
+                <h2>الشهادات الرقمية</h2>
+                <p>كل شهادة هي رمز وصول لمجال متقدم في الأمن السيبراني.</p>
+              </div>
+              <div className="profile-cert-name-field">
+                <label>الاسم على الشهادة</label>
+                <input
+                  type="text"
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                  placeholder="ادخل اسمك الكامل"
+                />
+              </div>
+            </div>
+
+            {certificates.length === 0 ? (
+              <div className="profile-empty">
+                <div className="profile-empty-icon">
+                  <ShieldCheck size={36} />
+                </div>
+                <h3>لا توجد شهادات بعد</h3>
+                <p>أكمل مسارك التدريبي الأول لتحصل على أول رمز وصول.</p>
+                <button onClick={onBack} className="profile-empty-cta">
+                  ابدأ التدريب
+                </button>
+              </div>
+            ) : (
+              <div className="profile-certs-grid">
+                {certificates.map((cert) => (
+                  <article
+                    key={cert.id}
+                    className="profile-cert-card"
+                    onClick={() => setShowCert(cert)}
+                  >
+                    <div className="profile-cert-shield">
+                      <ShieldMark size="sm" />
+                    </div>
+                    <div className="profile-cert-info">
+                      <span className="profile-cert-tag">شهادة مُتحققة</span>
+                      <h3>{cert.category}</h3>
+                      <div className="profile-cert-meta">
+                        <span>
+                          <Calendar size={11} />
+                          {new Date(cert.issue_date).toLocaleDateString('ar-EG', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })}
+                        </span>
+                        <span className="mono">
+                          <Hash size={11} />
+                          {cert.verify_code}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="profile-cert-arrow">
+                      <ChevronLeft size={16} />
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       </main>
 
-      {/* Certificate Modal Overlay */}
+      {/* CERTIFICATE MODAL */}
       {showCert && (
         <div className="cert-modal-overlay" onClick={() => setShowCert(null)}>
-          <div className="cert-modal-content" onClick={e => e.stopPropagation()}>
+          <div className="cert-modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="cert-document" ref={certRef}>
               <div className="cert-border" />
+              <div className="cert-corner cert-corner-tl" />
+              <div className="cert-corner cert-corner-tr" />
+              <div className="cert-corner cert-corner-bl" />
+              <div className="cert-corner cert-corner-br" />
               <div className="cert-inner">
                 <div className="cert-header">
-                  <div className="cert-logo">CyberArena</div>
+                  <div className="cert-brand">
+                    <span className="cert-brand-mark">◆</span>
+                    <span>CyberArena</span>
+                  </div>
                   <div className="cert-type">Cybersecurity Achievement Certificate</div>
                 </div>
 
@@ -226,23 +492,23 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack }) => {
                   <h3 className="cert-category-name">{showCert.category}</h3>
                   <div className="cert-divider" />
                   <p className="cert-details">
-                    The recipient has demonstrated exceptional proficiency in vulnerability analysis, 
+                    The recipient has demonstrated exceptional proficiency in vulnerability analysis,
                     system hardening, and active defense strategies using AI-driven security simulations.
                   </p>
                 </div>
 
                 <div className="cert-footer">
                   <div className="cert-verification">
-                    <div className="qr-placeholder" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px' }}>
-                      <img src="/ALPHA-LOGO.png" alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                    <div className="qr-placeholder">
+                      <img src="/ALPHA-LOGO.png" alt="Logo" />
                     </div>
                     <div className="verify-info">
-                      <span className="v-label">Verification Code:</span>
+                      <span className="v-label">Verification Code</span>
                       <span className="v-code">{showCert.verify_code}</span>
                     </div>
                   </div>
                   <div className="cert-date">
-                    <span className="v-label">Issue Date:</span>
+                    <span className="v-label">Issue Date</span>
                     <span className="v-code">{new Date(showCert.issue_date).toLocaleDateString('en-US')}</span>
                   </div>
                   <div className="cert-sign">
@@ -252,457 +518,19 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack }) => {
                 </div>
               </div>
             </div>
-            
+
             <div className="cert-modal-actions">
-              <button className="download-btn" onClick={() => handleDownloadCert(showCert)}>
-                <Download size={18} /> Download as PDF
+              <button className="cert-download-btn" onClick={() => handleDownloadCert(showCert)}>
+                <Download size={16} />
+                <span>تحميل PDF</span>
               </button>
-              <button className="close-btn" onClick={() => setShowCert(null)}>
-                Close
+              <button className="cert-close-btn" onClick={() => setShowCert(null)}>
+                إغلاق
               </button>
             </div>
           </div>
         </div>
       )}
-
-      <style>{`
-        .profile-page {
-          min-height: 100vh;
-          background-color: #030712;
-          color: #f3f4f6;
-          position: relative;
-          font-family: var(--font-arabic);
-          overflow-x: hidden;
-          padding-bottom: 60px;
-        }
-
-        .profile-blur-1 {
-          position: absolute;
-          top: -100px;
-          right: -100px;
-          width: 400px;
-          height: 400px;
-          background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
-          filter: blur(60px);
-          z-index: 0;
-        }
-
-        .profile-blur-2 {
-          position: absolute;
-          bottom: -100px;
-          left: -100px;
-          width: 400px;
-          height: 400px;
-          background: radial-gradient(circle, rgba(236, 72, 153, 0.1) 0%, transparent 70%);
-          filter: blur(60px);
-          z-index: 0;
-        }
-
-        .profile-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 24px 5%;
-          position: relative;
-          z-index: 10;
-        }
-
-        .profile-back-btn {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          background: rgba(31, 41, 55, 0.5);
-          border: 1px solid rgba(75, 85, 99, 0.3);
-          color: #9ca3af;
-          padding: 8px 16px;
-          border-radius: 12px;
-          cursor: pointer;
-          font-family: inherit;
-          transition: 0.2s;
-        }
-
-        .profile-back-btn:hover {
-          color: #fff;
-          background: rgba(31, 41, 55, 0.8);
-          border-color: #6366f1;
-        }
-
-        .profile-brand {
-          font-size: 24px;
-          font-weight: 800;
-          background: linear-gradient(to right, #6366f1, #a855f7);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .profile-content {
-          max-width: 1000px;
-          margin: 0 auto;
-          padding: 0 20px;
-          position: relative;
-          z-index: 10;
-        }
-
-        .profile-id-card {
-          background: rgba(17, 24, 39, 0.7);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-          backdrop-filter: blur(20px);
-          border-radius: 32px;
-          padding: 40px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          margin-bottom: 40px;
-          box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-
-        .profile-avatar-large {
-          width: 120px;
-          height: 120px;
-          background: linear-gradient(135deg, #6366f1, #a855f7);
-          border-radius: 40px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 48px;
-          font-weight: bold;
-          margin-bottom: 24px;
-          box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
-        }
-
-        .profile-user-info h1 {
-          font-size: 32px;
-          margin-bottom: 8px;
-        }
-
-        .profile-user-info p {
-          color: #9ca3af;
-          margin-bottom: 16px;
-        }
-
-        .profile-tier-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 6px 14px;
-          border-radius: 99px;
-          font-weight: 600;
-          font-size: 14px;
-          border: 1px solid;
-          margin-bottom: 32px;
-        }
-
-        .profile-stats-row {
-          display: flex;
-          gap: 40px;
-          border-top: 1px solid rgba(255, 255, 255, 0.05);
-          padding-top: 32px;
-          width: 100%;
-          justify-content: center;
-        }
-
-        .p-stat {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .p-stat-val {
-          font-size: 28px;
-          font-weight: 800;
-          color: #fff;
-        }
-
-        .p-stat-lbl {
-          font-size: 14px;
-          color: #6b7280;
-        }
-
-        .section-title {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          margin-bottom: 24px;
-        }
-
-        .section-title h2 {
-          font-size: 22px;
-          font-weight: 700;
-        }
-
-        .empty-certs {
-          background: rgba(17, 24, 39, 0.4);
-          border: 2px dashed rgba(255, 255, 255, 0.05);
-          border-radius: 24px;
-          padding: 60px;
-          text-align: center;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 16px;
-          color: #6b7280;
-        }
-
-        .certs-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-          gap: 20px;
-        }
-
-        .cert-card {
-          background: rgba(31, 41, 55, 0.4);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-          border-radius: 20px;
-          padding: 24px;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-          cursor: pointer;
-          transition: 0.3s;
-        }
-
-        .cert-card:hover {
-          background: rgba(31, 41, 55, 0.7);
-          transform: translateY(-5px);
-          border-color: #6366f1;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-
-        .cert-card-info h3 {
-          font-size: 18px;
-          margin-bottom: 8px;
-        }
-
-        .cert-meta {
-          display: flex;
-          gap: 16px;
-          font-size: 12px;
-          color: #9ca3af;
-        }
-
-        .cert-meta span {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-
-        .cert-view-btn {
-          margin-top: 8px;
-          background: rgba(99, 102, 241, 0.1);
-          border: 1px solid rgba(99, 102, 241, 0.2);
-          color: #818cf8;
-          padding: 10px;
-          border-radius: 12px;
-          font-size: 14px;
-          font-family: inherit;
-          cursor: pointer;
-          transition: 0.2s;
-        }
-
-        .cert-view-btn:hover {
-          background: #6366f1;
-          color: #fff;
-        }
-
-        /* Certificate Modal styles */
-        .cert-modal-overlay {
-          position: fixed;
-          top: 0; left: 0; right: 0; bottom: 0;
-          background: rgba(0, 0, 0, 0.9);
-          backdrop-filter: blur(10px);
-          z-index: 1000;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 20px;
-        }
-
-        .cert-modal-content {
-          max-width: 800px;
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          gap: 24px;
-          animation: certPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        @keyframes certPop {
-          from { transform: scale(0.9) translateY(20px); opacity: 0; }
-          to { transform: scale(1) translateY(0); opacity: 1; }
-        }
-
-        .cert-document {
-          background: #ffffff;
-          color: #1f2937;
-          border-radius: 12px;
-          padding: 40px;
-          position: relative;
-          box-shadow: 0 40px 100px rgba(0, 0, 0, 0.8);
-          aspect-ratio: 1.414 / 1;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .cert-border {
-          position: absolute;
-          top: 15px; left: 15px; right: 15px; bottom: 15px;
-          border: 1px solid #e5e7eb;
-          pointer-events: none;
-        }
-
-        .cert-border::after {
-          content: '';
-          position: absolute;
-          top: 5px; left: 5px; right: 5px; bottom: 5px;
-          border: 2px solid #555c68;
-        }
-
-        .cert-inner {
-          position: relative;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          z-index: 1;
-        }
-
-        .cert-logo {
-          font-size: 28px;
-          font-weight: 900;
-          color: #030712;
-          letter-spacing: -1px;
-          margin-bottom: 5px;
-        }
-
-        .cert-type {
-          font-size: 14px;
-          text-transform: uppercase;
-          letter-spacing: 2px;
-          color: #6366f1;
-          font-weight: 600;
-          margin-bottom: 40px;
-        }
-
-        .cert-intro { font-size: 18px; margin-bottom: 10px; color: #6b7280; }
-        .cert-user-name { font-size: 40px; font-weight: 800; color: #111827; margin-bottom: 20px; text-decoration: underline; text-decoration-color: #6366f1; }
-        .cert-text { font-size: 18px; color: #4b5563; }
-        .cert-category-name { font-size: 32px; font-weight: 700; color: #4f46e5; margin: 15px 0; }
-        .cert-divider { width: 100px; height: 3px; background: #e5e7eb; margin: 20px auto; }
-        .cert-details { font-size: 16px; line-height: 1.6; color: #6b7280; max-width: 600px; }
-
-        .cert-footer {
-          margin-top: auto;
-          width: 100%;
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-end;
-        }
-
-        .qr-placeholder {
-          width: 70px;
-          height: 70px;
-          background: #f3f4f6;
-          border: 1px solid #e5e7eb;
-          margin-bottom: 8px;
-        }
-
-        .verify-info { display: flex; flex-direction: column; align-items: flex-start; }
-        .v-label { font-size: 10px; color: #9ca3af; text-transform: uppercase; }
-        .v-code { font-size: 12px; font-weight: 700; color: #374151; }
-
-        .cert-date { display: flex; flex-direction: column; align-items: center; }
-        .cert-sign { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-        .sign-line { width: 140px; height: 1px; background: #111827; }
-        .cert-sign span { font-size: 14px; font-weight: 600; }
-
-        .cert-modal-actions {
-          display: flex;
-          justify-content: center;
-          gap: 16px;
-        }
-
-        .download-btn {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          background: #6366f1;
-          color: #fff;
-          border: none;
-          padding: 12px 24px;
-          border-radius: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          font-family: inherit;
-        }
-
-        .close-btn {
-          background: rgba(255, 255, 255, 0.1);
-          color: #fff;
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          padding: 12px 24px;
-          border-radius: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          font-family: inherit;
-        }
-
-        @media (max-width: 768px) {
-          .cert-document { padding: 20px; aspect-ratio: auto; min-height: 500px; }
-          .cert-user-name { font-size: 28px; }
-          .cert-category-name { font-size: 22px; }
-          .cert-footer { flex-direction: column; align-items: center; gap: 20px; }
-          .verify-info { align-items: center; }
-        }
-
-        @media print {
-          body * {
-            visibility: hidden;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .cert-modal-overlay, .cert-modal-overlay * {
-            visibility: visible;
-          }
-          .cert-modal-overlay {
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: white !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            display: block !important;
-          }
-          .cert-modal-content {
-            box-shadow: none !important;
-            transform: none !important;
-            width: 100% !important;
-            max-width: none !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            background: white !important;
-          }
-          .cert-document {
-            width: 297mm !important;
-            height: 210mm !important;
-            margin: 0 auto !important;
-            border: none !important;
-            background: white !important;
-            page-break-after: avoid;
-            box-shadow: none !important;
-          }
-          .cert-modal-actions {
-            display: none !important;
-          }
-          @page {
-            size: landscape;
-            margin: 0;
-          }
-        }
-      `}</style>
     </div>
   );
 };

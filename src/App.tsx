@@ -151,7 +151,7 @@ function App() {
       )}
 
       {page === 'profile' && user && (
-        <Profile user={user} onBack={() => setPage('dashboard')} />
+        <Profile user={user} onBack={() => setPage('dashboard')} onLogout={handleLogout} />
       )}
 
       {page === 'training-path' && (
