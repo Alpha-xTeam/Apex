@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Terminal,
   Cpu,
-  Shield,
   Loader2,
   CheckCircle,
   Flame,
@@ -11,7 +10,6 @@ import {
   Eye,
   AlertTriangle,
   Check,
-  ChevronLeft,
   FileText,
   Settings,
   Key,
@@ -20,8 +18,10 @@ import {
   Folder,
   Search,
   Power,
-  Download
+  Download,
+  ArrowRight
 } from 'lucide-react';
+import { BlueTeamIcon, RedTeamIcon, StoryIcon, TaskIcon } from './TeamIcons';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
@@ -1036,24 +1036,29 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
   return (
     <div className={`dash-page session-page team-${teamRole}`}>
       <header className="dash-header">
-        <a href="/" className="dash-logo">APEX<sup>®</sup></a>
-        <div className="dash-header-right">
-          <div className="session-top-bar">
-            {teamRole === 'blue' ? (
-              <span className="team-role-badge blue-team-badge">🛡️ الفريق الأزرق (مدافع)</span>
-            ) : (
-              <span className="team-role-badge red-team-badge">🎯 الفريق الأحمر (مهاجم)</span>
-            )}
-            <span className="session-badge">{moduleTitle}</span>
-            <span className={`session-diff ${training.difficulty === 'مبتدئ' ? 'easy' : training.difficulty === 'متوسط' ? 'medium' : 'hard'}`}>
-              {training.difficulty}
-            </span>
-            <span className="session-xp">+{training.xpReward} XP</span>
+        <div className="dash-header-inner">
+          <a href="/" className="dash-logo">CyberArena</a>
+          <div className="dash-header-right">
+            <div className="session-top-bar">
+              <span className="team-role-badge" style={{ color: teamRole === 'blue' ? '#3b82f6' : '#ef4444' }}>
+                {teamRole === 'blue' ? (
+                  <BlueTeamIcon size={24} />
+                ) : (
+                  <RedTeamIcon size={24} />
+                )}
+                <span>{teamRole === 'blue' ? 'الفريق الأزرق' : 'الفريق الأحمر'}</span>
+              </span>
+              <span className="session-badge">{moduleTitle}</span>
+              <span className={`session-diff ${training.difficulty === 'مبتدئ' ? 'easy' : training.difficulty === 'متوسط' ? 'medium' : 'hard'}`}>
+                {training.difficulty}
+              </span>
+              <span className="session-xp">+{training.xpReward} XP</span>
+            </div>
+            <button onClick={onBack} className="path-back-link">
+              <ArrowRight size={14} />
+              <span>العودة</span>
+            </button>
           </div>
-          <button onClick={onBack} className="path-back-link">
-            <ChevronLeft size={16} style={{ verticalAlign: 'middle', marginLeft: '4px' }} />
-            <span>العودة</span>
-          </button>
         </div>
       </header>
 
@@ -1500,13 +1505,16 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
 
             <div className="session-story">
               <div className="session-story-icon">
-                <Shield size={18} />
+                <StoryIcon size={32} />
               </div>
               <p>{training.story}</p>
             </div>
 
             <div className="session-task-box">
-              <h3>🎯 المهمة المطلوبة</h3>
+              <div className="session-task-header">
+                <TaskIcon size={28} />
+                <h3>المهمة المطلوبة</h3>
+              </div>
               <p>{training.task}</p>
             </div>
 

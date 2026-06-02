@@ -386,6 +386,45 @@ async def handle_xp(req: XpRequest):
     return data
 
 
+# ---------- Leaderboard ----------
+
+@app.get("/api/leaderboard")
+async def get_leaderboard(limit: int = 50):
+    """Fetch top users ranked by XP from the public `leaderboard` view."""
+    headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+        "Content-Type": "application/json",
+    }
+    safe_limit = max(1, min(limit, 100))
+    url = (
+        f"{SUPABASE_URL}/rest/v1/leaderboard"
+        f"?select=id,name,xp,completed_trainings"
+        f"&limit={safe_limit}"
+    )
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.get(url, headers=headers)
+        if resp.status_code != 200:
+            print(f"Leaderboard fetch error: {resp.status_code} {resp.text}")
+            return {"users": [], "total": 0}
+        rows = resp.json()
+    except Exception as e:
+        print(f"Leaderboard exception: {e}")
+        return {"users": [], "total": 0}
+
+    cleaned = []
+    for i, row in enumerate(rows, start=1):
+        cleaned.append({
+            "rank": i,
+            "id": row.get("id"),
+            "name": row.get("name") or "مشغل",
+            "xp": int(row.get("xp") or 0),
+            "completed_trainings": int(row.get("completed_trainings") or 0),
+        })
+    return {"users": cleaned, "total": len(cleaned)}
+
+
 # ---------- Certificate Management ----------
 
 @app.post("/api/certificates")

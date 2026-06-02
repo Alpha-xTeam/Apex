@@ -11,8 +11,9 @@ import { Dashboard } from './components/Dashboard';
 import { Profile } from './components/Profile';
 import { TrainingPath } from './components/TrainingPath';
 import { TrainingSession } from './components/TrainingSession';
+import { Leaderboard } from './components/Leaderboard';
 
-type Page = 'home' | 'auth' | 'dashboard' | 'profile' | 'training-path' | 'training-session';
+type Page = 'home' | 'auth' | 'dashboard' | 'profile' | 'training-path' | 'training-session' | 'leaderboard';
 
 function App() {
   const getStoredUser = () => {
@@ -103,11 +104,19 @@ function App() {
       )}
 
       {page === 'dashboard' && user && (
-        <Dashboard 
-          user={user} 
-          onSelectChallenge={handleSelectChallenge} 
+        <Dashboard
+          user={user}
+          onSelectChallenge={handleSelectChallenge}
           onViewProfile={() => setPage('profile')}
-          onLogout={handleLogout} 
+          onViewLeaderboard={() => setPage('leaderboard')}
+          onLogout={handleLogout}
+        />
+      )}
+
+      {page === 'leaderboard' && (
+        <Leaderboard
+          currentUser={user}
+          onBack={() => setPage('dashboard')}
         />
       )}
 
