@@ -165,102 +165,142 @@ def parse_json_safe(raw: str) -> dict:
             raise ValueError(f"Invalid JSON from model: {exc}. Raw preview: {preview}") from exc
 
 
-# ---------- Supabase PostgREST Client Helpers ----------
+# ---------- Supabase PostgREST Client Helpers (Scenario Pool) ----------
 
-async def get_supabase_challenge_count(team_role: str) -> int:
-    table = "blue_challenges" if team_role == "blue" else "red_challenges"
-    if not SUPABASE_ANON_KEY or not SUPABASE_URL:
-        return 0
-    headers = {
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
-    }
-    url = f"{SUPABASE_URL}/rest/v1/{table}?select=id"
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers=headers)
-            if resp.status_code == 200:
-                return len(resp.json())
-    except Exception as e:
-        print(f"Error checking Supabase challenge count: {e}")
-    return 0
+def scenario_table(team_role: str) -> str:
+    return "blue_scenarios" if team_role == "blue" else "red_scenarios"
 
 
-async def fetch_random_challenge_from_supabase(team_role: str, module: str) -> Optional[dict]:
-    table = "blue_challenges" if team_role == "blue" else "red_challenges"
-    if not SUPABASE_ANON_KEY or not SUPABASE_URL:
-        return None
-    headers = {
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
-    }
-    url = f"{SUPABASE_URL}/rest/v1/{table}?module=eq.{module}"
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers=headers)
-            if resp.status_code == 200:
-                challenges = resp.json()
-                if challenges:
-                    return random.choice(challenges)
-    except Exception as e:
-        print(f"Error fetching challenge from Supabase: {e}")
-    return None
-
-
-async def delete_challenge_from_supabase(challenge_id: str, team_role: str):
-    table = "blue_challenges" if team_role == "blue" else "red_challenges"
-    if not SUPABASE_ANON_KEY or not SUPABASE_URL:
-        return
-    headers = {
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
-    }
-    url = f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{challenge_id}"
-    try:
-        async with httpx.AsyncClient() as client:
-            await client.delete(url, headers=headers)
-    except Exception as e:
-        print(f"Error deleting challenge {challenge_id} from Supabase: {e}")
-
-
-async def insert_challenge_to_supabase(challenge_data: dict, team_role: str):
-    table = "blue_challenges" if team_role == "blue" else "red_challenges"
-    if not SUPABASE_ANON_KEY or not SUPABASE_URL:
-        return
+def supabase_headers(content_type: bool = False) -> dict:
     headers = {
         "apikey": SUPABASE_ANON_KEY,
         "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
-        "Content-Type": "application/json"
     }
-    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    if content_type:
+        headers["Content-Type"] = "application/json"
+    return headers
+
+
+async def get_supabase_scenario_count(team_role: str) -> int:
+    if not SUPABASE_ANON_KEY or not SUPABASE_URL:
+        return 0
+    table = scenario_table(team_role)
+    url = f"{SUPABASE_URL}/rest/v1/{table}?select=id"
     try:
         async with httpx.AsyncClient() as client:
-            await client.post(url, json=challenge_data, headers=headers)
+            resp = await client.get(url, headers=supabase_headers())
+            if resp.status_code == 200:
+                return len(resp.json())
     except Exception as e:
-        print(f"Error inserting challenge to Supabase: {e}")
+        print(f"Error checking Supabase scenario count: {e}")
+    return 0
+
+
+async def fetch_scenario_by_id(team_role: str, scenario_id: str) -> Optional[dict]:
+    if not SUPABASE_ANON_KEY or not SUPABASE_URL:
+        return None
+    table = scenario_table(team_role)
+    url = f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{scenario_id}"
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, headers=supabase_headers())
+            if resp.status_code == 200:
+                rows = resp.json()
+                if rows:
+                    return rows[0]
+    except Exception as e:
+        print(f"Error fetching scenario {scenario_id}: {e}")
+    return None
+
+
+async def fetch_random_scenario_from_supabase(team_role: str, module: str) -> Optional[dict]:
+    if not SUPABASE_ANON_KEY or not SUPABASE_URL:
+        return None
+    table = scenario_table(team_role)
+    url = f"{SUPABASE_URL}/rest/v1/{table}?module=eq.{module}"
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, headers=supabase_headers())
+            if resp.status_code == 200:
+                scenarios = resp.json()
+                if scenarios:
+                    return random.choice(scenarios)
+    except Exception as e:
+        print(f"Error fetching scenario from Supabase: {e}")
+    return None
+
+
+async def delete_scenario_from_supabase(scenario_id: str, team_role: str):
+    if not SUPABASE_ANON_KEY or not SUPABASE_URL:
+        return
+    table = scenario_table(team_role)
+    url = f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{scenario_id}"
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.delete(url, headers=supabase_headers())
+    except Exception as e:
+        print(f"Error deleting scenario {scenario_id} from Supabase: {e}")
+
+
+async def insert_scenario_to_supabase(scenario_data: dict, team_role: str) -> Optional[dict]:
+    if not SUPABASE_ANON_KEY or not SUPABASE_URL:
+        return None
+    table = scenario_table(team_role)
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    headers = supabase_headers(content_type=True)
+    headers["Prefer"] = "return=representation"
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(url, json=scenario_data, headers=headers)
+            if resp.status_code in (200, 201):
+                rows = resp.json()
+                if rows:
+                    return rows[0]
+    except Exception as e:
+        print(f"Error inserting scenario to Supabase: {e}")
+    return None
 
 
 # ---------- Data Model Mappings ----------
 
-def map_db_to_frontend(db_challenge: dict) -> dict:
+def map_scenario_to_list_item(scenario: dict) -> dict:
+    mod = scenario.get("module", "unknown")
+    info = CYBER_SECURITY_TOPICS.get(mod, {})
     return {
-        "id": str(db_challenge.get("id")) if db_challenge.get("id") else None,
-        "title": db_challenge.get("title"),
-        "story": db_challenge.get("story"),
-        "type": db_challenge.get("module"),
-        "task": db_challenge.get("task"),
-        "code": db_challenge.get("code"),
-        "codeLanguage": db_challenge.get("code_language"),
-        "htmlPreview": db_challenge.get("html_preview"),
-        "logData": db_challenge.get("log_data"),
-        "configData": db_challenge.get("config_data"),
-        "vulnerabilityLocation": db_challenge.get("vulnerability_location"),
-        "hints": db_challenge.get("hints") if isinstance(db_challenge.get("hints"), list) else json.loads(db_challenge.get("hints") or "[]"),
-        "expectedAnswer": db_challenge.get("expected_answer"),
-        "explanation": db_challenge.get("explanation"),
-        "xpReward": db_challenge.get("xp_reward", 150),
-        "difficulty": db_challenge.get("difficulty", "متوسط")
+        "id": scenario["id"],
+        "title": scenario.get("title") or info.get("name", "سيناريو غير معروف"),
+        "module": mod,
+        "path": info.get("path", "web-security"),
+        "category": info.get("category", "Web Security"),
+        "difficulty": scenario.get("difficulty") or "متوسط",
+        "xpReward": scenario.get("xp_reward", 150),
     }
+
+
+def map_groq_scenario_to_db(groq_scenario: dict, module: str, difficulty: str) -> dict:
+    xp = groq_scenario.get("xpReward") or groq_scenario.get("xp_reward")
+    if xp is None:
+        xp = 200 if difficulty == "قوي" else 150 if difficulty == "متوسط" else 100
+    return {
+        "module": module,
+        "title": groq_scenario.get("title", ""),
+        "story": groq_scenario.get("story", ""),
+        "task_outline": groq_scenario.get("task") or groq_scenario.get("taskOutline") or groq_scenario.get("task_outline", ""),
+        "difficulty": groq_scenario.get("difficulty") or difficulty,
+        "xp_reward": xp,
+    }
+
+
+def attach_scenario_metadata(training: dict, scenario: dict) -> dict:
+    scenario_id = str(scenario.get("id")) if scenario.get("id") else None
+    training["id"] = scenario_id
+    training["scenarioId"] = scenario_id
+    training["type"] = training.get("type") or scenario.get("module")
+    if not training.get("difficulty"):
+        training["difficulty"] = scenario.get("difficulty", "متوسط")
+    if not training.get("xpReward"):
+        training["xpReward"] = scenario.get("xp_reward", 150)
+    return training
 
 
 import time
@@ -287,31 +327,16 @@ def save_challenge_file(file_data: dict, module: str, team_role: str) -> str:
         return ""
 
 
-def map_groq_to_db(groq_challenge: dict, module: str, saved_file_path: str = "") -> dict:
-    log_data_value = groq_challenge.get("logData") or groq_challenge.get("log_data") or ""
-    if saved_file_path:
-        log_data_value = json.dumps({
-            "downloadable_file": os.path.basename(saved_file_path),
-            "preview": log_data_value[:200] + "..." if len(log_data_value) > 200 else log_data_value
-        }, ensure_ascii=False)
-
-    return {
-        "module": module,
-        "title": groq_challenge.get("title", ""),
-        "story": groq_challenge.get("story", ""),
-        "task": groq_challenge.get("task", ""),
-        "code": groq_challenge.get("code"),
-        "code_language": groq_challenge.get("codeLanguage") or groq_challenge.get("code_language"),
-        "html_preview": groq_challenge.get("htmlPreview") or groq_challenge.get("html_preview"),
-        "log_data": log_data_value,
-        "config_data": groq_challenge.get("configData") or groq_challenge.get("config_data"),
-        "vulnerability_location": groq_challenge.get("vulnerabilityLocation") or groq_challenge.get("vulnerability_location"),
-        "hints": json.dumps(groq_challenge.get("hints", []) if isinstance(groq_challenge.get("hints"), list) else json.loads(groq_challenge.get("hints") or "[]"), ensure_ascii=False),
-        "expected_answer": groq_challenge.get("expectedAnswer") or groq_challenge.get("expected_answer", ""),
-        "explanation": groq_challenge.get("explanation", ""),
-        "xp_reward": groq_challenge.get("xpReward") or groq_challenge.get("xp_reward", 150),
-        "difficulty": groq_challenge.get("difficulty", "متوسط")
-    }
+def apply_generated_files(training: dict, module: str, team_role: str) -> dict:
+    if training.get("fileToGenerate"):
+        saved_file_path = save_challenge_file(training["fileToGenerate"], module, team_role)
+        if saved_file_path:
+            log_val = training.get("logData") or ""
+            training["logData"] = json.dumps({
+                "downloadable_file": os.path.basename(saved_file_path),
+                "preview": log_val[:200] + "..." if len(log_val) > 200 else log_val
+            }, ensure_ascii=False)
+    return training
 
 
 # ---------- Models ----------
@@ -475,9 +500,79 @@ async def handle_certificates(req: CertificateRequest):
     raise HTTPException(status_code=400, detail="Invalid action")
 
 
-# ---------- Training Generation Helper ----------
+# ---------- Scenario & Challenge Generation Helpers ----------
 
-async def generate_challenge_from_groq(team_role: str, module: str, path: str = "web-security", category: str = "web", difficulty: str = "متوسط") -> dict:
+async def generate_scenario_from_groq(team_role: str, module: str, path: str = "web-security", category: str = "web", difficulty: str = "متوسط") -> dict:
+    """Generate a lightweight scenario seed for the cache pool (no full challenge artifacts)."""
+    topic_info = CYBER_SECURITY_TOPICS.get(module, {"name": f"موضوع: {module}", "category": category, "path": path})
+    topic = topic_info["name"]
+    team_label = "الفريق الأزرق (مدافع)" if team_role == "blue" else "الفريق الأحمر (مهاجم)"
+
+    system_prompt = f"""أنت مصمم سيناريوهات تدريب أمن سيبراني محترف.
+مهمتك: إنشاء سيناريو تدريبي مختصر فقط (بدون أكواد HTML كاملة وبدون ملفات جاهزة).
+السيناريو سيُستخدم لاحقاً بواسطة ذكاء اصطناعي آخر لبناء تحدٍ تفاعلي كامل.
+
+الدور: {team_label}
+الموضوع: {topic}
+الوحدة: {module}
+الصعوبة: {difficulty}
+
+أرجع JSON خام فقط بدون Markdown:
+{{
+  "title": "عنوان السيناريو",
+  "story": "قصة واقعية بالعربية تصف الحادثة والبيئة والسياق",
+  "task": "ملخص المهمة المطلوبة من المتدرب (فقرة واحدة واضحة)",
+  "difficulty": "{difficulty}",
+  "xpReward": {200 if difficulty == "قوي" else 150 if difficulty == "متوسط" else 100}
+}}"""
+
+    user_prompt = f"""أنشئ سيناريو تدريبي جديداً لـ {team_label} في مجال {topic}.
+يجب أن يكون السيناريو واقعياً ومختلفاً عن السيناريوهات التقليدية، ويركز على {module}."""
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        resp = await client.post(GROQ_API_URL, json={
+            "model": "llama-3.3-70b-versatile",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.85,
+            "max_tokens": 1200,
+        }, headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+        })
+
+    if resp.status_code == 429:
+        raise ValueError("Groq API Rate Limit Reached (429)")
+    if resp.status_code != 200:
+        raise HTTPException(status_code=500, detail=f"Groq API error: {resp.status_code}")
+
+    return parse_json_safe(resp.json()["choices"][0]["message"]["content"])
+
+
+async def generate_challenge_from_scenario(
+    scenario: dict,
+    team_role: str,
+    module: str,
+    path: str = "web-security",
+    category: str = "web",
+) -> dict:
+    """Build a full interactive challenge from a cached scenario via Groq."""
+    difficulty = scenario.get("difficulty") or "متوسط"
+    return await generate_challenge_from_groq(
+        team_role, module, path, category, difficulty, scenario=scenario
+    )
+
+
+async def generate_challenge_from_groq(
+    team_role: str,
+    module: str,
+    path: str = "web-security",
+    category: str = "web",
+    difficulty: str = "متوسط",
+    scenario: Optional[dict] = None,
+) -> dict:
     topic_info = CYBER_SECURITY_TOPICS.get(module, {"name": f"موضوع: {module}", "category": category, "path": path})
     topic = topic_info["name"]
 
@@ -533,10 +628,26 @@ async def generate_challenge_from_groq(team_role: str, module: str, path: str = 
 - يجب أن يحتوي "expectedAnswer" على العلم الدقيق المطلوب (مثل CyberArena{{...}}).
 """
 
+    if scenario:
+        scenario_block = f"""
+=== السيناريو الأساسي (يجب الالتزام به بالكامل) ===
+عنوان السيناريو: {scenario.get("title", "")}
+قصة السيناريو: {scenario.get("story", "")}
+ملخص المهمة: {scenario.get("task_outline") or scenario.get("task", "")}
+=== نهاية السيناريو ===
+
+يجب أن تبني التحدي الكامل (HTML، الملفات، التلميحات، الإجابة المتوقعة) انطلاقاً من هذا السيناريو.
+يمكنك توسيع التفاصيل التقنية، لكن لا تغيّر جوهر القصة أو الهدف الأمني.
+"""
+    else:
+        scenario_block = "لا يوجد سيناريو مسبق — أنشئ تحدياً أصلياً يتوافق مع الموضوع والدور."
+
     system_prompt = f"""أنت مدرب أمن سيبراني خبير ومحترف للغاية.
-توليد تدريب حول الموضوع المحدد بالضبط وبدرجة الصعوبة المطلوبة. لا تنحرف أبداً عن الموضوع ودور اللاعب.
+مهمتك: بناء تحدٍ تفاعلي كامل ومفصّل بناءً على السيناريو المُزوَّد أدناه.
+لا تنحرف عن السيناريو — طوّره إلى تحدٍ قابل للعب مع أكواد وملفات وتلميحات وإجابة متوقعة.
 درجة الصعوبة المطلوبة للتحدي: {difficulty}
 {role_instructions}
+{scenario_block}
 
 قواعد صارمة لواقعية التحدي (Realistic & Production-Ready Scenarios):
 1. يمنع منعاً باتاً كتابة سيناريوهات وهمية أو أكواد غير حقيقية أو استبدال الأكواد بتعليقات توضيحية. يجب أن يكون الكود المصدري كاملاً وقابلاً للتنفيذ ومطابقاً للواقع البرمجي 100%.
@@ -579,7 +690,7 @@ async def generate_challenge_from_groq(team_role: str, module: str, path: str = 
 المسار: {path}
 التصنيف: {category}
 
-أنشئ تحدياً مخصصاً ومحفزاً يناسب دور اللاعب الحالي ودرجة الصعوبة المطلوبة تماماً."""
+بناءً على السيناريو المُزوَّد، أنشئ تحدياً تفاعلياً كاملاً جاهزاً للعب."""
 
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.post(GROQ_API_URL, json={
@@ -614,17 +725,13 @@ async def generate_challenge_from_groq(team_role: str, module: str, path: str = 
 # State to keep track of rate limits and log only once
 RATE_LIMIT_ALERTED = False
 
-async def generate_and_store_challenge(team_role: str, module: str, path: str = "web-security", category: str = "web", difficulty: str = "متوسط"):
+async def generate_and_store_scenario(team_role: str, module: str, path: str = "web-security", category: str = "web", difficulty: str = "متوسط"):
     global RATE_LIMIT_ALERTED
     try:
-        groq_challenge = await generate_challenge_from_groq(team_role, module, path, category, difficulty)
-        saved_file_path = ""
-        if groq_challenge.get("fileToGenerate"):
-            saved_file_path = save_challenge_file(groq_challenge["fileToGenerate"], module, team_role)
-        db_challenge = map_groq_to_db(groq_challenge, module, saved_file_path)
-        db_challenge["difficulty"] = difficulty
-        await insert_challenge_to_supabase(db_challenge, team_role)
-        print(f"Background Generator: Stored a new {team_role} challenge ({difficulty}) for {module} in Supabase pool.")
+        groq_scenario = await generate_scenario_from_groq(team_role, module, path, category, difficulty)
+        db_scenario = map_groq_scenario_to_db(groq_scenario, module, difficulty)
+        await insert_scenario_to_supabase(db_scenario, team_role)
+        print(f"Background Generator: Stored a new {team_role} scenario ({difficulty}) for {module} in Supabase pool.")
         RATE_LIMIT_ALERTED = False
     except Exception as e:
         if "429" in str(e) or "Rate Limit" in str(e):
@@ -634,19 +741,16 @@ async def generate_and_store_challenge(team_role: str, module: str, path: str = 
         else:
             import traceback
             traceback.print_exc()
-            print(f"Background Generator Error for {team_role} - {module}: {e}")
+            print(f"Background Scenario Generator Error for {team_role} - {module}: {e}")
 
 
-async def handle_background_replacement(challenge_id: str, team_role: str, module: str, path: str, category: str, difficulty: str):
+async def handle_background_replacement(scenario_id: str, team_role: str, module: str, path: str, category: str, difficulty: str):
     try:
-        # Delete solved / used challenge immediately
-        await delete_challenge_from_supabase(challenge_id, team_role)
-        print(f"Deleted retrieved challenge {challenge_id} from Supabase.")
-        
-        # Populate the pool with a brand new challenge to maintain the cache pool
-        await generate_and_store_challenge(team_role, module, path, category, difficulty)
+        await delete_scenario_from_supabase(scenario_id, team_role)
+        print(f"Deleted solved scenario {scenario_id} from Supabase.")
+        await generate_and_store_scenario(team_role, module, path, category, difficulty)
     except Exception as e:
-        print(f"Error in background replacement task: {e}")
+        print(f"Error in background scenario replacement task: {e}")
 
 
 async def populate_pool_background():
@@ -671,16 +775,16 @@ async def populate_pool_background():
             try:
                 # We can dynamically invoke our audit process
                 # Purge mismatched blue/red challenges
-                for table_name in ["blue_challenges", "red_challenges"]:
-                    headers = {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"}
-                    url = f"{SUPABASE_URL}/rest/v1/{table_name}?select=id,title,task,module"
+                for table_name in ["blue_scenarios", "red_scenarios"]:
+                    headers = supabase_headers()
+                    url = f"{SUPABASE_URL}/rest/v1/{table_name}?select=id,title,story,task_outline,module"
                     resp = await httpx.AsyncClient().get(url, headers=headers)
                     if resp.status_code == 200:
-                        challenges = resp.json()
-                        for c in challenges:
+                        scenarios = resp.json()
+                        for c in scenarios:
                             mod = c.get("module", "")
                             title = (c.get("title") or "").lower()
-                            task = (c.get("task") or "").lower()
+                            task = (c.get("task_outline") or c.get("story") or "").lower()
                             # Verify if relevant keywords exist for the module
                             expected_kws = TOPIC_KEYWORDS.get(mod, [])
                             is_relevant = False
@@ -697,14 +801,14 @@ async def populate_pool_background():
                                     if bad_kw in title or bad_kw in task:
                                         is_relevant = False
                             if not is_relevant:
-                                print(f"♻️ [Auto-Purge] Challenge '{c['title']}' doesn't match module '{mod}'. Purging...")
+                                print(f"♻️ [Auto-Purge] Scenario '{c['title']}' doesn't match module '{mod}'. Purging...")
                                 del_url = f"{SUPABASE_URL}/rest/v1/{table_name}?id=eq.{c['id']}"
                                 await httpx.AsyncClient().delete(del_url, headers=headers)
             except Exception as audit_err:
                 print(f"Error during auto-audit in background: {audit_err}")
 
-            blue_count = await get_supabase_challenge_count("blue")
-            red_count = await get_supabase_challenge_count("red")
+            blue_count = await get_supabase_scenario_count("blue")
+            red_count = await get_supabase_scenario_count("red")
             
             # Update refilling states based on thresholds (Hysteresis)
             if blue_count < 100:
@@ -734,7 +838,7 @@ async def populate_pool_background():
                 module = random.choice(topics)
                 difficulty = random.choice(difficulties)
                 info = CYBER_SECURITY_TOPICS[module]
-                await generate_and_store_challenge("blue", module, info["path"], info["category"], difficulty)
+                await generate_and_store_scenario("blue", module, info["path"], info["category"], difficulty)
                 await asyncio.sleep(15) # Shorter sleep to refill faster but safely
                 continue
                 
@@ -742,7 +846,7 @@ async def populate_pool_background():
                 module = random.choice(topics)
                 difficulty = random.choice(difficulties)
                 info = CYBER_SECURITY_TOPICS[module]
-                await generate_and_store_challenge("red", module, info["path"], info["category"], difficulty)
+                await generate_and_store_scenario("red", module, info["path"], info["category"], difficulty)
                 await asyncio.sleep(15)
                 continue
             
@@ -766,45 +870,24 @@ async def startup_event():
 
 @app.get("/api/training/list")
 async def list_challenges(team_role: str = "blue", difficulty: Optional[str] = None, limit: int = 100):
-    """Return a preview list of cached challenges for display in the grid."""
-    table = "blue_challenges" if team_role == "blue" else "red_challenges"
+    """Return a preview list of cached scenarios for display in the grid."""
+    table = scenario_table(team_role)
     if not SUPABASE_ANON_KEY or not SUPABASE_URL:
         return {"challenges": []}
-    headers = {
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
-    }
     fields = "id,title,module,difficulty,xp_reward"
     url = f"{SUPABASE_URL}/rest/v1/{table}?select={fields}&limit={limit}"
     if difficulty:
         url += f"&difficulty=eq.{difficulty}"
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers=headers)
+            resp = await client.get(url, headers=supabase_headers())
             if resp.status_code == 200:
                 data = resp.json()
-                enriched = []
-                for c in data:
-                    mod = c.get("module", "unknown")
-                    info = CYBER_SECURITY_TOPICS.get(mod, {})
-                    cat_name = info.get("category", "Web Security")
-                    topic_path = info.get("path", "web-security")
-                    title = c.get("title") or info.get("name", "تحدي غير معروف")
-                    diff = c.get("difficulty") or "متوسط"
-                    enriched.append({
-                        "id": c["id"],
-                        "title": title,
-                        "module": mod,
-                        "path": topic_path,
-                        "category": cat_name,
-                        "difficulty": diff,
-                        "xpReward": c.get("xp_reward", 150),
-                    })
-                return {"challenges": enriched}
+                return {"challenges": [map_scenario_to_list_item(c) for c in data]}
             else:
                 raise HTTPException(status_code=resp.status_code, detail="Failed to fetch from Supabase")
     except Exception as e:
-        print(f"Error listing challenges: {e}")
+        print(f"Error listing scenarios: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # ---------- Training Generation Endpoint (Cached / Dynamic) ----------
@@ -834,55 +917,38 @@ async def solve_challenge(req: SolvedRequest, background_tasks: BackgroundTasks)
 
 @app.post("/api/training/generate")
 async def generate_training(req: TrainingRequest, background_tasks: BackgroundTasks):
-    cached = None
-    if req.challengeId:
-        # Fetch the specific challenge by ID
-        table = "blue_challenges" if req.teamRole == "blue" else "red_challenges"
-        headers = {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"}
-        url = f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{req.challengeId}"
-        try:
-            async with httpx.AsyncClient() as client:
-                res = await client.get(url, headers=headers)
-                if res.status_code == 200 and len(res.json()) > 0:
-                    cached = res.json()[0]
-        except Exception as e:
-            print(f"Failed to fetch challenge {req.challengeId}: {e}")
-    
-    if not cached:
-        # Try fetching a random cached challenge from Supabase
-        cached = await fetch_random_challenge_from_supabase(req.teamRole, req.module)
-    
-    if cached:
-        print(f"Cache Hit: Loaded cached challenge for {req.teamRole} - {req.module}")
-        training_data = map_db_to_frontend(cached)
-        return {"training": training_data}
-    else:
-        print(f"Cache Miss: Generating challenge synchronously for {req.teamRole} - {req.module}")
-        difficulty = random.choice(["مبتدئ", "متوسط", "قوي"])
-        info = CYBER_SECURITY_TOPICS.get(req.module, {"path": req.path, "category": req.category})
-        training_data = await generate_challenge_from_groq(req.teamRole, req.module, info.get("path"), info.get("category"), difficulty)
-        
-        saved_file_path = ""
-        if training_data.get("fileToGenerate"):
-            saved_file_path = save_challenge_file(training_data["fileToGenerate"], req.module, req.teamRole)
-        if saved_file_path:
-            log_val = training_data.get("logData") or ""
-            training_data["logData"] = json.dumps({
-                "downloadable_file": os.path.basename(saved_file_path),
-                "preview": log_val[:200] + "..." if len(log_val) > 200 else log_val
-            }, ensure_ascii=False)
+    scenario_id = req.challengeId
+    scenario = None
 
-        # Add to Supabase cache pool in background for future users
-        background_tasks.add_task(
-            generate_and_store_challenge, 
-            req.teamRole, 
-            req.module, 
-            info.get("path"), 
-            info.get("category"),
-            difficulty
-        )
-        
-        return {"training": training_data}
+    if scenario_id:
+        scenario = await fetch_scenario_by_id(req.teamRole, scenario_id)
+
+    if not scenario:
+        scenario = await fetch_random_scenario_from_supabase(req.teamRole, req.module)
+
+    info = CYBER_SECURITY_TOPICS.get(req.module, {"path": req.path, "category": req.category})
+    path = info.get("path", req.path)
+    category = info.get("category", req.category)
+    difficulty = random.choice(["مبتدئ", "متوسط", "قوي"])
+
+    if not scenario:
+        print(f"Scenario pool empty for {req.teamRole} - {req.module}. Generating scenario synchronously.")
+        groq_scenario = await generate_scenario_from_groq(req.teamRole, req.module, path, category, difficulty)
+        db_scenario = map_groq_scenario_to_db(groq_scenario, req.module, difficulty)
+        inserted = await insert_scenario_to_supabase(db_scenario, req.teamRole)
+        scenario = inserted or db_scenario
+    else:
+        difficulty = scenario.get("difficulty") or difficulty
+        print(f"Scenario loaded: {scenario.get('title')} ({req.teamRole} - {req.module})")
+
+    print(f"Generating full challenge from scenario via Groq for {req.teamRole} - {req.module}")
+    training_data = await generate_challenge_from_scenario(
+        scenario, req.teamRole, req.module, path, category
+    )
+    training_data = apply_generated_files(training_data, req.module, req.teamRole)
+    training_data = attach_scenario_metadata(training_data, scenario)
+
+    return {"training": training_data}
 
 
 # ---------- Code Evaluation (local Groq AI) ----------
@@ -949,23 +1015,24 @@ async def evaluate_training(req: EvaluateRequest, background_tasks: BackgroundTa
     content = resp.json()["choices"][0]["message"]["content"]
     evaluation = parse_json_safe(content)
 
-    if evaluation.get("secured") is True and challenge.get("id"):
-        # Queue background deletion and replacement since they solved it!
-        module_name = challenge.get("type", "")
-        topic_info = CYBER_SECURITY_TOPICS.get(module_name, {"path": "web-security", "category": "web"})
-        path = topic_info.get("path", "web-security")
-        category = topic_info.get("category", "web")
-        difficulty = challenge.get("difficulty", "متوسط")
-        
-        background_tasks.add_task(
-            handle_background_replacement,
-            challenge["id"],
-            req.teamRole,
-            module_name,
-            path,
-            category,
-            difficulty
-        )
+    if evaluation.get("secured") is True:
+        scenario_id = challenge.get("scenarioId") or challenge.get("id")
+        if scenario_id:
+            module_name = challenge.get("type", "")
+            topic_info = CYBER_SECURITY_TOPICS.get(module_name, {"path": "web-security", "category": "web"})
+            path = topic_info.get("path", "web-security")
+            category = topic_info.get("category", "web")
+            difficulty = challenge.get("difficulty", "متوسط")
+
+            background_tasks.add_task(
+                handle_background_replacement,
+                scenario_id,
+                req.teamRole,
+                module_name,
+                path,
+                category,
+                difficulty
+            )
 
     return {"evaluation": evaluation}
 

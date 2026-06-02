@@ -8,15 +8,20 @@
 
 ## Backend Architecture
 ```
-Frontend (React) → Python Backend (FastAPI :8080) → Supabase Edge Functions + Groq AI
+Frontend (React) → Python Backend (FastAPI :8080) → Supabase (scenario pool) + Groq AI
 ```
 
 ## Data & Backend Rules
 1. **Frontend** calls Python backend at `VITE_API_URL` (default: `http://localhost:8080/api`).
 2. **Python backend** proxies auth and XP operations to existing Supabase Edge Functions (`cyberarena-auth`, `cyberarena-xp`).
-3. **Python backend** handles AI training generation directly via Groq API (`llama-3.3-70b-versatile`).
-4. **Database** is Supabase PostgreSQL — schema changes still use `supabase_*` MCP tools.
+3. **Supabase** stores lightweight **scenario seeds** in `blue_scenarios` / `red_scenarios` (not full challenges).
+4. **Groq** builds the full interactive challenge from a scenario at session start; also evaluates code fixes.
 5. **No direct database queries from frontend** — all data goes through the Python backend.
+
+## Scenario Pool Flow
+- Dashboard lists **scenarios** from Supabase (`GET /api/training/list`).
+- User selects a scenario → `POST /api/training/generate` loads the scenario, then Groq generates HTML/files/hints/answers.
+- On solve → scenario is deleted and a new scenario is generated in the background to refill the pool (~100 per team).
 
 ## Stack
 - **Frontend**: React 19 + TypeScript + Vite

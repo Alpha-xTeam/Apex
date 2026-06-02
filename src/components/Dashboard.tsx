@@ -59,10 +59,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
   const [blueChallenges, setBlueChallenges] = useState<DBChallenge[]>([]);
   const [redChallenges, setRedChallenges] = useState<DBChallenge[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
   const [activeSection, setActiveSection] = useState<{ teamId: string; category: string; challenges: DBChallenge[] } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
+      setFetchError('');
       try {
         const xpRes = await fetch(`${API_URL}/xp`, {
           method: 'POST',
@@ -79,13 +81,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
           fetch(`${API_URL}/training/list?team_role=blue&limit=1000`),
           fetch(`${API_URL}/training/list?team_role=red&limit=1000`)
         ]);
+
+        if (!blueRes.ok || !redRes.ok) {
+          throw new Error(`Backend unavailable (${blueRes.status}/${redRes.status}). تأكد أن السيرفر يعمل على ${API_URL}`);
+        }
+
         const blueData = await blueRes.json();
         const redData = await redRes.json();
 
-        if (blueData.challenges) setBlueChallenges(blueData.challenges);
-        if (redData.challenges) setRedChallenges(redData.challenges);
+        setBlueChallenges(blueData.challenges || []);
+        setRedChallenges(redData.challenges || []);
       } catch (err) {
         console.error('Error fetching dashboard data', err);
+        setFetchError(err instanceof Error ? err.message : 'تعذّر تحميل التحديات من الخادم');
       } finally {
         setLoading(false);
       }
@@ -214,6 +222,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
             <h2>اختر فريقك</h2>
             <p>كل فريق يحتوي على تحديات متخصصة بمجالات مختلفة</p>
           </section>
+
+          {fetchError && (
+            <div className="dash-empty-state" style={{ marginBottom: '1rem', color: '#f87171' }}>
+              {fetchError}
+            </div>
+          )}
 
           {loading ? (
             <div className="dash-loading">جاري تحميل التحديات...</div>

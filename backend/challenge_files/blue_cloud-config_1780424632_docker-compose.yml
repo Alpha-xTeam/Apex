@@ -1,0 +1,1 @@
+version: '3'<br/>services:<br/>  web:<br/>    build: .<br/>    ports:<br/>      - "80:80"<br/>    volumes:<br/>      - .:/app
