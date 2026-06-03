@@ -1,10 +1,10 @@
 """Quick smoke test for crypto_generator.
 
 Validates:
-  - All 10 seeds build without error
+  - All seeds build without error
   - flag_preview matches CyberArena{...} format
   - flag_hash = sha256(flag_preview)
-  - flags are unique
+  - flags are unique (one batch of build_seeds produces unique flags)
   - files/command_outputs are non-empty
   - algorithm names NOT in task_outline
 """
@@ -17,9 +17,9 @@ from crypto_generator import build_seeds, BLUE_SEEDS, RED_SEEDS
 def test_builds_clean():
     blue = build_seeds("blue")
     red = build_seeds("red")
-    assert len(blue) == 5, f"expected 5 blue, got {len(blue)}"
-    assert len(red) == 5, f"expected 5 red, got {len(red)}"
-    print(f"✓ Built {len(blue)} Blue + {len(red)} Red")
+    assert len(blue) == len(BLUE_SEEDS), f"expected {len(BLUE_SEEDS)} blue, got {len(blue)}"
+    assert len(red) == len(RED_SEEDS), f"expected {len(RED_SEEDS)} red, got {len(red)}"
+    print(f"✓ Built {len(blue)} Blue + {len(red)} Red themes")
 
 def test_flag_format():
     for team, chs in [("blue", build_seeds("blue")), ("red", build_seeds("red"))]:
@@ -32,8 +32,8 @@ def test_flag_format():
 
 def test_flags_unique():
     flags = [c.flag_hash for c in build_seeds("blue") + build_seeds("red")]
-    assert len(flags) == len(set(flags)), "duplicate flag_hash detected"
-    print("✓ All 10 flag_hash values are unique")
+    assert len(flags) == len(set(flags)), "duplicate flag_hash detected in a single build"
+    print(f"✓ All {len(flags)} flag_hash values in one build are unique")
 
 def test_no_algo_in_task():
     forbidden = ["AES", "RSA", "Vigenere", "Caesar", "MD5", "SHA-1", "SHA-256", "HMAC", "XOR"]
@@ -71,4 +71,4 @@ if __name__ == "__main__":
     test_files_and_outputs_present()
     test_xp_by_difficulty()
     test_team_role_consistency()
-    print("\n✅ All tests passed — 10 challenges ready to insert")
+    print("\n✅ All tests passed")

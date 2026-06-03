@@ -1,19 +1,51 @@
 # CyberArena — Project Guide
 
+> This document is the **contract every AI / agent must follow** when working
+> on the CyberArena codebase. It captures only the general, cross-cutting
+> rules. Challenge-type-specific details (algorithms, flag patterns, seed
+> structures, hints, etc.) live in their own per-type modules and are **not**
+> duplicated here.
+
 ## Supabase Project
 - **Project ID**: `yevtnyokixocpihpdwqu`
 - **Organization**: `vilfthlnaltfhseywiqq`
 - **Region**: `ap-southeast-1`
-- **Database**: Supabase PostgreSQL (`users`, `leaderboard`, `certificates`, `encryption_challenges`, ...)
+- **Database**: Supabase PostgreSQL (`users`, `leaderboard`, `certificates`,
+  one challenges table per type — e.g. `encryption_challenges`, future
+  `web_challenges`, `forensics_challenges`, ...)
+
+## Stack
+- **Frontend**: React 19 + TypeScript + Vite
+- **Backend**: Python 3.14 (FastAPI, httpx, uvicorn, cryptography)
+- **Primary AI**: Groq API (default `llama-3.1-8b-instant` via `GROQ_MODEL`)
+- **Fallback AI**: NVIDIA integrate API (default `deepseek-ai/deepseek-v4-pro`
+  via `NVIDIA_MODEL`) — used only when Groq is unreachable, never on 429
+- **Database**: Supabase PostgreSQL
+- **Language**: Arabic (RTL)
+
+## Environment Variables (all in `backend/.env`, never hardcoded)
+| Var | Purpose |
+|---|---|
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_ANON_KEY` | Anon key (read) — used by backend for DB writes too |
+| `GROQ_API_KEY` | Primary AI |
+| `GROQ_MODEL` | Optional model override (default `llama-3.1-8b-instant`) |
+| `NVIDIA_API_KEY` | Fallback AI |
+| `NVIDIA_MODEL` | Optional model override (default `deepseek-ai/deepseek-v4-pro`) |
+| `VITE_API_URL` | Frontend → backend base URL (default `http://localhost:8090/api`) |
+
+**Rule:** every secret MUST live in `.env`. Never hardcode keys, tokens, or
+project IDs in source.
 
 ## Backend Architecture
 ```
-Frontend (React :5173) → Python Backend (FastAPI :8090) → Supabase (challenge pool) + Groq AI
+Frontend (React :5173) → Python Backend (FastAPI :8090) → Supabase (challenge pool) + AI providers
 ```
 
 ## Pool Architecture — Per-Type Generators
 
-Each challenge type (crypto, web, forensics, ...) has its own table and its own generator module. The pattern is:
+Each challenge **type** (crypto, web, forensics, ...) has its own table and
+its own generator module:
 
 ```
 backend/
@@ -24,7 +56,8 @@ backend/
   ...
 ```
 
-**Contract every generator must implement** (used by `main.py::populate_pool_background`):
+**Contract every generator must implement** (used by
+`main.py::populate_pool_background`):
 
 | Export | Purpose |
 |---|---|
@@ -37,22 +70,57 @@ backend/
 - `POOL_TARGET = 5` challenges cached
 - `POOL_THRESHOLD = 2` → trigger refill when at or below
 - `POOL_BATCH = 3` → insert this many per refill cycle
-- When AI fails (rate-limit, parse error), fall back to curated seeds
+- Per-team registration in `populate_pool_background` — a generator registers
+  itself for the teams it actually serves (e.g. crypto currently serves red
+  only). Don't blindly add both teams.
 
-**AI flow inside a generator:**
-1. `ai_generate_scenario()` calls Groq (Llama 3.3 70B) → returns a `ScenarioSpec` JSON
-2. `ChallengeBuilder.build(spec)` runs the algorithm in-process via `cryptography` (Python)
-3. `insert_to_db()` POSTs the resulting `Challenge` to the Supabase table
+## AI Generation — Two-Tier Fallback (mandatory pattern)
 
-**Why Python executes the crypto, not the AI:**
-The LLM produces a *recipe* (plaintext, key, algorithm). Python runs the algorithm and computes the encrypted bytes + flag hash. This makes the output provably correct and immune to LLM hallucination.
+Every generator follows this exact flow per slot:
+
+```
+1. Try PRIMARY AI (Groq)         → on success: build + insert
+                                 → on 429: per-team backoff 5 min, then seed
+                                 → on transient (timeout / network): goto 2
+                                 → on bad module/algo combo: goto 2
+2. Try FALLBACK AI (NVIDIA/DeepSeek) → on success: build + insert
+                                       → on any error: goto 3
+3. Use curated seed              → build + insert
+```
+
+**Why this exact order:**
+- AI is the soul of the platform — every slot should attempt AI first.
+- A 429 is a hard per-minute quota. **Never** route a 429 to the fallback
+  AI (it likely shares backend infra and will 429 too). Set a per-team
+  backoff `_AI_BACKOFF_UNTIL[team_role] = now + 300`.
+- Transient errors (timeout, read error, connect error) are network blips —
+  the fallback provider can plausibly help.
+- Curated seeds are the safety net, not the primary path.
+
+**Per-team backoff:** track `_AI_BACKOFF_UNTIL: dict[str, float]` keyed by
+`team_role`. One team's quota exhaustion must not lock the other team out.
+
+**Why Python executes the recipe, not the AI:** the LLM produces the
+*recipe* (plaintext, key, algorithm). Python runs the algorithm and computes
+the encrypted bytes + flag hash. This makes the output provably correct and
+immune to LLM hallucination.
 
 ## Data & Backend Rules
-1. **Frontend** calls Python backend at `VITE_API_URL` (default: `http://localhost:8090/api`).
-2. **Python backend** proxies auth and XP to existing Supabase Edge Functions (`cyberarena-auth`, `cyberarena-xp`).
-3. **Supabase** stores **fully-realized challenges** (one table per type). The `flag_hash` column is the source of truth for the answer; the `flag_preview` shows `CyberArena{<hex>}` to the student.
-4. **No direct database queries from frontend** — all data goes through the Python backend.
-5. **Auto-purge disabled**: curated challenges are trusted. The watcher only refills when count drops to `POOL_THRESHOLD`.
+1. **Frontend** calls Python backend at `VITE_API_URL` (default:
+   `http://localhost:8090/api`).
+2. **Python backend** proxies auth and XP to existing Supabase Edge Functions
+   (`cyberarena-auth`, `cyberarena-xp`).
+3. **Supabase** stores **fully-realized challenges** (one table per type).
+   The `flag_hash` column is the source of truth for the answer; the
+   `flag_preview` shows `CyberArena{<hex>}` to the student.
+4. **No direct database queries from frontend** — all data goes through the
+   Python backend.
+5. **Auto-purge disabled**: curated challenges are trusted. The watcher only
+   refills when count drops to `POOL_THRESHOLD`.
+6. **UTF-8 in subprocesses**: any backend code that runs a subprocess for
+   the student (terminal, python exec) must set
+   `PYTHONIOENCODING=utf-8` + `PYTHONUTF8=1` and `errors="replace"` — Windows
+   defaults to cp1252 which breaks Arabic output.
 
 ## Challenge Format (current)
 - Per-type table (e.g. `encryption_challenges`):
@@ -60,17 +128,10 @@ The LLM produces a *recipe* (plaintext, key, algorithm). Python runs the algorit
   - `files` (jsonb), `file_metadata` (jsonb), `command_outputs` (jsonb)
   - `hints` (jsonb), `tools_whitelist` (text[])
   - `flag_hash`, `flag_preview`, `difficulty`, `xp_reward`, `created_at`
-- Flag format: `CyberArena{<64-hex>}` — the `flag_hash` is `sha256(flag_preview)`
-- Anti-patterns enforced in `ChallengeBuilder.validate()`:
-  - No algorithm names in `task_outline` (AES/RSA/MD5/SHA/HMAC/XOR/Vigenere/Caesar)
+- **Flag format**: `CyberArena{<64-hex>}` — `flag_hash = sha256(flag_preview)`
+- **Anti-patterns enforced** in `ScenarioSpec.validate()`:
+  - No algorithm names in `task_outline` (no AES/RSA/MD5/SHA/HMAC/XOR/...)
   - Story is allowed to use contextual jargon (hash, salt, signature)
-
-## Stack
-- **Frontend**: React 19 + TypeScript + Vite
-- **Backend**: Python 3.14 (FastAPI, httpx, uvicorn, cryptography)
-- **AI**: Groq API (Llama 3.3 70B)
-- **Database**: Supabase PostgreSQL
-- **Language**: Arabic (RTL)
 
 ## Backend API Endpoints
 | Method | Path | Description |
@@ -80,6 +141,9 @@ The LLM produces a *recipe* (plaintext, key, algorithm). Python runs the algorit
 | POST | `/api/training/generate` | Load a cached challenge by id |
 | POST | `/api/training/evaluate` | Evaluate a code fix (blue team) |
 | GET  | `/api/training/list` | List cached challenges for a team |
+| POST | `/api/training/terminal` | Run a command in the simulated terminal |
+| POST | `/api/training/terminal/write` | Write/edit a file in the student's workdir |
+| GET  | `/api/training/terminal/list` | List the student's workdir files |
 
 ## Running the Backend
 ```bash

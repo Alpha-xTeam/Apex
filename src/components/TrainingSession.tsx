@@ -362,6 +362,7 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
     setHintIndex(0);
     setError('');
     setShowVuln(false);
+    setAttempts(0);
     setTraining(null);
     setSimulatedStep(0);
     setSimulatedPercent(0);
@@ -657,6 +658,18 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         }
       } catch { }
     }
+  };
+
+  // --- Retry the SAME challenge (clear answer, hide result panel,
+  //     keep all the training data, hints, files, etc.) ---
+  const [attempts, setAttempts] = useState(0);
+
+  const handleRetrySame = () => {
+    setAnswer('');
+    setShowResult(false);
+    setIsCorrect(false);
+    setError('');
+    setAttempts((a) => a + 1);
   };
 
   // --- VS Code Code Change Sync ---
@@ -1899,7 +1912,17 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                   <h4>📖 الشرح والأبعاد الأمنية</h4>
                   <p>{training.explanation}</p>
                 </div>
+                {attempts > 0 && (
+                  <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '8px' }}>
+                    عدد المحاولات: <strong style={{ color: '#fbbf24' }}>{attempts + 1}</strong>
+                  </div>
+                )}
                 <div className="session-result-actions">
+                  {!isCorrect && (
+                    <button className="session-btn" onClick={handleRetrySame}>
+                      🔁 حاول مرة أخرى
+                    </button>
+                  )}
                   <button className="session-btn" onClick={generateTraining}>🔄 تحدٍ جديد</button>
                   <button className="session-btn ghost" onClick={onBack}>العودة</button>
                 </div>
