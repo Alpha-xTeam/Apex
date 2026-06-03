@@ -1,0 +1,169 @@
+[
+  {
+    "id": "blue1",
+    "title": "تشفير بيانات العملاء في حالة السكون",
+    "story": "تدير شركة Apex قسم payments يخزن بيانات بطاقات ائتمان العملاء في CSV. طلب منك مدير الأمن تشفير customer_data.csv قبل نقله إلى S3 bucket. التشفير يجب أن يستخدم AES-256 مع password ثابت و salt تلقائي. الـ password المعطى من قبل المدير: ApexSecure2026",
+    "task_outline": "استخدم openssl لتشفير customer_data.csv بـ AES-256-CBC مع PBKDF2 و salt. ثم احسب SHA-256 للمخرجات. الـ flag هو CyberArena{<hex_hash_of_encrypted>}",
+    "files": {
+      "customer_data.csv": "Q3VzdG9tZXJJRCxOYW1lLENhcmROdW1iZXIsRXhwaXJ5LENWVgoxMDAxLEFobWVkIEFsaSw0NTMyLTEyMzQtNTY3OC05MDEwLDEyLzI3LDEyMwoxMDAyLFNhcmEgS2hhbiw1NTAwLTk4NzYtNTQzMi0xMDk4LDAzLzI2LDQ1NgoxMDAzLE9tYXIgWXVzdWYsNDcxNi0xMTExLTIyMjItMzMzMywwOC8yOCw3ODk="
+    },
+    "command_outputs": {
+      "cat:customer_data.csv": {
+        "stdout": "CustomerID,Name,CardNumber,Expiry,CVV\n1001,Ahmed Ali,4532-1234-5678-9010,12/27,123\n1002,Sara Khan,5500-9876-5432-1098,03/26,456\n1003,Omar Yusuf,4716-1111-2222-3333,08/28,789",
+        "exit_code": 0
+      },
+      "openssl:aes-256-cbc": {
+        "stdout": "53616c7465645f5fd7b7860d650253f8e2eb86899ed63d3f7e571ca877cca68d4d320b2c881c108c593bc32f73991802a802640f537b406088c95d761293efb286820b7547587fde7b8f537fe36e38f6b80d9b47b32a0360d631a9dc5ce316af0949230d8292da1ca0bfb43ad9992b7219bd97a1b3d2ce2ecb1b6037eff5ad75daf91735c0888cb53c7a1845ebeb36840af59ade8dfb858a4219ceb4e8807a368088d93f5a28a45368d4de137a8db3df70085563661f0d5e247ca9d1eed3c4db",
+        "stderr": "",
+        "exit_code": 0
+      },
+      "sha256sum": {
+        "stdout": "d52843b875f9d113fd53fadf4046f762c7f00968819434f6cee157dc764f948a  encrypted.enc",
+        "exit_code": 0
+      },
+      "ls": {
+        "stdout": "customer_data.csv",
+        "exit_code": 0
+      }
+    },
+    "expected_command": "openssl enc -aes-256-cbc -salt -pbkdf2 -in customer_data.csv -out encrypted.enc -pass pass:ApexSecure2026",
+    "password": "ApexSecure2026",
+    "algorithm": "AES-256-CBC with PBKDF2",
+    "flag": "CyberArena{d52843b875f9d113fd53fadf4046f762c7f00968819434f6cee157dc764f948a}",
+    "flag_hash": "81348b04f59e06466fd038d7169ded5e633a510ae10cd2aaa87271c2f57728aa",
+    "difficulty": "مبتدئ",
+    "module": "encryption-basics",
+    "xp_reward": 100
+  },
+  {
+    "id": "blue2",
+    "title": "تشفير سجل طبي بـ AES-GCM",
+    "story": "السجل الطبي للمريضة Fatima Hassan يجب إرساله إلى مستشفى آخر عبر قناة غير آمنة. طلب منك تطبيق AES-GCM لتشفير patient_record.txt مع authenticated encryption. الـ key تولّد من password MedGCM_2026 و IV عشوائي 96-bit.",
+    "task_outline": "استخدم openssl لتشفير patient_record.txt بـ AES-256-GCM. الـ password: MedGCM_2026. احسب SHA-256 للناتج.",
+    "files": {
+      "patient_record.txt": "UGF0aWVudDogRmF0aW1hIEhhc3NhbgpET0I6IDE5ODUtMDMtMTIKRGlhZ25vc2lzOiBUMkRNLCBIeXBlcnRlbnNpb24KTWVkaWNhdGlvbnM6IE1ldGZvcm1pbiA1MDBtZyBCSUQsIExpc2lub3ByaWwgMTBtZyBRRApOb3RlczogQTFDIHRyZW5kaW5nIGRvd24sIGZvbGxvdy11cCBpbiAzIG1vbnRocw=="
+    },
+    "command_outputs": {
+      "cat:patient_record.txt": {
+        "stdout": "Patient: Fatima Hassan\nDOB: 1985-03-12\nDiagnosis: T2DM, Hypertension\nMedications: Metformin 500mg BID, Lisinopril 10mg QD\nNotes: A1C trending down, follow-up in 3 months",
+        "exit_code": 0
+      },
+      "openssl:aes-256-gcm": {
+        "stdout": "1a83636eeb5145386ee96e9416bfd03ff8b31f242ffc2e71a368411441d6acd3a37b354387e7e8a1e0601a1693a310ded087d4c911cbfedac53459b37b5d4ebd8f030b817266fd346a09d2e2cf4190da6f16fe98c3161dbf5ce1dcbbcb804e64c9eac25f65be1cb9974e9c6b8d242a2d075772eeec36fe7bcec34b352a192a825bcbfc6e5e9d73242c8f25d5226f5ca02b7b5008ebdf145dbf9757a3c9d787943ee6a25ae80b9069f82c133ca9334f470ea32fc6e9a8deaaec7ff7c348df89ccbf3422e0f4",
+        "stderr": "",
+        "exit_code": 0
+      },
+      "sha256sum": {
+        "stdout": "81b5024508b22a5c32f49e47f34e3018e66b740db95cbcee338f1a503cbf75ba  encrypted_gcm.bin",
+        "exit_code": 0
+      },
+      "ls": {
+        "stdout": "patient_record.txt",
+        "exit_code": 0
+      }
+    },
+    "expected_command": "openssl enc -aes-256-gcm -in patient_record.txt -out encrypted_gcm.bin -pass pass:MedGCM_2026",
+    "password": "MedGCM_2026",
+    "algorithm": "AES-256-GCM",
+    "flag": "CyberArena{81b5024508b22a5c32f49e47f34e3018e66b740db95cbcee338f1a503cbf75ba}",
+    "flag_hash": "cc5e562887f44600669e51fe4f77dc8bcabe10d8b7d1f769b587a137f60914ba",
+    "difficulty": "متوسط",
+    "module": "encryption-basics",
+    "xp_reward": 150
+  },
+  {
+    "id": "blue3",
+    "title": "توقيع عقد رقمي بـ RSA-PSS",
+    "story": "محامي الشركة يحتاج توقيع رقمي على contract.txt. استخدم private_key.pem الموجود. الـ signature يجب أن تستخدم RSA-PSS مع SHA-256.",
+    "task_outline": "وقّع contract.txt بـ openssl dgst -sha256 -sign. الـ flag هو CyberArena{<base64(signature) without padding>}",
+    "files": {
+      "contract.txt": "U0VSVklDRSBBR1JFRU1FTlQKClRoaXMgYWdyZWVtZW50IGlzIGVudGVyZWQgaW50byBvbiAyMDI2LTA0LTE1CmJldHdlZW4gQXBleCBDb3JwIChQcm92aWRlcikgYW5kIFplblRlY2ggR21iSCAoQ2xpZW50KS4KClNjb3BlOiBTZWN1cml0eSBhdWRpdCBvZiBaZW5UZWNoIGluZnJhc3RydWN0dXJlCkR1cmF0aW9uOiA5MCBkYXlzCkZlZTogJDI1MCwwMDAgVVNECgpTaWduZWQ6IF9fX19fX19fX19fX19fX19fX19f",
+      "private_key.pem": "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUNkd0lCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQW1Fd2dnSmRBZ0VBQW9HQkFLYlRtc1pBbTkwRWN0QW4KMnY2cGlMdHFlR3d3azFMWXRtd0IwdkE0M3dha1NRZlpDVVB6aVVvYlBYbXNMMTE4TERndG5ObUs4Sjh3cTZ1VQpYdXRBSCtrbk9YWDk3ZWI5Sm1Na25qVUpZbS9hcFM5SmNYZWhtSHhocnpMUm10MUtkZUVBWFVEb2JWVEtNTWtlClNER1g5RHdwb241dUJBdHk3VUVQbTIwN0dLTU5BZ01CQUFFQ2dZQXJsay96Q29CdXI3SGJ4djRGMlgrN0QrZGsKeFJCSTdneERqZnB4L3pudVAxQkJkNmhmRTZ0RUxIZlVhWE42cG0zYlE3ZWVjeG5KVGVzY2lraCtpS09OV0U2Zworc1d0WGVTK0R6M0hNQ0s4QmhkNU02Vkx1bE8rYTExMDJiVnJSUkkzaTVkanZ4L0FwNmdhajRJQzRJMjVYS0RVCkZaUGZQYndqYXY5ejhWYUlBUUpCQU5DaEorYmJ0SzRjb0N3L0xFVkxoaHYveXZYcFJSS09FcW4zQVQxNnFzeFQKY0J5VW1LeVpRdVhZNDF2NHlPWkc0RnorNUd1VWI5dmZ2T2JGckd5ck9RMENRUURNdEpveXFRQnN3aVlRT0U0KwpNVkJEa0pzcDIyd1VYUkJlOVplL3Q4UnJMMDNrcHVTL0N2VUFUZjgxK1k1N0dTdERxSW9rQzdIOTg5UW9qWWNHCmRKSUJBa0VBcElMUGtnMGhWa0lnVTRPbEJ5ZGNvdXQ3UVpvbDYxRzRpZW5LUW81ZDdDekhOT0kvMmFvb3hGSFkKUm9mUTh6UmthekJiTWpHa1d2NzhXQVQ3eDl6a2FRSkJBTHNTd1doU3NpU3lPUDdSdGc5NEdaWGxiU2VQY3ZJWgpLb0RkaUZTWXFGUWI0dDkyOWN6eFFuMkl5aGFWZmZSWlNBU0kzZFdiS29xZWJlQ3hsaGY4S0FFQ1FGTFVBT05tCnA0ZTR5dVYvWWRzV1daa2dQQnlFL1diNFRXYTZlN2tITzd2dFZvNndhVDVUbkFrdU10aEZBMEh3RnFiQU9YRGUKcHVvQklNbFBScndteFprPQotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg=="
+    },
+    "command_outputs": {
+      "cat:contract.txt": {
+        "stdout": "SERVICE AGREEMENT\n\nThis agreement is entered into on 2026-04-15\nbetween Apex Corp (Provider) and ZenTech GmbH (Client).\n\nScope: Security audit of ZenTech infrastructure\nDuration: 90 days\nFee: $250,000 USD\n\nSigned: ____________________",
+        "exit_code": 0
+      },
+      "openssl:sign": {
+        "stdout": "iUJPFDNDpfzCrKOuhvfiux4cPT0nCaxxwWEnsWTjK64DLpmd0Wv42NvhqLME0NrJkqJ9msv7xKJNH26xPWycK1kuM0yCbwYFBbs8u7ymXuZ75SjIzrG9QgkdHVoswlqA5GQTquh2vn+te2wvMCYCd169lurJmrNK7SngJhaqGJM=",
+        "stderr": "",
+        "exit_code": 0
+      },
+      "base64": {
+        "stdout": "iUJPFDNDpfzCrKOuhvfiux4cPT0nCaxxwWEnsWTjK64DLpmd0Wv42NvhqLME0NrJkqJ9msv7xKJNH26xPWycK1kuM0yCbwYFBbs8u7ymXuZ75SjIzrG9QgkdHVoswlqA5GQTquh2vn+te2wvMCYCd169lurJmrNK7SngJhaqGJM=",
+        "stderr": "",
+        "exit_code": 0
+      },
+      "ls": {
+        "stdout": "contract.txt\nprivate_key.pem",
+        "exit_code": 0
+      }
+    },
+    "expected_command": "openssl dgst -sha256 -sign private_key.pem -out signature.bin contract.txt",
+    "flag": "CyberArena{d76c022deecb9dfc8cfd032f4e404adde4cd4707bd06ac14c6580d80685a1b17}",
+    "flag_hash": "c32783d0e74fa77a24bf90b7ae13b6ee59e0647a76184e2449a79ff041f01426",
+    "difficulty": "قوي",
+    "module": "rsa-aes",
+    "xp_reward": 200
+  },
+  {
+    "id": "blue4",
+    "title": "حساب SHA-256 لـ firmware قبل التوزيع",
+    "story": "فريق QA رفع firmware.bin بحجم 4KB للنوافذ. قبل توزيعه على 10,000 جهاز، يجب أن يحسب SHA-256 ويُدرج في ملاحظات الإصدار. أداة sha256sum متوفرة في النظام.",
+    "task_outline": "احسب SHA-256 لـ firmware.bin. الـ flag هو CyberArena{<hex_hash>}",
+    "files": {
+      "firmware.bin": "OQyMfXJHNCzYEA8vb3cNZdZw5Y4DUdiujk9urDQvwjG3sIcW6z/BKJa5YiMXdJQodzPCjui6U721a4gkV31T7MKKcKYcdRChzYkhbKFs/8rqSYdHfobbzLlwRvwuGDhOUdggxcPvgAU6iK45lt5Q6AGGWzaYZU6/UgCl+gk5uZ16HXsoK/gjQEHzVIfYbGafzL/g5z1+cyCtCnVwAyQedSIQqSR5jvhtQ/J88tBhMDHctdjS7xsyH86tN39iYeVH2F2O7H8m4jIZBy95VdD49m3NHlTCAceH6JLY+U9hl28dH6AdGfRQHSlfIyJ4zj1+FCnWoYVooHqHykOZ6qElBA=="
+    },
+    "command_outputs": {
+      "sha256sum:firmware.bin": {
+        "stdout": "6d252e30cd8e999569e9291b18969a9ef7bc1a382477f2688be75f291a130e30  firmware.bin",
+        "exit_code": 0
+      },
+      "ls": {
+        "stdout": "firmware.bin",
+        "exit_code": 0
+      },
+      "file:firmware.bin": {
+        "stdout": "firmware.bin: data",
+        "exit_code": 0
+      }
+    },
+    "expected_command": "sha256sum firmware.bin",
+    "flag": "CyberArena{6d252e30cd8e999569e9291b18969a9ef7bc1a382477f2688be75f291a130e30}",
+    "flag_hash": "a3ee08ad07a622ee39073ea50571858dbe2baf68ed84010a5ec5ad832d894048",
+    "difficulty": "مبتدئ",
+    "module": "hash-cracking",
+    "xp_reward": 100
+  },
+  {
+    "id": "blue5",
+    "title": "توقيع Webhook بـ HMAC-SHA256",
+    "story": "خدمة الدفعات ترسل webhook إلى endpoint الشركة. كل طلب يجب أن يحوي HMAC-SHA256 في الـ header X-Signature. الـ secret مشترك مع الـ receiver. احسب التوقيع لـ payload.json بالـ key: Zapier_Webhook_2026_Secret.",
+    "task_outline": "استخدم openssl dgst -sha256 -hmac لتوقيع payload.json. الـ flag هو CyberArena{<hex_hmac>}",
+    "files": {
+      "payload.json": "eyJldmVudCI6InBheW1lbnQuY29tcGxldGVkIiwiYW1vdW50IjoyNTAwLjAwLCJjdXJyZW5jeSI6IlVTRCIsInRpbWVzdGFtcCI6IjIwMjYtMDQtMTVUMTQ6MzA6MDBaIiwidHhuX2lkIjoidHhfYWJjMTIzIn0="
+    },
+    "command_outputs": {
+      "cat:payload.json": {
+        "stdout": "{\"event\":\"payment.completed\",\"amount\":2500.00,\"currency\":\"USD\",\"timestamp\":\"2026-04-15T14:30:00Z\",\"txn_id\":\"tx_abc123\"}",
+        "exit_code": 0
+      },
+      "openssl:hmac": {
+        "stdout": "HMAC-SHA256(payload.json)= a98eac9cc676f9d140b67bef045716e99464ec7d14e78755d31124ef8ec5917f",
+        "stderr": "",
+        "exit_code": 0
+      },
+      "ls": {
+        "stdout": "payload.json",
+        "exit_code": 0
+      }
+    },
+    "expected_command": "openssl dgst -sha256 -hmac 'Zapier_Webhook_2026_Secret' payload.json",
+    "flag": "CyberArena{a98eac9cc676f9d140b67bef045716e99464ec7d14e78755d31124ef8ec5917f}",
+    "flag_hash": "6a7b2c26343ef2b4dd43fdb3e56dfff8c1de0e8c51d7dc0999b3f5dd2a6982ed",
+    "difficulty": "متوسط",
+    "module": "hash-cracking",
+    "xp_reward": 150
+  }
+]

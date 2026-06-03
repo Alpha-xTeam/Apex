@@ -168,7 +168,9 @@ def parse_json_safe(raw: str) -> dict:
 # ---------- Supabase PostgREST Client Helpers (Scenario Pool) ----------
 
 def scenario_table(team_role: str) -> str:
-    return "blue_scenarios" if team_role == "blue" else "red_scenarios"
+    # Per-type pool: crypto challenges live in encryption_challenges, filtered by team_role.
+    # The team_role column is the only thing that differs between blue/red.
+    return "encryption_challenges"
 
 
 def supabase_headers(content_type: bool = False) -> dict:
@@ -200,7 +202,7 @@ async def fetch_scenario_by_id(team_role: str, scenario_id: str) -> Optional[dic
     if not SUPABASE_ANON_KEY or not SUPABASE_URL:
         return None
     table = scenario_table(team_role)
-    url = f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{scenario_id}"
+    url = f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{scenario_id}&team_role=eq.{team_role}"
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, headers=supabase_headers())
@@ -217,7 +219,7 @@ async def fetch_random_scenario_from_supabase(team_role: str, module: str) -> Op
     if not SUPABASE_ANON_KEY or not SUPABASE_URL:
         return None
     table = scenario_table(team_role)
-    url = f"{SUPABASE_URL}/rest/v1/{table}?module=eq.{module}"
+    url = f"{SUPABASE_URL}/rest/v1/{table}?module=eq.{module}&team_role=eq.{team_role}"
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, headers=supabase_headers())
@@ -234,7 +236,7 @@ async def delete_scenario_from_supabase(scenario_id: str, team_role: str):
     if not SUPABASE_ANON_KEY or not SUPABASE_URL:
         return
     table = scenario_table(team_role)
-    url = f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{scenario_id}"
+    url = f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{scenario_id}&team_role=eq.{team_role}"
     try:
         async with httpx.AsyncClient() as client:
             await client.delete(url, headers=supabase_headers())
@@ -368,6 +370,24 @@ class EvaluateRequest(BaseModel):
     originalChallenge: dict
     userCode: str
     teamRole: Optional[str] = "red"
+
+
+class TerminalRequest(BaseModel):
+    teamRole: Optional[str] = "red"
+    challengeId: str
+    command: str
+
+
+class TerminalWriteRequest(BaseModel):
+    teamRole: Optional[str] = "red"
+    challengeId: str
+    filename: str
+    content: str
+
+
+class TerminalListRequest(BaseModel):
+    teamRole: Optional[str] = "red"
+    challengeId: str
 
 
 class CertificateRequest(BaseModel):
@@ -508,26 +528,55 @@ async def generate_scenario_from_groq(team_role: str, module: str, path: str = "
     topic = topic_info["name"]
     team_label = "الفريق الأزرق (مدافع)" if team_role == "blue" else "الفريق الأحمر (مهاجم)"
 
-    system_prompt = f"""أنت مصمم سيناريوهات تدريب أمن سيبراني محترف.
-مهمتك: إنشاء سيناريو تدريبي مختصر فقط (بدون أكواد HTML كاملة وبدون ملفات جاهزة).
-السيناريو سيُستخدم لاحقاً بواسطة ذكاء اصطناعي آخر لبناء تحدٍ تفاعلي كامل.
+    # Pull recent titles to avoid duplicates
+    existing_titles = await _fetch_existing_titles(team_role)
 
-الدور: {team_label}
-الموضوع: {topic}
-الوحدة: {module}
-الصعوبة: {difficulty}
+    system_prompt = f"""أنت كبير مصممي سيناريوهات الأمن السيبراني في منصة APEX، وتعمل بمعايير المنصات العالمية (HackTheBox، PortSwigger، SANS، MITRE ATT&CK، PicoCTF).
 
-أرجع JSON خام فقط بدون Markdown:
+مهمتك: تصميم سيناريو تدريبي **مبتكر وواقعي** بمستوى احترافي عالٍ.
+السيناريو سيُستخدم كقصة أساسية يبني عليها ذكاء اصطناعي آخر تحدٍ تفاعلي كامل.
+
+### الدور
+{team_label}
+
+### الموضوع التقني
+{topic} (module key: {module})
+
+### مستوى الصعوبة
+{difficulty}
+
+### قواعد الجودة الصارمة (مهم جداً)
+1. **واقعية قصوى**: السيناريو يجب أن يكون مستوحى من حادثة أمنية حقيقية أو حالة اختراق معروفة (مثل اختراق SolarWinds، ثغرة Log4Shell، تسريبات Capital One S3، تسريبات Facebook GraphQL، Kerberoasting، إلخ). لا قصص طفولية.
+2. **تفاصيل تقنية دقيقة**: اذكر تقنيات حقيقية (CVEs بأرقامها، نُسخ منتجات، أدوات)، أسماء شركات وهمية واقعية، أرقام دقيقة (IP، نطاقات، hashes، endpoints، CVSS scores).
+3. **تنوع**: لا تكرّر نفس القصة/السيناريو بتغييرات طفيفة. كل سيناريو يجب أن يحكي قصة فريدة.
+4. **بيئة تقنية محددة**: اذكر stack تقني واضح (مثل Nginx 1.18, MySQL 8, AWS EC2 t3.medium, K8s 1.28, Active Directory 2019، إلخ).
+5. **مخرجات قابلة للقياس**: الـ "task" يجب أن يحدد مهمة واحدة واضحة ومحددة يمكن للذكاء الاصطناعي التالي تحويلها إلى تحدٍ تفاعلي.
+6. **تخصص**: استخدم مصطلحات أمان سيبراني احترافية (TTPs من MITRE ATT&CK، CVE/CWE، IOC، C2، lateral movement، exfiltration، persistence).
+
+### منع التكرار
+العناوين الموجودة حالياً في البركة (لا تُكرّرها أو تشابهها):
+{', '.join(existing_titles[:25]) if existing_titles else 'لا يوجد'}
+
+### الإخراج (JSON خام فقط، بدون Markdown)
 {{
-  "title": "عنوان السيناريو",
-  "story": "قصة واقعية بالعربية تصف الحادثة والبيئة والسياق",
-  "task": "ملخص المهمة المطلوبة من المتدرب (فقرة واحدة واضحة)",
+  "title": "عنوان احترافي مبتكر بالإنجليزية أو العربية يصف السيناريو بدقة",
+  "story": "قصة سياقية واقعية (3-4 جمل) تصف: من الشركة؟ ما التقنية المستخدمة؟ ما الثغرة أو السياق الأمني؟ ما الأثر؟",
+  "task": "مهمة واحدة واضحة ومحددة باللغة العربية (فقرة واحدة) تصف ما يجب على المتدرب فعله",
   "difficulty": "{difficulty}",
   "xpReward": {200 if difficulty == "قوي" else 150 if difficulty == "متوسط" else 100}
 }}"""
 
-    user_prompt = f"""أنشئ سيناريو تدريبي جديداً لـ {team_label} في مجال {topic}.
-يجب أن يكون السيناريو واقعياً ومختلفاً عن السيناريوهات التقليدية، ويركز على {module}."""
+    # Pick a creative seed based on difficulty + module to ensure variety
+    creative_seeds = [
+        f"حادثة أمنية في شركة {random.choice(['CloudWave', 'FinShield', 'TechCorp', 'MediCore', 'DataHub', 'ApexBank', 'NexusLogistics', 'QuantumHealth', 'SolarSync', 'PayStream'])}",
+        f"سيناريو هجوم/دفاع مبني على {random.choice(['MITRE ATT&CK T1059', 'CVE-2024-3094', 'OWASP API Top 10', 'NIST SP 800-53', 'PCI-DSS violation', 'insider threat', 'supply chain attack', 'zero-day exploit', 'privilege escalation chain'])}",
+        f"بيئة {random.choice(['Kubernetes 1.28', 'AWS EKS', 'Azure AD', 'GCP IAM', 'Active Directory 2019', 'Java Spring Boot', 'Node.js Express', 'PHP 8.2', 'Python FastAPI', 'Go microservice', 'React SPA', 'GraphQL API'])} مع {random.choice(['misconfig', 'memory leak', 'race condition', 'TOCTOU', 'insecure deserialization', 'weak crypto'])}",
+    ]
+    user_prompt = (
+        f"صمم سيناريو {team_label} جديد وحصري عن {topic}.\n"
+        f"الإلهام: {random.choice(creative_seeds)}.\n"
+        f"تذكير: اجعل السيناريو **مختلفاً كلياً** عن العناوين السابقة، واذكر stack تقني محدد، واصف الأثر بالأرقام (مستخدمين/سجلات/دولار)."
+    )
 
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.post(GROQ_API_URL, json={
@@ -537,7 +586,7 @@ async def generate_scenario_from_groq(team_role: str, module: str, path: str = "
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": 0.85,
-            "max_tokens": 1200,
+            "max_tokens": 3500,
         }, headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -549,6 +598,22 @@ async def generate_scenario_from_groq(team_role: str, module: str, path: str = "
         raise HTTPException(status_code=500, detail=f"Groq API error: {resp.status_code}")
 
     return parse_json_safe(resp.json()["choices"][0]["message"]["content"])
+
+
+async def _fetch_existing_titles(team_role: str) -> list:
+    """Fetch recent scenario titles to be passed to the prompt for uniqueness check."""
+    if not SUPABASE_ANON_KEY or not SUPABASE_URL:
+        return []
+    table = scenario_table(team_role)
+    url = f"{SUPABASE_URL}/rest/v1/{table}?select=title&team_role=eq.{team_role}&order=created_at.desc&limit=40"
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, headers=supabase_headers())
+            if resp.status_code == 200:
+                return [row.get("title", "") for row in resp.json() if row.get("title")]
+    except Exception:
+        pass
+    return []
 
 
 async def generate_challenge_from_scenario(
@@ -745,116 +810,76 @@ async def generate_and_store_scenario(team_role: str, module: str, path: str = "
 
 
 async def handle_background_replacement(scenario_id: str, team_role: str, module: str, path: str, category: str, difficulty: str):
+    """Consume (delete) a solved/used challenge from the pool.
+
+    Per AGENTS.md pool architecture:
+      - The pool watcher (crypto_generator.start_pool_watcher) is the ONLY
+        component allowed to call Groq for refills, and it only fires when
+        the pool count drops to POOL_THRESHOLD (=2).
+      - This function used to immediately call generate_and_store_scenario
+        after every solve, which hammered Groq → 429 rate-limits. That's
+        gone now: we just delete and let the watcher catch up later.
+    """
     try:
         await delete_scenario_from_supabase(scenario_id, team_role)
-        print(f"Deleted solved scenario {scenario_id} from Supabase.")
-        await generate_and_store_scenario(team_role, module, path, category, difficulty)
+        print(f"Deleted solved scenario {scenario_id} from Supabase. (refill deferred to pool watcher)")
     except Exception as e:
         print(f"Error in background scenario replacement task: {e}")
 
 
 async def populate_pool_background():
-    await asyncio.sleep(8)  # Gentle wait on startup
-    print("Background populate worker started successfully.")
-    topics = list(CYBER_SECURITY_TOPICS.keys())
-    difficulties = ["مبتدئ", "متوسط", "قوي"]
-    
-    # Hysteresis state flags
-    refilling_blue = False
-    refilling_red = False
-    
-    # Track last values to prevent duplicate console spam
-    last_blue_count = -1
-    last_red_count = -1
-    last_refill_blue = None
-    last_refill_red = None
-    
-    while True:
-        try:
-            # Run a dynamic relevance audit to purge mismatched challenges automatically upon check
-            try:
-                # We can dynamically invoke our audit process
-                # Purge mismatched blue/red challenges
-                for table_name in ["blue_scenarios", "red_scenarios"]:
-                    headers = supabase_headers()
-                    url = f"{SUPABASE_URL}/rest/v1/{table_name}?select=id,title,story,task_outline,module"
-                    resp = await httpx.AsyncClient().get(url, headers=headers)
-                    if resp.status_code == 200:
-                        scenarios = resp.json()
-                        for c in scenarios:
-                            mod = c.get("module", "")
-                            title = (c.get("title") or "").lower()
-                            task = (c.get("task_outline") or c.get("story") or "").lower()
-                            # Verify if relevant keywords exist for the module
-                            expected_kws = TOPIC_KEYWORDS.get(mod, [])
-                            is_relevant = False
-                            if not expected_kws:
-                                is_relevant = True
-                            else:
-                                for kw in expected_kws:
-                                    if kw in title or kw in task:
-                                        is_relevant = True
-                                        break
-                            # Remove cross-topic leaks or mismatches
-                            if mod in ["xss", "sql-injection", "csrf"]:
-                                for bad_kw in ["جدار حماية", "firewall", "تشفير", "base64", "pcap", "wireshark", "هاش", "hash"]:
-                                    if bad_kw in title or bad_kw in task:
-                                        is_relevant = False
-                            if not is_relevant:
-                                print(f"♻️ [Auto-Purge] Scenario '{c['title']}' doesn't match module '{mod}'. Purging...")
-                                del_url = f"{SUPABASE_URL}/rest/v1/{table_name}?id=eq.{c['id']}"
-                                await httpx.AsyncClient().delete(del_url, headers=headers)
-            except Exception as audit_err:
-                print(f"Error during auto-audit in background: {audit_err}")
+    """
+    Background pool replenisher.
 
-            blue_count = await get_supabase_scenario_count("blue")
-            red_count = await get_supabase_scenario_count("red")
-            
-            # Update refilling states based on thresholds (Hysteresis)
-            if blue_count < 100:
-                refilling_blue = True
-            elif blue_count >= 110:
-                refilling_blue = False
-                
-            if red_count < 100:
-                refilling_red = True
-            elif red_count >= 110:
-                refilling_red = False
-                
-            # Only print when counts or refilling statuses change
-            if (blue_count != last_blue_count or 
-                red_count != last_red_count or 
-                refilling_blue != last_refill_blue or 
-                refilling_red != last_refill_red):
-                
-                print(f"Pool status updated: Blue={blue_count} (Refilling: {refilling_blue}), Red={red_count} (Refilling: {refilling_red})")
-                last_blue_count = blue_count
-                last_red_count = red_count
-                last_refill_blue = refilling_blue
-                last_refill_red = refilling_red
-            
-            # Gradually populate until target size is reached
-            if refilling_blue and blue_count < 110:
-                module = random.choice(topics)
-                difficulty = random.choice(difficulties)
-                info = CYBER_SECURITY_TOPICS[module]
-                await generate_and_store_scenario("blue", module, info["path"], info["category"], difficulty)
-                await asyncio.sleep(15) # Shorter sleep to refill faster but safely
-                continue
-                
-            if refilling_red and red_count < 110:
-                module = random.choice(topics)
-                difficulty = random.choice(difficulties)
-                info = CYBER_SECURITY_TOPICS[module]
-                await generate_and_store_scenario("red", module, info["path"], info["category"], difficulty)
-                await asyncio.sleep(15)
-                continue
-            
-            # Pool is fully seeded/satisfied, wait 5 minutes before checking again
-            await asyncio.sleep(300)
-        except Exception as e:
-            print(f"Error in background populate loop: {e}")
-            await asyncio.sleep(60)
+    Architecture (per-type generator pattern):
+      - Each challenge type (crypto, web, forensics, ...) has its own
+        `*_generator.py` module with the same public API:
+            async start_pool_watcher(team_role)  -> coroutine that runs forever
+      - main.py starts one watcher per (type, team) at startup.
+      - The watcher is responsible for counting and refilling its own table.
+
+    Pool model (per team):
+      - Target: 5 challenges total
+      - Threshold: 2 (refill when at or below)
+      - Batch: 3 (insert this many per refill cycle)
+    """
+    await asyncio.sleep(8)  # Gentle wait on startup
+    print("Background pool watcher orchestrator started.")
+
+    # ---- Register generator modules here as they are built ----
+    # Each entry: (generator_module, list_of_teams)
+    # The generator must export `async start_pool_watcher(team_role)`.
+    registered = []
+
+    try:
+        import crypto_generator
+        # Crypto challenges are Red-team only for now (Blue encryption UI not yet built).
+        registered.append(("crypto", crypto_generator, ["red"]))
+    except Exception as e:
+        print(f"[main] Could not import crypto_generator: {e}")
+
+    # Future:
+    # try:
+    #     import web_generator
+    #     registered.append(("web", web_generator, ["blue", "red"]))
+    # except Exception as e:
+    #     print(f"[main] Could not import web_generator: {e}")
+    #
+    # try:
+    #     import forensics_generator
+    #     registered.append(("forensics", forensics_generator, ["blue", "red"]))
+    # except Exception as e:
+    #     print(f"[main] Could not import forensics_generator: {e}")
+
+    print(f"[main] Active generators: {[name for name, _, _ in registered]}")
+
+    for name, gen, teams in registered:
+        for team in teams:
+            asyncio.create_task(gen.start_pool_watcher(team))
+
+    # Keep the orchestrator alive (it just spawns tasks, no loop of its own)
+    while True:
+        await asyncio.sleep(3600)
 
 
 @app.on_event("startup")
@@ -862,7 +887,7 @@ async def startup_event():
     # Force system execution of check
     sys_path = os.path.dirname(os.path.abspath(__file__))
     sys.path.append(sys_path)
-    # Run the background seed task
+    # Run the background pool watcher
     asyncio.create_task(populate_pool_background())
 
 
@@ -875,7 +900,7 @@ async def list_challenges(team_role: str = "blue", difficulty: Optional[str] = N
     if not SUPABASE_ANON_KEY or not SUPABASE_URL:
         return {"challenges": []}
     fields = "id,title,module,difficulty,xp_reward"
-    url = f"{SUPABASE_URL}/rest/v1/{table}?select={fields}&limit={limit}"
+    url = f"{SUPABASE_URL}/rest/v1/{table}?select={fields}&team_role=eq.{team_role}&limit={limit}"
     if difficulty:
         url += f"&difficulty=eq.{difficulty}"
     try:
@@ -917,12 +942,28 @@ async def solve_challenge(req: SolvedRequest, background_tasks: BackgroundTasks)
 
 @app.post("/api/training/generate")
 async def generate_training(req: TrainingRequest, background_tasks: BackgroundTasks):
-    scenario_id = req.challengeId
-    scenario = None
+    """Resolve a challenge for the trainee.
 
+    New flow (per-type tables like encryption_challenges):
+      1. Look up the row by id in the per-type table.
+      2. If found, return it directly mapped to TrainingData — no Groq needed.
+      3. Fall back to the legacy Groq-on-demand flow for unsupported modules.
+    """
+    scenario_id = req.challengeId
+    module = req.module
+
+    # ---- 1) Try the per-type table (encryption_challenges, etc.) ----
+    if module in ("encryption-basics", "hash-cracking", "rsa-aes") and scenario_id:
+        row = await fetch_scenario_by_id(req.teamRole, scenario_id)
+        if row:
+            training = _map_encryption_row_to_training(row, req.teamRole)
+            print(f"[generate] Served from encryption_challenges: {training['title']}")
+            return {"training": training}
+
+    # ---- 2) Fallback: legacy Groq-generated scenario flow ----
+    scenario = None
     if scenario_id:
         scenario = await fetch_scenario_by_id(req.teamRole, scenario_id)
-
     if not scenario:
         scenario = await fetch_random_scenario_from_supabase(req.teamRole, req.module)
 
@@ -949,6 +990,377 @@ async def generate_training(req: TrainingRequest, background_tasks: BackgroundTa
     training_data = attach_scenario_metadata(training_data, scenario)
 
     return {"training": training_data}
+
+
+def _map_encryption_row_to_training(row: dict, team_role: str) -> dict:
+    """Map a row from encryption_challenges to the TrainingData shape.
+
+    The frontend expects:
+        title, story, type, task, hints[], expectedAnswer, explanation,
+        difficulty, xpReward, scenarioId, files, command_outputs, tools_whitelist
+    """
+    files = row.get("files") or {}
+    file_meta = row.get("file_metadata") or {}
+    # Decode the first file as the editable buffer (if any)
+    first_filename = next(iter(files), None)
+    code = ""
+    if first_filename:
+        import base64 as _b64
+        try:
+            code = _b64.b64decode(files[first_filename]).decode("utf-8", errors="replace")
+        except Exception:
+            code = ""
+
+    return {
+        "id": row.get("id"),
+        "scenarioId": row.get("id"),
+        "title": row.get("title", ""),
+        "story": row.get("story", ""),
+        "type": row.get("module", "encryption-basics"),
+        "task": row.get("task_outline", ""),
+        "code": code,
+        "codeLanguage": _infer_code_language(first_filename, team_role),
+        "htmlPreview": code if (first_filename or "").endswith(".html") else None,
+        "logData": code if (first_filename or "").endswith((".log", ".txt")) else None,
+        "configData": code if (first_filename or "").endswith((".json", ".csv", ".pem")) else None,
+        "vulnerabilityLocation": None,
+        "hints": row.get("hints") or [],
+        "expectedAnswer": row.get("flag_preview", ""),       # CyberArena{...}
+        "expectedAnswerHash": row.get("flag_hash", ""),      # server-side check
+        "explanation": "العلم يظهر في مخرجات الطرفية بعد تنفيذ الأمر الصحيح.",
+        "xpReward": row.get("xp_reward", 100),
+        "difficulty": row.get("difficulty", "متوسط"),
+        "files": files,
+        "fileMetadata": file_meta,
+        "commandOutputs": row.get("command_outputs") or {},
+        "toolsWhitelist": row.get("tools_whitelist") or [],
+    }
+
+
+def _infer_code_language(filename: str | None, team_role: str) -> str:
+    if not filename:
+        return "text"
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    mapping = {
+        "html": "html", "js": "javascript", "ts": "typescript",
+        "py": "python", "json": "json", "csv": "text",
+        "pem": "text", "log": "text", "txt": "text", "bin": "binary",
+    }
+    return mapping.get(ext, "text")
+
+
+# ---------- Real Terminal Sandbox ----------
+# Instead of returning canned pre-computed outputs, the frontend POSTs the
+# command the trainee typed, and we actually execute it inside a temp
+# workdir that contains the challenge's files. Built-in commands (cat, ls,
+# echo, ...) and the challenge's whitelisted tools (python, openssl, ...)
+# run for real — so the trainee can do `cat cipher.txt`, then write a
+# Python one-liner, etc., and the output is genuine.
+
+import base64 as _b64_term
+import shlex as _shlex
+import subprocess as _sp
+import tempfile as _tempfile
+
+_terminal_workdirs: dict[str, str] = {}
+_last_loaded_row: dict[str, dict] = {}
+
+
+async def _get_or_create_workdir(team_role: str, challenge_id: str) -> tuple[str, dict]:
+    """Return (workdir, challenge_row) — cached per challenge."""
+    key = f"{team_role}:{challenge_id}"
+    if key in _terminal_workdirs and os.path.isdir(_terminal_workdirs[key]):
+        return _terminal_workdirs[key], _last_loaded_row.get(key, {})
+
+    row = None
+    if challenge_id:
+        try:
+            row = await fetch_scenario_by_id(team_role, challenge_id)
+        except Exception:
+            row = None
+    if row is None:
+        workdir = _tempfile.mkdtemp(prefix=f"ca_{team_role}_{challenge_id[:8]}_")
+        _terminal_workdirs[key] = workdir
+        return workdir, {}
+
+    workdir = _tempfile.mkdtemp(prefix=f"ca_{team_role}_{challenge_id[:8]}_")
+    files = row.get("files") or {}
+    for filename, b64 in files.items():
+        # Sanitize: /etc/shadow -> etc/shadow inside workdir
+        clean = filename.lstrip("/\\").replace("..", "_").replace("\\", "/")
+        target = os.path.join(workdir, clean)
+        os.makedirs(os.path.dirname(target) or workdir, exist_ok=True)
+        try:
+            data = _b64_term.b64decode(b64)
+            with open(target, "wb") as f:
+                f.write(data)
+        except Exception:
+            pass
+    with open(os.path.join(workdir, ".challenge_id"), "w") as f:
+        f.write(challenge_id)
+    _terminal_workdirs[key] = workdir
+    _last_loaded_row[key] = row
+    return workdir, row
+
+
+def _shell_builtins(args: list[str], workdir: str) -> dict:
+    """Handle common Unix tools that don't exist on Windows natively."""
+    tool = args[0] if args else ""
+    rest = args[1:]
+    try:
+        if tool == "cat":
+            if not rest:
+                return {"stdout": "", "stderr": "cat: missing filename", "exitCode": 1}
+            out, err = [], ""
+            for fname in rest:
+                p = os.path.join(workdir, fname.lstrip("/\\").replace("..", "_"))
+                if not os.path.isfile(p):
+                    err += f"cat: {fname}: No such file\n"
+                    continue
+                with open(p, "r", encoding="utf-8", errors="replace") as f:
+                    out.append(f.read())
+            return {"stdout": "\n".join(out), "stderr": err, "exitCode": 0 if not err else 1}
+        if tool == "ls":
+            entries = sorted(os.listdir(workdir))
+            lines = []
+            for n in entries:
+                if n.startswith("."):
+                    continue
+                p = os.path.join(workdir, n)
+                if os.path.isdir(p):
+                    lines.append(f"<DIR>          {n}")
+                else:
+                    lines.append(f"               {n}")
+            return {"stdout": "\n".join(lines), "stderr": "", "exitCode": 0}
+        if tool == "pwd":
+            return {"stdout": workdir, "stderr": "", "exitCode": 0}
+        if tool == "echo":
+            return {"stdout": " ".join(rest), "stderr": "", "exitCode": 0}
+        if tool == "whoami":
+            return {"stdout": os.environ.get("USERNAME") or os.environ.get("USER") or "student", "stderr": "", "exitCode": 0}
+        if tool == "clear":
+            return {"stdout": "\x1b[2J\x1b[H", "stderr": "", "exitCode": 0, "clear": True}
+        if tool == "help":
+            return {"stdout": HELP_TEXT, "stderr": "", "exitCode": 0}
+        if tool in ("sha256sum", "md5sum", "sha1sum"):
+            algo = {"sha256sum": "sha256", "md5sum": "md5", "sha1sum": "sha1"}[tool]
+            import hashlib as _hl
+            if not rest:
+                return {"stdout": "", "stderr": f"{tool}: missing filename", "exitCode": 1}
+            out, err = [], ""
+            for fname in rest:
+                p = os.path.join(workdir, fname.lstrip("/\\").replace("..", "_"))
+                if not os.path.isfile(p):
+                    err += f"{tool}: {fname}: No such file\n"
+                    continue
+                with open(p, "rb") as f:
+                    h = _hl.new(algo, f.read()).hexdigest()
+                out.append(f"{h}  {fname}")
+            return {"stdout": "\n".join(out), "stderr": err, "exitCode": 0 if not err else 1}
+        if tool == "base64":
+            # base64 [file] or base64 -d file
+            decode = "-d" in rest
+            args2 = [a for a in rest if a != "-d"]
+            if not args2:
+                data = sys.stdin.read() if not sys.stdin.isatty() else b""
+                if decode:
+                    return {"stdout": _b64_term.b64decode(data).decode("utf-8", "replace"), "stderr": "", "exitCode": 0}
+                return {"stdout": _b64_term.b64encode(data).decode(), "stderr": "", "exitCode": 0}
+            out, err = [], ""
+            for fname in args2:
+                p = os.path.join(workdir, fname.lstrip("/\\").replace("..", "_"))
+                if not os.path.isfile(p):
+                    err += f"base64: {fname}: No such file\n"
+                    continue
+                with open(p, "rb") as f:
+                    data = f.read()
+                if decode:
+                    out.append(_b64_term.b64decode(data).decode("utf-8", "replace"))
+                else:
+                    out.append(_b64_term.b64encode(data).decode())
+            return {"stdout": "\n".join(out), "stderr": err, "exitCode": 0 if not err else 1}
+        if tool == "xxd":
+            import binascii as _bx
+            if not rest:
+                return {"stdout": "", "stderr": "xxd: missing filename", "exitCode": 1}
+            p = os.path.join(workdir, rest[0].lstrip("/\\").replace("..", "_"))
+            if not os.path.isfile(p):
+                return {"stdout": "", "stderr": f"xxd: {rest[0]}: No such file", "exitCode": 1}
+            with open(p, "rb") as f:
+                data = f.read()
+            return {"stdout": _bx.hexlify(data).decode(), "stderr": "", "exitCode": 0}
+        if tool == "tr":
+            if len(rest) < 2:
+                return {"stdout": "", "stderr": "tr: usage: tr SET1 SET2", "exitCode": 1}
+            set1, set2 = rest[0], rest[1]
+            # Read from stdin or files? simple: read from args after set1/set2
+            if len(rest) > 2:
+                src = " ".join(rest[2:])
+                for a, b in zip(set1, set2):
+                    src = src.replace(a, b)
+                return {"stdout": src, "stderr": "", "exitCode": 0}
+            return {"stdout": "", "stderr": "tr: no input", "exitCode": 1}
+    except Exception as e:
+        return {"stdout": "", "stderr": f"{tool}: {e}", "exitCode": 1}
+    return None  # not a builtin
+
+
+HELP_TEXT = """الأوامر الأساسية (تعمل دائماً):
+  ls, cat <file>, pwd, echo <text>, whoami, clear, help
+  sha256sum <file>, md5sum <file>, sha1sum <file>
+  base64 [-d] <file>     ترميز/فك Base64
+  xxd <file>             عرض hex
+  tr SET1 SET2 <text>    استبدال أحرف
+
+الأدوات الخارجية (مفعّلة لهذا التحدي): انظر whitelist في Cheat Sheet.
+  مثال:  python -c "print('hello')"
+          openssl enc -d -aes-256-cbc -in f.enc -k SECRET
+"""
+
+
+@app.post("/api/training/terminal")
+async def training_terminal(req: TerminalRequest):
+    """Execute a terminal command in the challenge's sandbox for real."""
+    team_role = req.teamRole or "red"
+    challenge_id = req.challengeId
+    command = (req.command or "").strip()
+
+    if not command:
+        return {"stdout": "", "stderr": "❌ أمر فارغ", "exitCode": 1}
+    if not challenge_id:
+        return {"stdout": "", "stderr": "❌ challengeId مفقود", "exitCode": 1}
+
+    # Pull the row (for whitelist) and create/load the workdir
+    workdir, row = await _get_or_create_workdir(team_role, challenge_id)
+    allowed = (row or {}).get("tools_whitelist") or []
+
+    # Parse the command safely
+    try:
+        parts = _shlex.split(command)
+    except ValueError as e:
+        return {"stdout": "", "stderr": f"❌ صيغة الأمر: {e}", "exitCode": 2}
+    if not parts:
+        return {"stdout": "", "stderr": "", "exitCode": 0}
+
+    tool = parts[0]
+
+    # submit is handled client-side already; refuse here to avoid confusion
+    if tool == "submit":
+        return {"stdout": "", "stderr": "❌ استخدم نموذج الإجابة في اللوحة، أو اكتب submit في الـ terminal بعد ربطه بالـ backend.", "exitCode": 1}
+
+    # Built-ins
+    if tool in {"cat", "ls", "pwd", "echo", "whoami", "clear", "help",
+                "sha256sum", "md5sum", "sha1sum", "base64", "xxd", "tr"}:
+        result = _shell_builtins(parts, workdir)
+        if result is not None:
+            return result
+
+    # Whitelist check (python/python3 are always allowed for user-authored scripts)
+    ALWAYS_ALLOWED = {"python", "python3", "py"}
+    if tool not in allowed and tool not in ALWAYS_ALLOWED:
+        return {
+            "stdout": "",
+            "stderr": f"❌ '{tool}' غير مسموح في هذا التحدي.\nالأدوات المسموحة: {', '.join(allowed) if allowed else '(لا توجد)'}",
+            "exitCode": 126,
+        }
+
+    # Run real subprocess
+    try:
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
+        env["PYTHONUTF8"] = "1"
+        proc = _sp.run(
+            parts,
+            cwd=workdir,
+            capture_output=True,
+            timeout=8,
+            env=env,
+        )
+        stdout = (proc.stdout or b"").decode("utf-8", errors="replace")
+        stderr = (proc.stderr or b"").decode("utf-8", errors="replace")
+        return {
+            "stdout": stdout[:8000],
+            "stderr": stderr[:3000],
+            "exitCode": proc.returncode,
+        }
+    except FileNotFoundError:
+        return {"stdout": "", "stderr": f"❌ '{tool}' غير مثبت على خادم الساندبوكس.", "exitCode": 127}
+    except _sp.TimeoutExpired:
+        return {"stdout": "", "stderr": "⏱️ انتهت المهلة (8 ثوانٍ). قد يكون الأمر يدور في حلقة لا نهائية.", "exitCode": 124}
+    except Exception as e:
+        return {"stdout": "", "stderr": f"❌ خطأ: {e}", "exitCode": 1}
+
+
+# ---------- Terminal Workdir File I/O (for the OS simulator) ----------
+
+def _safe_join(workdir: str, filename: str) -> str:
+    """Resolve filename inside workdir, blocking path traversal."""
+    clean = (filename or "").lstrip("/\\").replace("..", "_").replace("\\", "/")
+    if not clean:
+        raise ValueError("empty filename")
+    target = os.path.normpath(os.path.join(workdir, clean))
+    workdir_abs = os.path.normpath(workdir)
+    if not target.startswith(workdir_abs):
+        raise ValueError("path traversal blocked")
+    return target
+
+
+@app.post("/api/training/terminal/write")
+async def training_terminal_write(req: TerminalWriteRequest):
+    """Write a file (e.g. a Python script the user wrote in the notepad) into
+    the challenge's sandbox workdir so that `python <file>.py` can execute it."""
+    team_role = req.teamRole or "red"
+    challenge_id = req.challengeId
+    if not challenge_id:
+        return {"ok": False, "error": "❌ challengeId مفقود"}
+    if not req.filename:
+        return {"ok": False, "error": "❌ اسم الملف مفقود"}
+    if len(req.content) > 200_000:
+        return {"ok": False, "error": "❌ الملف كبير جداً (الحد 200KB)"}
+
+    workdir, _row = await _get_or_create_workdir(team_role, challenge_id)
+    try:
+        target = _safe_join(workdir, req.filename)
+    except ValueError as e:
+        return {"ok": False, "error": f"❌ مسار غير مسموح: {e}"}
+
+    try:
+        os.makedirs(os.path.dirname(target) or workdir, exist_ok=True)
+        with open(target, "w", encoding="utf-8", newline="\n") as f:
+            f.write(req.content)
+        return {"ok": True, "path": os.path.relpath(target, workdir).replace("\\", "/")}
+    except Exception as e:
+        return {"ok": False, "error": f"❌ تعذّر الحفظ: {e}"}
+
+
+@app.post("/api/training/terminal/list")
+async def training_terminal_list(req: TerminalListRequest):
+    """List the files currently in the challenge's sandbox workdir
+    (so the file explorer can see scripts the user just saved)."""
+    team_role = req.teamRole or "red"
+    challenge_id = req.challengeId
+    if not challenge_id:
+        return {"files": []}
+
+    workdir, _row = await _get_or_create_workdir(team_role, challenge_id)
+    files = []
+    try:
+        for name in sorted(os.listdir(workdir)):
+            if name.startswith("."):
+                continue
+            p = os.path.join(workdir, name)
+            if os.path.isfile(p):
+                try:
+                    with open(p, "r", encoding="utf-8", errors="replace") as f:
+                        content = f.read()
+                    if len(content) > 50_000:
+                        content = content[:50_000] + "\n... (truncated)"
+                    files.append({"name": name, "content": content})
+                except Exception:
+                    files.append({"name": name, "content": "(binary file)"})
+    except Exception:
+        pass
+    return {"files": files}
 
 
 # ---------- Code Evaluation (local Groq AI) ----------
@@ -1039,5 +1451,5 @@ async def evaluate_training(req: EvaluateRequest, background_tasks: BackgroundTa
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8080))
+    port = int(os.environ.get("PORT", 8090))
     uvicorn.run(app, host="0.0.0.0", port=port)

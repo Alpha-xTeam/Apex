@@ -1,0 +1,231 @@
+[
+  {
+    "team_role": "red",
+    "module": "encryption-basics",
+    "title": "فك شفرة Vigenere",
+    "story": "اعترض analyst اتصال مشفر بين خادمين داخليين. النص يبدو مكتوباً بأحرف لاتينية. استخدم تحليل Kasiski لتحديد طول الـ key ثم فك التشفير.",
+    "task_outline": "الملف cipher.txt يحتوي نص مشفر. استخرج النص الأصلي، ثم احسب hash للعلم.",
+    "files": {
+      "cipher.txt": "V1QgRVFUUEdIIEFJIEhYV0MgQUVFQyBYRUUgQlNMTiBYVyBFSVZM"
+    },
+    "file_metadata": {
+      "cipher.txt": {
+        "encoding": "utf-8"
+      }
+    },
+    "command_outputs": {
+      "cat:cipher.txt": {
+        "stdout": "WT EQTPGH AI HXWC AEEC XEE BSLN XW EIVL",
+        "stderr": "",
+        "exit_code": 0
+      },
+      "ls": {
+        "stdout": "cipher.txt",
+        "stderr": "",
+        "exit_code": 0
+      }
+    },
+    "hints": [
+      "الطول: 4 حرف",
+      "راجع أدوات سطر الأوامر المتوفرة في القائمة البيضاء",
+      "اقرأ التعليمات بعناية — الـ key معطى في القصة",
+      "الناتج النهائي يجب أن يكون بصيغة SHA-256 hex"
+    ],
+    "tools_whitelist": [
+      "cat",
+      "ls",
+      "echo",
+      "python",
+      "openssl",
+      "sha256sum",
+      "base64"
+    ],
+    "flag_hash": "b90a63c18715c385ecf3e037ada059164ae2d6816ea53f526d5bc63a199de3f7",
+    "flag_preview": "CyberArena{2d58d271de860eaa4aa21629164ae256e17d368857c78e057ba16acae89347f7}",
+    "difficulty": "مبتدئ",
+    "xp_reward": 100
+  },
+  {
+    "team_role": "red",
+    "module": "encryption-basics",
+    "title": "كسر Caesar cipher بإزاحة بسيطة",
+    "story": "ملاحظة استخباراتية قديمة عُثر عليها في خزنة. النص يبدو منزاح أحادي. الـ shift أقل من 10.",
+    "task_outline": "cipher.txt فيه نص مشفر بإزاحة أحادية. جرّب جميع الـ shifts وابحث عن نص قابل للقراءة.",
+    "files": {
+      "cipher.txt": "V0tIIFNERk5ESkggRFVVTFlIViBEVyBQTEdRTEpLVyBFVUxRSiBXS0ggRU9YSFNVTFFX"
+    },
+    "file_metadata": {
+      "cipher.txt": {
+        "encoding": "utf-8"
+      }
+    },
+    "command_outputs": {
+      "cat:cipher.txt": {
+        "stdout": "WKH SDFNDJH DUULYHV DW PLGQLJKW EULQJ WKH EOXHSULQW",
+        "stderr": "",
+        "exit_code": 0
+      },
+      "ls": {
+        "stdout": "cipher.txt",
+        "stderr": "",
+        "exit_code": 0
+      }
+    },
+    "hints": [
+      "إزاحة أحادية — جرّب 1..25",
+      "راجع أدوات سطر الأوامر المتوفرة في القائمة البيضاء",
+      "اقرأ التعليمات بعناية — الـ key معطى في القصة",
+      "الناتج النهائي يجب أن يكون بصيغة SHA-256 hex"
+    ],
+    "tools_whitelist": [
+      "cat",
+      "ls",
+      "echo",
+      "python",
+      "openssl",
+      "sha256sum",
+      "base64"
+    ],
+    "flag_hash": "d78276eed7bb9685ca5373440b095a3a4aa7f7e4303945c275cf6eca3213e83f",
+    "flag_preview": "CyberArena{34ddef333192e72f14e8e2f4340e967b57cda306b4cd0066875c2528dd211366}",
+    "difficulty": "مبتدئ",
+    "xp_reward": 100
+  },
+  {
+    "team_role": "red",
+    "module": "encryption-basics",
+    "title": "كسر XOR بـ single-byte key",
+    "story": "dump من malware يحوي blob مشفر بعملية أحادية بسيطة. 256 احتمال فقط.",
+    "task_outline": "cipher.bin فيه bytes مشفرة بعملية أحادية. جرّب كل القيم الـ 256 واستخرج النص.",
+    "files": {
+      "cipher.txt": "MmYyMzJlMzUyMzMwMjcxZDMxMmIyNTJjMjMzNjM3MzAyNzFkMjYyNzM2MjcyMTM2MjcyNjFkMjYzMDJkMzIxZDMyMjMzYjJlMmQyMzI2MWQyYzJkMzU="
+    },
+    "file_metadata": {
+      "cipher.txt": {
+        "encoding": "utf-8"
+      }
+    },
+    "command_outputs": {
+      "cat:cipher.txt": {
+        "stdout": "2f232e352330271d312b252c23363730271d26273627213627261d26302d321d32233b2e2d23261d2c2d35",
+        "stderr": "",
+        "exit_code": 0
+      },
+      "ls": {
+        "stdout": "cipher.txt",
+        "stderr": "",
+        "exit_code": 0
+      }
+    },
+    "hints": [
+      "single-byte XOR — 256 احتمال",
+      "استخدم openssl بالأمر الصحيح من القصة",
+      "الـ IV والـ salt يُولّدان تلقائياً — ركّز على الـ password"
+    ],
+    "tools_whitelist": [
+      "cat",
+      "ls",
+      "echo",
+      "python",
+      "openssl",
+      "sha256sum",
+      "base64"
+    ],
+    "flag_hash": "b285efe30270fdeb4df13ddd5e0b8dd27f32b0d62d6aefa35c55b63774a681b3",
+    "flag_preview": "CyberArena{5e32e6cae71784d24f3b0347b86a19c2ea20a78684eab847394083055cf0908e}",
+    "difficulty": "متوسط",
+    "xp_reward": 150
+  },
+  {
+    "team_role": "red",
+    "module": "hash-cracking",
+    "title": "كسر MD5 password من تسريب WordPress",
+    "story": "كلمة مرور admin مخزنة كـ hash قديم 128-bit في قاعدة بيانات WordPress قديمة. الـ hash معروض في الملف.",
+    "task_outline": "استخدم rainbow table أو brute force لكسر الـ hash. الـ flag هو كلمة المرور الأصلية مفصولة بفواصل إن وُجدت عدة احتمالات.",
+    "files": {
+      "input.bin": "MTIzNDU2"
+    },
+    "file_metadata": {
+      "input.bin": {
+        "encoding": "utf-8"
+      }
+    },
+    "command_outputs": {
+      "md5sum": {
+        "stdout": "e10adc3949ba59abbe56e057f20f883e  input",
+        "stderr": "",
+        "exit_code": 0
+      },
+      "ls": {
+        "stdout": "input.bin",
+        "stderr": "",
+        "exit_code": 0
+      }
+    },
+    "hints": [
+      "استخدم openssl بالأمر الصحيح من القصة",
+      "الـ IV والـ salt يُولّدان تلقائياً — ركّز على الـ password"
+    ],
+    "tools_whitelist": [
+      "cat",
+      "ls",
+      "echo",
+      "openssl",
+      "sha256sum",
+      "base64",
+      "file"
+    ],
+    "flag_hash": "7db3ed916c927543250a2106fbdedd483c6dd8cdeb450b1ea0ac9304b389e639",
+    "flag_preview": "CyberArena{e10adc3949ba59abbe56e057f20f883e}",
+    "difficulty": "متوسط",
+    "xp_reward": 150
+  },
+  {
+    "team_role": "red",
+    "module": "hash-cracking",
+    "title": "كسر SHA-1 salted من /etc/shadow",
+    "story": "سطر من /etc/shadow على خادم مخترق. الـ salt مكشوف. الـ hash يحتاج brute force لكلمات شائعة.",
+    "task_outline": "السطر يحوي دالة hash قديمة مطبقة مع salt. الـ salt والـ hash معروضان. الـ flag هو الـ password.",
+    "files": {
+      "input.bin": "bGV0bWVpbg==",
+      "/etc/shadow": "root:$dynamic_$1$$1$apex2026$$150baac2d4898e0640abf6307330883ec831e029:19000:0:99999:7:::"
+    },
+    "file_metadata": {
+      "input.bin": {
+        "encoding": "utf-8"
+      },
+      "/etc/shadow": {
+        "encoding": "utf-8"
+      }
+    },
+    "command_outputs": {
+      "cat": {
+        "stdout": "150baac2d4898e0640abf6307330883ec831e029  input",
+        "stderr": "",
+        "exit_code": 0
+      },
+      "ls": {
+        "stdout": "input.bin\n/etc/shadow",
+        "stderr": "",
+        "exit_code": 0
+      }
+    },
+    "hints": [
+      "راجع صيغة PSS في التواقيع الرقمية",
+      "تأكد من الـ padding: PKCS7 لـ CBC، tag 16-byte لـ GCM"
+    ],
+    "tools_whitelist": [
+      "cat",
+      "ls",
+      "echo",
+      "openssl",
+      "sha256sum",
+      "base64",
+      "file"
+    ],
+    "flag_hash": "dc3f98d9ee9e3296a3ac070ad12fc7047b5ecc08053d829571df4bfe27344879",
+    "flag_preview": "CyberArena{150baac2d4898e0640abf6307330883ec831e029}",
+    "difficulty": "قوي",
+    "xp_reward": 200
+  }
+]

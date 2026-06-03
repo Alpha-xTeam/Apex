@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { BlueTeamIcon, RedTeamIcon } from './TeamIcons';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
 
 const LEVELS = [
   { name: 'مبتدئ', minXp: 0, color: '#10b981' },

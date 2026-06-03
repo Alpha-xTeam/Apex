@@ -1,4 +1,44 @@
 import React, { useState, useEffect, useRef } from 'react';
+
+// Read-only cheat sheet for the Swiss Tools window.
+// Only tools that appear in the current challenge's `toolsWhitelist` are shown.
+const CHEATSHEET: Record<string, string> = {
+  ls: 'سرد الملفات والمجلدات في المسار الحالي',
+  cat: 'قراءة محتوى ملف (cat <name>)',
+  cd: 'تغيير المجلد (cd <dir> أو cd ..)',
+  pwd: 'عرض المسار الحالي',
+  whoami: 'عرض اسم المستخدم الحالي',
+  clear: 'مسح الشاشة',
+  echo: 'طباعة نص (echo "hello")',
+  python: 'تشغيل Python (python -c "...")',
+  python3: 'تشغيل Python 3',
+  openssl: 'أداة التشفير (openssl enc -d ...)',
+  gpg: 'تشفير/فك GPG (gpg --decrypt ...)',
+  base64: 'ترميز Base64 (base64 -d < file)',
+  xxd: 'عرض hex (xxd file | head)',
+  sha256sum: 'هاش SHA-256 لملف (sha256sum file)',
+  md5sum: 'هاش MD5 لملف (md5sum file)',
+  sha1sum: 'هاش SHA-1 لملف (sha1sum file)',
+  tr: 'تحويل/حذف أحرف (tr A-Z a-z)',
+  john: 'كاسر كلمات السر (john file)',
+  hashcat: 'كاسر هاشات GPU (hashcat -m ...)',
+  curl: 'طلبات HTTP (curl URL)',
+  wget: 'تحميل ملف من URL',
+  nc: 'netcat — اتصالات TCP/UDP',
+  file: 'تحديد نوع ملف (file <name>)',
+  strings: 'استخراج نصوص من binary (strings file)',
+  grep: 'بحث في نص (grep pattern file)',
+  awk: 'معالجة نصوص حسب أعمدة',
+  sed: 'تحرير تيار (sed s/x/y/)',
+  find: 'البحث عن ملفات (find . -name ...)',
+  chmod: 'تغيير صلاحيات (chmod 755 file)',
+  tar: 'فك/ضغط (tar -xf file.tar.gz)',
+  zip: 'ضغط/فك (unzip file.zip)',
+  gunzip: 'فك ضغط gzip (gunzip file.gz)',
+  ncdu: 'مستعرض استخدام القرص',
+  vi: 'محرر نصوص (vi file)',
+  nano: 'محرر نصوص بسيط',
+};
 import {
   Terminal,
   Cpu,
@@ -26,7 +66,6 @@ import { BlueTeamIcon, RedTeamIcon, StoryIcon, TaskIcon } from './TeamIcons';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 interface TrainingData {
-  id?: string;
   scenarioId?: string;
   title: string;
   story: string;
@@ -43,6 +82,10 @@ interface TrainingData {
   explanation: string;
   xpReward: number;
   difficulty: string;
+  files?: Record<string, string>;
+  fileMetadata?: Record<string, any>;
+  commandOutputs?: Record<string, { stdout: string; stderr?: string }>;
+  toolsWhitelist?: string[];
 }
 
 interface TrainingSessionProps {
@@ -97,12 +140,12 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
   // Notepad state
   const [notepadTitle, setNotepadTitle] = useState('CyberArena_Readme.txt');
   const [notepadContent, setNotepadContent] = useState('');
+  const [notepadEditable, setNotepadEditable] = useState(false);
+  const [notepadSaving, setNotepadSaving] = useState(false);
+  const [notepadStatus, setNotepadStatus] = useState<string>('');
 
-  // Swiss-Army Cryptanalysis tool states
-  const [decrypterInput, setDecrypterInput] = useState('');
-  const [decrypterOutput, setDecrypterOutput] = useState('');
-  const [decrypterType, setDecrypterType] = useState('base64_decode');
-  const [caesarShift, setCaesarShift] = useState(3);
+  // Files the user wrote into the sandbox (e.g. python scripts created in notepad)
+  const [userWorkdirFiles, setUserWorkdirFiles] = useState<{ name: string; content: string }[]>([]);
 
   // Windows Drag-and-drop state management
   const [draggingWindow, setDraggingWindow] = useState<string | null>(null);
@@ -120,27 +163,48 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
     dynamicB64 = btoa(encodeURIComponent(primaryExpected));
   }
 
+  // --- Dynamic explorer: C:\ is fixed; C:\Work shows the challenge's `files` ---
+  const challengeFileItems = (() => {
+    const items: { type: 'file'; name: string; desc: string; content: string; editable?: boolean }[] = [];
+    if (training?.files && Object.keys(training.files).length > 0) {
+      for (const [name, b64] of Object.entries(training.files)) {
+        let display = '';
+        try { display = atob(b64); } catch { display = b64 as string; }
+        items.push({ type: 'file', name, desc: 'ملف التحدي', content: display });
+      }
+    }
+    // Append user-authored files (e.g. python scripts saved from notepad)
+    const challengeNames = new Set(items.map(i => i.name));
+    for (const f of userWorkdirFiles) {
+      if (challengeNames.has(f.name)) continue;
+      items.push({ type: 'file', name: f.name, desc: 'ملف من المستخدم', content: f.content, editable: true });
+    }
+    if (items.length === 0) {
+      items.push({ type: 'file', name: 'CyberArena_Readme.txt', desc: 'ملف المساعدة والتعليمات', content: 'مرحباً بك في نظام المهمات السيبرانية من CyberArena!\nاستخدم مستكشف الملفات، CMD Terminal، والأدوات المتاحة لتجاوز التحديات.' });
+    }
+    return items;
+  })();
+
   const directoryStructure: { [key: string]: { type: 'dir' | 'file'; name: string; desc: string; content?: string }[] } = {
     'C:\\': [
-      { type: 'dir', name: 'Secrets', desc: 'مجلد محمي للملفات الحساسة' },
+      { type: 'dir', name: 'Work', desc: 'مجلد العمل الحالي' },
       { type: 'dir', name: 'System32', desc: 'ملفات نظام ويندوز الأساسية' },
-      { type: 'file', name: 'CyberArena_Readme.txt', desc: 'ملف المساعدة والتعليمات', content: 'مرحباً بك في نظام المهمات السيبرانية من CyberArena!\nاستخدم أدوات التشفير وموجه الأوامر والملفات المتاحة لتجاوز التحديات واكتشاف الأعلام.' }
+      { type: 'file', name: 'CyberArena_Readme.txt', desc: 'ملف المساعدة والتعليمات', content: 'مرحباً بك في نظام المهمات السيبرانية من CyberArena!\nاستخدم مستكشف الملفات، CMD Terminal، والأدوات المتاحة لتجاوز التحديات.' }
     ],
-    'C:\\Secrets': [
-      { type: 'file', name: 'secret.enc', desc: 'ملف استخباراتي مشفر', content: dynamicB64 },
-      { type: 'file', name: 'flag.txt', desc: 'ملف الإشارة المباشر', content: `العلم الخاص بك هو:\n${primaryExpected}` }
-    ],
+    'C:\\Work': challengeFileItems,
     'C:\\System32': [
       { type: 'file', name: 'kernel32.dll', desc: 'مكتبة النظام الأساسية', content: 'CyberArena SYSTEM WINDOWS KERNEL CORE DLL REGISTERED SUCCESSFULLY' },
       { type: 'file', name: 'cmd.exe', desc: 'موجه الأوامر التنفيذي', content: 'Command Executor' }
-    ],
-    'C:\\Users\\Admin\\Documents': [
-      { type: 'file', name: 'security_report.txt', desc: 'التقرير الأمني للشبكة', content: 'تم فحص جميع المنافذ وتأمين قاعدة البيانات.' }
-    ],
-    'C:\\Users\\Admin\\Downloads': [
-      { type: 'file', name: 'payload_template.txt', desc: 'أمثلة ثغرات الحقن', content: 'XSS: <img src=x onerror=alert(1)>\nSQLi: \' OR \'1\'=\'1' }
     ]
   };
+
+  // --- Whitelist of tools available in the terminal (and shown in Cheat Sheet) ---
+  const allowedTools: string[] = training?.toolsWhitelist && training.toolsWhitelist.length > 0
+    ? training.toolsWhitelist
+    : ['cat', 'ls', 'echo', 'cd', 'whoami', 'clear', 'help'];
+
+  const commandOutputs: Record<string, { stdout: string; stderr?: string }> =
+    training?.commandOutputs || {};
 
   // Terminal history state
   const [cmdInput, setCmdInput] = useState('');
@@ -680,83 +744,20 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
     setActiveWindow(id);
   };
 
-  // --- Swiss-Army Cryptanalysis Tool (100% Real General Utility) ---
-  const handleDecrypt = () => {
-    let output = '';
-    const input = decrypterInput;
-
-    if (!input) {
-      setDecrypterOutput('❌ الرجاء كتابة بعض النصوص أو الحمولات للتشفير/فك التشفير!');
-      return;
-    }
-
-    try {
-      if (decrypterType === 'base64_decode') {
-        output = atob(input);
-      } else if (decrypterType === 'base64_encode') {
-        output = btoa(input);
-      } else if (decrypterType === 'rot13') {
-        output = input.replace(/[a-zA-Z]/g, (c: string) => {
-          const base = c <= 'Z' ? 65 : 97;
-          return String.fromCharCode(((c.charCodeAt(0) - base + 13) % 26) + base);
-        });
-      } else if (decrypterType === 'caesar_decode') {
-        const shift = (26 - caesarShift) % 26;
-        output = input.replace(/[a-zA-Z]/g, (c: string) => {
-          const base = c <= 'Z' ? 65 : 97;
-          return String.fromCharCode(((c.charCodeAt(0) - base + shift) % 26) + base);
-        });
-      } else if (decrypterType === 'caesar_encode') {
-        const shift = caesarShift % 26;
-        output = input.replace(/[a-zA-Z]/g, (c: string) => {
-          const base = c <= 'Z' ? 65 : 97;
-          return String.fromCharCode(((c.charCodeAt(0) - base + shift) % 26) + base);
-        });
-      } else if (decrypterType === 'hex_decode') {
-        const hex = input.replace(/\s+/g, '');
-        let str = '';
-        for (let i = 0; i < hex.length; i += 2) {
-          str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
-        }
-        output = str;
-      } else if (decrypterType === 'hex_encode') {
-        let hex = '';
-        for (let i = 0; i < input.length; i++) {
-          hex += input.charCodeAt(i).toString(16).padStart(2, '0') + ' ';
-        }
-        output = hex.trim().toUpperCase();
-      } else if (decrypterType === 'url_decode') {
-        output = decodeURIComponent(input);
-      } else if (decrypterType === 'url_encode') {
-        output = encodeURIComponent(input);
-      } else if (decrypterType === 'reverse') {
-        output = input.split('').reverse().join('');
-      } else {
-        output = 'طريقة غير مدعومة حالياً!';
-      }
-      setDecrypterOutput(output);
-    } catch (err: any) {
-      setDecrypterOutput('❌ فشل تشفير/فك التشفير! تأكد من توافق تنسيق النص مع الخوارزمية المختارة.');
-    }
-  };
-
   // --- Windows File explorer navigations & File clickers ---
-  const handleExplorerItemDoubleClick = (item: { type: 'dir' | 'file'; name: string; content?: string }) => {
+  const handleExplorerItemDoubleClick = (item: { type: 'dir' | 'file'; name: string; content?: string; editable?: boolean }) => {
     if (item.type === 'dir') {
       const newPath = explorerPath === 'C:\\' ? `C:\\${item.name}` : `${explorerPath}\\${item.name}`;
       setExplorerPath(newPath);
     } else {
       const fileContent = item.content || '';
-      // If it is a encrypted file, automatically send to Decrypter input and open it
-      if (item.name.endsWith('.enc')) {
-        setDecrypterInput(fileContent);
-        openWindow('cryptoTools');
-      } else {
-        // Open in notepad
-        setNotepadTitle(item.name);
-        setNotepadContent(fileContent);
-        openWindow('notepad');
-      }
+      // Open every file in notepad. User-authored files open in edit mode so
+      // they can be modified and re-saved (e.g. python scripts).
+      setNotepadTitle(item.name);
+      setNotepadContent(fileContent);
+      setNotepadEditable(!!item.editable);
+      setNotepadStatus('');
+      openWindow('notepad');
     }
   };
 
@@ -768,58 +769,183 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
     setExplorerPath(newPath === 'C:' ? 'C:\\' : newPath);
   };
 
-  // --- Windows Terminal Command Handler ---
-  const handleTerminalSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const cmd = cmdInput.trim().toLowerCase();
-    if (!cmd) return;
+  // --- Sync the workdir files (what the user saved to the sandbox) ---
+  const refreshWorkdirFiles = async () => {
+    if (!training?.scenarioId) return;
+    try {
+      const res = await fetch(`${API_URL}/training/terminal/list`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamRole, challengeId: training.scenarioId })
+      });
+      const data = await res.json();
+      setUserWorkdirFiles(Array.isArray(data.files) ? data.files : []);
+    } catch {
+      // silent — keep last known state
+    }
+  };
 
-    let response = '';
-    if (cmd === 'help') {
-      response = 'الأوامر المتاحة:\n- ls: عرض الملفات والمجلدات الحالية\n- cat [filename]: قراءة محتوى ملف\n- whoami: عرض اسم المستخدم الحالي\n- clear: مسح الشاشة\n- decrypt-tool: فتح واجهة فك التشفير\n- cd [dir]: تغيير المجلد';
-    } else if (cmd === 'ls') {
-      const items = directoryStructure[explorerPath] || [];
-      response = items.map(item => {
-        const typeStr = item.type === 'dir' ? '<DIR>          ' : '               ';
-        return `05/27/2026  12:00 PM    ${typeStr} ${item.name}`;
-      }).join('\n');
-    } else if (cmd.startsWith('cat ')) {
-      const file = cmd.substring(4).trim();
-      const items = directoryStructure[explorerPath] || [];
-      const found = items.find(i => i.name.toLowerCase() === file.toLowerCase());
-      if (found) {
-        response = `محتوى الملف ${found.name}:\n\n${found.content}`;
+  // Refresh once the challenge becomes available
+  useEffect(() => {
+    if (training?.scenarioId) refreshWorkdirFiles();
+  }, [training?.scenarioId]);
+
+  // --- Notepad save (writes to sandbox workdir so `python file.py` works) ---
+  const handleNotepadSave = async () => {
+    if (!training?.scenarioId) {
+      setNotepadStatus('❌ التحدي لم يُحمَّل بعد');
+      return;
+    }
+    const name = (notepadTitle || '').trim();
+    if (!name) {
+      setNotepadStatus('❌ اكتب اسم الملف أولاً');
+      return;
+    }
+    setNotepadSaving(true);
+    setNotepadStatus('');
+    try {
+      const res = await fetch(`${API_URL}/training/terminal/write`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamRole,
+          challengeId: training.scenarioId,
+          filename: name,
+          content: notepadContent
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setNotepadStatus(`✅ حُفظ في C:\\Work\\${data.path}`);
+        await refreshWorkdirFiles();
       } else {
-        response = `خطأ: الملف "${file}" غير موجود في المسار الحالي!`;
+        setNotepadStatus(data.error || '❌ فشل الحفظ');
       }
-    } else if (cmd === 'whoami') {
-      response = 'apex_operator_admin';
-    } else if (cmd === 'clear') {
+    } catch (err: any) {
+      setNotepadStatus(`❌ فشل الاتصال: ${err?.message || err}`);
+    } finally {
+      setNotepadSaving(false);
+    }
+  };
+
+  const handleNewFile = () => {
+    setNotepadTitle('script.py');
+    setNotepadContent('# اكتب كود Python هنا\nprint("hello from CyberArena")\n');
+    setNotepadEditable(true);
+    setNotepadStatus('');
+    openWindow('notepad');
+  };
+
+  // --- Windows Terminal Command Handler ---
+  // For commands that don't need the backend (help, submit, ls of fallback),
+  // we still handle them locally so the user can navigate even when the API
+  // is down. Everything else is sent to /api/training/terminal and executed
+  // in a real sandbox on the server.
+  const handleTerminalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const rawCmd = cmdInput.trim();
+    if (!rawCmd) return;
+    const cmd = rawCmd.toLowerCase();
+    const typed = cmdInput; // keep the user's original casing for the request
+    const echoLine = `> ${cmdInput}`;
+
+    // 1) help, submit, clear → handled locally
+    if (cmd === 'help') {
+      const builtIn = [
+        '- ls: عرض الملفات والمجلدات الحالية',
+        '- cat [filename]: قراءة محتوى ملف',
+        '- pwd: عرض المسار الحالي',
+        '- whoami: عرض اسم المستخدم الحالي',
+        '- clear: مسح الشاشة',
+        '- submit [flag]: تقديم العلم',
+        '- sha256sum/md5sum/sha1sum [file]: هاش ملف',
+        '- base64 [-d] [file]: ترميز/فك Base64',
+        '- xxd [file]: عرض hex',
+      ].join('\n');
+      const whitelistBlock = allowedTools
+        .filter(t => !['ls', 'cat', 'pwd', 'whoami', 'clear', 'sha256sum', 'md5sum', 'sha1sum', 'base64', 'xxd'].includes(t))
+        .map(t => `  - ${t}`)
+        .join('\n') || '  (لا توجد أدوات إضافية)';
+      const response = `الأوامر الأساسية المدمجة:\n${builtIn}\n\nأدوات whitelist في هذا التحدي (تُنفَّذ فعلياً على الخادم):\n${whitelistBlock}\n\nمثال:  python -c "print(2+2)"`;
+      setCmdHistory([...cmdHistory, echoLine, response, '']);
+      setCmdInput('');
+      return;
+    }
+
+    if (cmd === 'clear') {
       setCmdHistory([]);
       setCmdInput('');
       return;
-    } else if (cmd.startsWith('cd ')) {
-      const folder = cmd.substring(3).trim();
-      if (folder === '..') {
-        handleExplorerBack();
-        response = 'تم الرجوع للمجلد السابق.';
-      } else {
-        const items = directoryStructure[explorerPath] || [];
-        const found = items.find(i => i.type === 'dir' && i.name.toLowerCase() === folder.toLowerCase());
-        if (found) {
-          const newPath = explorerPath === 'C:\\' ? `C:\\${found.name}` : `${explorerPath}\\${found.name}`;
-          setExplorerPath(newPath);
-          response = `تم الانتقال إلى ${newPath}`;
-        } else {
-          response = `خطأ: المجلد "${folder}" غير موجود!`;
-        }
-      }
-    } else {
-      response = `أمر غير معروف: "${cmd}". اكتب help للمساعدة.`;
     }
 
-    setCmdHistory([...cmdHistory, `> ${cmdInput}`, response, '']);
+    if (cmd.startsWith('submit ')) {
+      const flag = cmd.substring(7).trim();
+      const expected = (training?.expectedAnswer || '').split('|')[0].trim();
+      let response = '';
+      if (!flag) {
+        response = '❌ اكتب العلم بعد الأمر submit';
+      } else if (expected && flag === expected) {
+        response = '✅ صحيح! تم قبول العلم 🎉';
+      } else {
+        response = '❌ العلم غير صحيح. حاول مرة أخرى.';
+      }
+      setCmdHistory([...cmdHistory, echoLine, response, '']);
+      setCmdInput('');
+      return;
+    }
+
+    // 2) Everything else → real sandbox on the backend
+    if (!training?.scenarioId) {
+      const response = '❌ لم يتم تحميل التحدي بعد. انتظر لحظة.';
+      setCmdHistory([...cmdHistory, echoLine, response, '']);
+      setCmdInput('');
+      return;
+    }
+
     setCmdInput('');
+    setCmdHistory(prev => [...prev, echoLine, '... جاري التنفيذ في الساندبوكس ...', '']);
+
+    try {
+      const res = await fetch(`${API_URL}/training/terminal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamRole: teamRole,
+          challengeId: training.scenarioId,
+          command: typed,
+        }),
+      });
+      const data = await res.json();
+      const stdout = data.stdout || '';
+      const stderr = data.stderr || '';
+      const out = (stderr ? stderr : '') + (stdout ? (stderr ? '\n' : '') + stdout : '');
+      const response = (out || '(no output)').trimEnd();
+      setCmdHistory(prev => {
+        const copy = [...prev];
+        // Replace the last "جاري التنفيذ" placeholder
+        for (let i = copy.length - 1; i >= 0; i--) {
+          if (copy[i] === '... جاري التنفيذ في الساندبوكس ...') {
+            copy[i] = response;
+            return copy;
+          }
+        }
+        return [...copy, response, ''];
+      });
+      // Refresh the explorer after every command — the script may have created new files
+      refreshWorkdirFiles();
+    } catch (err: any) {
+      const response = `❌ فشل الاتصال بالساندبوكس: ${err?.message || err}`;
+      setCmdHistory(prev => {
+        const copy = [...prev];
+        for (let i = copy.length - 1; i >= 0; i--) {
+          if (copy[i] === '... جاري التنفيذ في الساندبوكس ...') {
+            copy[i] = response;
+            return copy;
+          }
+        }
+        return [...copy, response, ''];
+      });
+    }
   };
 
   const isWebChallenge =
@@ -1205,6 +1331,11 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                   <Terminal size={36} className="text-emerald-400" />
                   <span>موجه الأوامر (CMD)</span>
                 </button>
+
+                <button className="desktop-icon" onDoubleClick={handleNewFile}>
+                  <FileText size={36} className="text-indigo-400" />
+                  <span>ملف بايثون جديد</span>
+                </button>
               </div>
 
               {/* Start Menu Popup */}
@@ -1268,8 +1399,30 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                     <div className="explorer-sidebar">
                       <div className="sidebar-section">المجلدات الأساسية</div>
                       <button className="explorer-nav-item" onClick={() => setExplorerPath('C:\\')}>📁 القرص المحلي (C:)</button>
-                      <button className="explorer-nav-item" onClick={() => setExplorerPath('C:\\Users\\Admin\\Documents')}>📁 المستندات</button>
-                      <button className="explorer-nav-item" onClick={() => setExplorerPath('C:\\Users\\Admin\\Downloads')}>📁 التنزيلات</button>
+                      <button className="explorer-nav-item" onClick={() => setExplorerPath('C:\\Work')}>📁 مجلد العمل</button>
+                    </div>
+                    <div className="explorer-tools-banner" style={{
+                      padding: '6px 10px',
+                      margin: '6px 8px',
+                      background: 'rgba(99, 102, 241, 0.10)',
+                      border: '1px solid rgba(99, 102, 241, 0.25)',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      color: '#a5b4fc',
+                      direction: 'rtl',
+                    }}>
+                      <span style={{ fontWeight: 600, color: '#c7d2fe' }}>القائمة البيضاء للأدوات: </span>
+                      {allowedTools.map(t => (
+                        <span key={t} style={{
+                          display: 'inline-block',
+                          margin: '0 4px',
+                          padding: '1px 8px',
+                          background: 'rgba(99, 102, 241, 0.18)',
+                          borderRadius: '10px',
+                          fontFamily: 'monospace',
+                          color: '#e0e7ff',
+                        }}>{t}</span>
+                      ))}
                     </div>
                     <div className="explorer-content">
                       <div className="explorer-toolbar">
@@ -1300,11 +1453,11 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                 </div>
               )}
 
-              {/* 2. Cryptography tools Window */}
+              {/* 2. Swiss Tools — read-only Cheat Sheet (no execution; use Terminal) */}
               {windowsState.cryptoTools.isOpen && (
                 <div
                   className={`window-frame ${activeWindow === 'cryptoTools' ? 'active' : ''}`}
-                  style={{ zIndex: windowsState.cryptoTools.zIndex, left: `${windowsState.cryptoTools.x}px`, top: `${windowsState.cryptoTools.y}px` }}
+                  style={{ zIndex: windowsState.cryptoTools.zIndex, left: `${windowsState.cryptoTools.x}px`, top: `${windowsState.cryptoTools.y}px`, width: '520px' }}
                   onClick={() => focusWindow('cryptoTools')}
                   dir="rtl"
                 >
@@ -1316,54 +1469,97 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                       </button>
                     </div>
                   </div>
-                  <div className="window-body crypto-body">
-                    <div className="crypto-tool-row">
-                      <label>النص المراد تشفيره أو فكه (Input Text):</label>
-                      <textarea
-                        value={decrypterInput}
-                        onChange={(e) => setDecrypterInput(e.target.value)}
-                        placeholder="اكتب أو الصق النص هنا..."
-                      />
+                  <div className="window-body crypto-body" style={{ padding: '14px' }}>
+                    <div style={{
+                      background: 'rgba(99, 102, 241, 0.10)',
+                      border: '1px solid rgba(99, 102, 241, 0.30)',
+                      borderRadius: '8px',
+                      padding: '10px 12px',
+                      marginBottom: '12px',
+                      color: '#c7d2fe',
+                      fontSize: '13px',
+                      lineHeight: '1.6',
+                    }}>
+                      <strong style={{ color: '#e0e7ff' }}>⚠️ هذه النافذة للعرض فقط.</strong><br />
+                      التنفيذ الفعلي للأدوات يتم حصرياً عبر <strong>CMD Terminal</strong>.
+                      اكتب الأمر هناك لمشاهدة المخرجات الحقيقية.
                     </div>
 
-                    <div className="crypto-tool-row-actions">
-                      <div className="select-wrapper">
-                        <label>الخوارزمية / العملية:</label>
-                        <select value={decrypterType} onChange={(e) => setDecrypterType(e.target.value)}>
-                          <option value="base64_decode">فك تشفير Base64</option>
-                          <option value="base64_encode">تشفير Base64</option>
-                          <option value="rot13">فك/تشفير ROT13</option>
-                          <option value="caesar_decode">فك تشفير Caesar (إزاحة)</option>
-                          <option value="caesar_encode">تشفير Caesar (إزاحة)</option>
-                          <option value="hex_decode">فك تشفير Hex</option>
-                          <option value="hex_encode">تشفير Hex</option>
-                          <option value="url_decode">فك ترميز URL</option>
-                          <option value="url_encode">ترميز URL</option>
-                          <option value="reverse">عكس السلسلة النصية</option>
-                        </select>
-                      </div>
+                    <h4 style={{ color: '#a5b4fc', margin: '0 0 8px 0', fontSize: '14px' }}>
+                      🧰 الأدوات المسموح بها في هذا التحدي
+                    </h4>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
+                      {allowedTools.map(t => (
+                        <span key={t} style={{
+                          fontFamily: 'monospace',
+                          padding: '3px 10px',
+                          background: 'rgba(99, 102, 241, 0.18)',
+                          border: '1px solid rgba(99, 102, 241, 0.35)',
+                          borderRadius: '12px',
+                          fontSize: '12px',
+                          color: '#e0e7ff',
+                        }}>{t}</span>
+                      ))}
+                    </div>
 
-                      {(decrypterType === 'caesar_decode' || decrypterType === 'caesar_encode') && (
-                        <div className="shift-wrapper">
-                          <label>قيمة الإزاحة:</label>
-                          <input
-                            type="number"
-                            min="1"
-                            max="25"
-                            value={caesarShift}
-                            onChange={(e) => setCaesarShift(parseInt(e.target.value) || 3)}
-                            style={{ width: '60px', padding: '4px', background: '#0b0e14', color: '#fff', border: '1px solid #333', borderRadius: '4px' }}
-                          />
+                    <h4 style={{ color: '#a5b4fc', margin: '0 0 8px 0', fontSize: '14px' }}>
+                      📖 شرح مختصر للأدوات
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '4px 12px', fontSize: '12px', marginBottom: '14px' }}>
+                      {Object.entries(CHEATSHEET).filter(([k]) => allowedTools.includes(k)).map(([tool, desc]) => (
+                        <React.Fragment key={tool}>
+                          <span style={{ fontFamily: 'monospace', color: '#a5f3fc', fontWeight: 600 }}>{tool}</span>
+                          <span style={{ color: '#cbd5e1' }}>{desc}</span>
+                        </React.Fragment>
+                      ))}
+                    </div>
+
+                    {training?.hints && training.hints.length > 0 && (
+                      <>
+                        <h4 style={{ color: '#a5b4fc', margin: '0 0 8px 0', fontSize: '14px' }}>
+                          💡 التلميحات
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {training.hints.map((h, i) => (
+                            <div
+                              key={i}
+                              style={{
+                                padding: '8px 10px',
+                                background: i < hintIndex ? 'rgba(34, 197, 94, 0.10)' : 'rgba(148, 163, 184, 0.08)',
+                                border: `1px solid ${i < hintIndex ? 'rgba(34, 197, 94, 0.35)' : 'rgba(148, 163, 184, 0.20)'}`,
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                color: i < hintIndex ? '#bbf7d0' : '#475569',
+                                filter: i < hintIndex ? 'none' : 'blur(4px)',
+                                userSelect: i < hintIndex ? 'text' : 'none',
+                                transition: 'all 0.2s',
+                              }}
+                            >
+                              <strong style={{ marginLeft: '6px' }}>تلميح {i + 1}:</strong>{h}
+                            </div>
+                          ))}
                         </div>
-                      )}
-
-                      <button onClick={handleDecrypt} className="crypto-btn">تنفيذ العملية ⚙️</button>
-                    </div>
-
-                    <div className="crypto-tool-row mt-2">
-                      <label>النتيجة المعالجة (Output Text):</label>
-                      <div className="crypto-result-box">{decrypterOutput || 'بانتظار تنفيذ العملية...'}</div>
-                    </div>
+                        <button
+                          onClick={() => setHintIndex((i) => Math.min(i + 1, training.hints.length))}
+                          disabled={hintIndex >= training.hints.length}
+                          style={{
+                            marginTop: '10px',
+                            padding: '6px 12px',
+                            background: hintIndex >= training.hints.length ? '#1e293b' : 'rgba(99, 102, 241, 0.25)',
+                            color: hintIndex >= training.hints.length ? '#475569' : '#e0e7ff',
+                            border: '1px solid rgba(99, 102, 241, 0.4)',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            cursor: hintIndex >= training.hints.length ? 'not-allowed' : 'pointer',
+                            fontWeight: 600,
+                          }}
+                        >
+                          {hintIndex >= training.hints.length
+                            ? '✓ تم كشف جميع التلميحات'
+                            : `🔓 كشف التلميح التالي (${hintIndex}/${training.hints.length})`}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -1408,7 +1604,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
               {windowsState.notepad.isOpen && (
                 <div
                   className={`window-frame ${activeWindow === 'notepad' ? 'active' : ''}`}
-                  style={{ zIndex: windowsState.notepad.zIndex, left: `${windowsState.notepad.x}px`, top: `${windowsState.notepad.y}px`, width: '400px', height: '300px' }}
+                  style={{ zIndex: windowsState.notepad.zIndex, left: `${windowsState.notepad.x}px`, top: `${windowsState.notepad.y}px`, width: '460px', height: '360px' }}
                   onClick={() => focusWindow('notepad')}
                   dir="rtl"
                 >
@@ -1420,12 +1616,42 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                       </button>
                     </div>
                   </div>
-                  <div className="window-body notepad-body">
+                  <div className="window-body notepad-body" style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px' }}>
+                    {notepadEditable && (
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <input
+                          type="text"
+                          value={notepadTitle}
+                          onChange={(e) => setNotepadTitle(e.target.value)}
+                          placeholder="اسم الملف (مثال: script.py)"
+                          style={{ flex: '1 1 160px', padding: '4px 8px', background: '#0f172a', color: '#fff', border: '1px solid #334155', borderRadius: '4px', fontSize: '12px' }}
+                        />
+                        <button
+                          onClick={handleNotepadSave}
+                          disabled={notepadSaving}
+                          style={{ padding: '4px 10px', background: notepadSaving ? '#475569' : '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                        >
+                          {notepadSaving ? '...' : '💾 حفظ'}
+                        </button>
+                      </div>
+                    )}
                     <textarea
                       className="notepad-textarea"
                       value={notepadContent}
-                      readOnly
+                      onChange={(e) => setNotepadContent(e.target.value)}
+                      readOnly={!notepadEditable}
+                      style={{ flex: 1, fontFamily: 'monospace', direction: 'ltr', textAlign: 'left' }}
                     />
+                    {notepadEditable && notepadStatus && (
+                      <div style={{ fontSize: '11px', color: notepadStatus.startsWith('✅') ? '#10b981' : '#ef4444', direction: 'ltr', textAlign: 'left' }}>
+                        {notepadStatus}
+                      </div>
+                    )}
+                    {notepadEditable && (
+                      <div style={{ fontSize: '10px', color: '#64748b', direction: 'ltr', textAlign: 'left' }}>
+                        tip: احفظ كـ <code>file.py</code> ثم نفّذ <code>python file.py</code> في CMD
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1649,17 +1875,8 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                   </>
                 )}
 
-                <div className="session-hints">
-                  <button className="session-hint-btn" onClick={() => setHintIndex((i) => Math.min(i + 1, training.hints.length))}>
-                    💡 تلميح ({hintIndex}/{training.hints.length})
-                  </button>
-                  {hintIndex > 0 && (
-                    <div className="session-hint-content">
-                      {training.hints.slice(0, hintIndex).map((h, i) => (
-                        <p key={i} className="session-hint-text">🔹 {h}</p>
-                      ))}
-                    </div>
-                  )}
+                <div className="session-hints" style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(99, 102, 241, 0.05)', border: '1px solid rgba(99, 102, 241, 0.18)', borderRadius: '6px', fontSize: '12px', color: '#a5b4fc' }}>
+                  💡 التلميحات موجودة داخل نافذة <strong>أدوات التشفير السيبرانية</strong> (Swiss Tools) — افتحها من سطح المكتب.
                 </div>
               </>
             )}

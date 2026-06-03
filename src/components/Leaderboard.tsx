@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowRight, Target, Flame, Users, TrendingUp, Crown, Medal } from 'lucide-react';
 import { LeaderboardHeroIcon, SparkleIcon } from './TeamIcons';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
 
 interface LeaderboardUser {
   rank: number;

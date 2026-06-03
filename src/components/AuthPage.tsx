@@ -3,7 +3,7 @@ import { navigateTo } from '../App';
 
 type AuthMode = 'login' | 'signup';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
 
 export const AuthPage: React.FC<{ onBack: () => void; onAuth: () => void }> = ({ onBack, onAuth }) => {
   const [mode, setMode] = useState<AuthMode>('login');
