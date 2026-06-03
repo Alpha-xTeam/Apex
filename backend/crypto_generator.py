@@ -25,10 +25,7 @@ orchestrator that runs all of them):
 
 Public API (used by main.py):
     - POOL_TARGET = 5           per (team, module)
-    - POOL_THRESHOLD = 2        trigger refill
-    - POOL_BATCH = 3            how many to add per refill
-    - get_pool_count(team_role, module) -> int
-    - async refill_pool(team_role, module, count) -> int   (returns # inserted)
+    - async refill_pool(team_role, count) -> int            (returns # inserted)
     - async start_pool_watcher(team_role, module)           (long-running task)
 
 CLI:
@@ -380,7 +377,7 @@ class ChallengeBuilder:
             return self._build_symmetric(
                 spec, blob, meta,
                 filename=spec.extra.get("filename", "data.txt"),
-                cmd=f"openssl enc -aes-256-cbc -salt -pbkdf2 -in {spec.extra.get('filename', 'data.txt')} -out data.enc -pass pass:{spec.key_material}",
+                cmd=f"openssl enc -d -aes-256-cbc -salt -pbkdf2 -in {spec.extra.get('filename', 'data.txt')} -pass pass:{spec.key_material}",
                 final_hash=hashlib.sha256(blob).hexdigest(),
             )
 
@@ -389,7 +386,7 @@ class ChallengeBuilder:
             return self._build_symmetric(
                 spec, blob, meta,
                 filename=spec.extra.get("filename", "data.txt"),
-                cmd=f"openssl enc -aes-256-gcm -in {spec.extra.get('filename', 'data.txt')} -out data.enc -pass pass:{spec.key_material}",
+                cmd=f"openssl enc -d -aes-256-gcm -in {spec.extra.get('filename', 'data.txt')} -pass pass:{spec.key_material}",
                 final_hash=hashlib.sha256(blob).hexdigest(),
             )
 
@@ -451,22 +448,32 @@ class ChallengeBuilder:
     # ----------------------- private builders ----------------------- #
 
     def _build_symmetric(self, spec, blob, meta, filename, cmd, final_hash):
-        flag_value = f"{FLAG_PREFIX}{final_hash}{'}'[:0]}"  # placeholder
-        flag_value = f"CyberArena{{{final_hash}}}"
-        files = {filename: base64.b64encode(spec.plaintext.encode()).decode()}
+        """Build a symmetric encryption challenge (RED TEAM ONLY).
+
+        The file always holds the ENCRYPTED blob. The student must decrypt
+        it (e.g. `openssl enc -d -aes-256-cbc -salt -pbkdf2 -in <file> -pass
+        pass:<password>`), recover the plaintext, and submit
+        `CyberArena{sha256(plaintext)}`.
+        """
+        cat_stdout = base64.b64encode(blob).decode()
+        if len(cat_stdout) > 240:
+            cat_stdout = cat_stdout[:240] + "..."
+        flag_inner = hashlib.sha256(spec.plaintext.encode()).hexdigest()
+        flag_value = f"CyberArena{{{flag_inner}}}"
+        files = {filename: base64.b64encode(blob).decode()}
         return Challenge(
             team_role=spec.team_role, module=spec.module, title=spec.title,
             story=spec.story, task_outline=spec.task_outline,
-            files=files, file_metadata={filename: {"encoding": "utf-8", "size": len(spec.plaintext)}},
+            files=files, file_metadata={filename: {"encoding": "utf-8", "size": len(blob)}},
             command_outputs={
-                f"cat:{filename}": {"stdout": spec.plaintext, "stderr": "", "exit_code": 0},
+                f"cat:{filename}": {"stdout": cat_stdout, "stderr": "", "exit_code": 0},
                 "openssl:enc":    {"stdout": blob.hex()[:80] + "..." if len(blob.hex()) > 80 else blob.hex(),
                                    "stderr": "", "exit_code": 0},
-                "sha256sum":      {"stdout": f"{final_hash}  data.enc", "stderr": "", "exit_code": 0},
+                "sha256sum":      {"stdout": f"{flag_inner}  recovered_plaintext.txt", "stderr": "", "exit_code": 0},
                 "ls":             {"stdout": filename, "stderr": "", "exit_code": 0},
             },
             hints=self._pick_hints(spec),
-            tools_whitelist=DEFAULT_TOOLS,
+            tools_whitelist=["cat", "ls", "echo", "python", "openssl", "sha256sum", "base64"],
             flag_hash=hashlib.sha256(flag_value.encode()).hexdigest(),
             flag_preview=flag_value,
             difficulty=spec.difficulty,
@@ -565,6 +572,11 @@ CRYPTO_SCENARIO_PROMPT = """أنت مصمم تحديات أمن سيبراني �
 المطلوب: ولّد SPEC لتحدي تشفير للفريق {team_role} في موديول {module}.
 
 قواعد حاسمة:
+- الـ algorithm يجب أن يطابق الـ module حصراً:
+  - encryption-basics → AES-256-CBC | AES-256-GCM | VIGENERE | CAESAR | XOR
+  - hash-cracking    → MD5 | SHA-1+SALT | SHA-256 | HMAC-SHA256
+  - rsa-aes          → RSA-1024
+  أي رد بـ algorithm من خارج هذه القائمة للـ module المعطى يُرفض.
 - لا تذكر اسم الخوارزمية (AES/RSA/Vigenere/Caesar/MD5/SHA/HMAC/XOR) داخل story أو task.
 - الـ title: عنوان عربي محدد وجذاب — ليس عاماً. كل تحدي يجب أن يكون قصة مختلفة جذرياً عن أي تحدي آخر.
 - الـ story: سيناريو واقعي من 2-3 جمل يربط الـ title بسياق حقيقي.
@@ -1490,40 +1502,40 @@ async def refill_pool(team_role: str, count: int = POOL_BATCH,
 
 
 async def start_pool_watcher(team_role: str, groq_api_key: str = GROQ_API_KEY) -> None:
-    """Background task: poll the team-wide pool; refill when low.
+    """Background task: keep the team-wide pool at POOL_TARGET=5.
 
-    Pool model: each team (blue, red) keeps POOL_TARGET=5 cached challenges
-    total, distributed round-robin across modules. When the count drops to
-    POOL_THRESHOLD=2 (or below), the watcher inserts POOL_BATCH=3 new ones.
-    Above the threshold the watcher does NOTHING — this prevents hammering
-    Groq with refill calls every time a single challenge is consumed.
+    Pool model: each team (red) keeps POOL_TARGET=5 cached challenges total,
+    distributed round-robin across modules. Whenever the count is below
+    POOL_TARGET, the watcher refills exactly the missing slots (no waiting
+    for the count to drop to a threshold). Above POOL_TARGET it does nothing.
 
     Polling cadence:
-      - When the pool is full (count > threshold): poll every 60 seconds
-        (cheap, just a count() call).
-      - When the pool is low (count <= threshold): poll every 20 seconds
-        so refills happen almost in real-time.
+      - When the pool is full (count >= target): poll every IDLE_POLL_SECS
+        seconds (cheap, just a count() call).
+      - When the pool is below target: poll every 5 seconds so a consumed
+        challenge is replaced almost in real-time.
     """
     label = f"[crypto:{team_role}]"
-    print(f"{label} watcher started (target={POOL_TARGET}, threshold={POOL_THRESHOLD}, batch={POOL_BATCH}).")
+    print(f"{label} watcher started (target={POOL_TARGET}).")
     while True:
         try:
             count = get_pool_count(team_role)
-            if count <= POOL_THRESHOLD:
-                print(f"{label} pool low ({count} <= {POOL_THRESHOLD}) — refilling…")
-                added = await refill_pool(team_role, POOL_BATCH, groq_api_key)
+            if count < POOL_TARGET:
+                needed = POOL_TARGET - count
+                print(f"{label} pool below target ({count}/{POOL_TARGET}) — refilling {needed}…")
+                added = await refill_pool(team_role, needed, groq_api_key)
                 new_count = count + added
                 print(f"{label} refilled: {count} → {new_count} (target {POOL_TARGET}).")
-                # Short sleep after a refill so we can top up again if needed.
-                await asyncio.sleep(20)
+                # Short sleep after a refill so the new row count is visible.
+                await asyncio.sleep(5)
             else:
-                # Pool is healthy. Long, but cheap, poll.
-                print(f"{label} pool healthy ({count} > {POOL_THRESHOLD}) — sleeping {IDLE_POLL_SECS}s.")
+                print(f"{label} pool healthy ({count}/{POOL_TARGET}) — sleeping {IDLE_POLL_SECS}s.")
                 await asyncio.sleep(IDLE_POLL_SECS)
         except Exception as e:
             import traceback
             print(f"{label} watcher error: {e}")
             traceback.print_exc()
+            await asyncio.sleep(10)
             await asyncio.sleep(60)
 
 

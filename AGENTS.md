@@ -68,8 +68,9 @@ backend/
 
 **Pool model (per team, per type):**
 - `POOL_TARGET = 5` challenges cached
-- `POOL_THRESHOLD = 2` → trigger refill when at or below
-- `POOL_BATCH = 3` → insert this many per refill cycle
+- The watcher refills **exactly** the missing slots whenever the count
+  drops below `POOL_TARGET` (no threshold-based wait). One consumption
+  triggers a one-slot top-up.
 - Per-team registration in `populate_pool_background` — a generator registers
   itself for the teams it actually serves (e.g. crypto currently serves red
   only). Don't blindly add both teams.
