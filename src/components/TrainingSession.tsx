@@ -269,10 +269,10 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
   }, [draggingWindow, dragOffset]);
 
   useEffect(() => {
-    if (hasCalledRef.current) return;
-    hasCalledRef.current = true;
+    if (hasCalledRef.current === challengeId) return;
+    hasCalledRef.current = challengeId;
     generateTraining();
-  }, []);
+  }, [challengeId]);
 
   const prettyPrintHtml = (input: string) => {
     const compact = input.replace(/>\s+</g, '><').trim();
@@ -369,6 +369,13 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
     setSimulatedTitle('جاري تحميل السيناريو...');
     setIsOpenEditor(false);
     setEvalResult(null);
+    setEditorFiles({});
+    setSelectedFile('index.html');
+    setNotepadContent('');
+    setNotepadEditable(false);
+    setNotepadSaving(false);
+    setNotepadStatus('');
+    setUserWorkdirFiles([]);
 
     let isFinishedFetching = false;
     let fetchedTraining: TrainingData | null = null;
