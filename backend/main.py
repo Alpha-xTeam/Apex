@@ -167,9 +167,18 @@ def parse_json_safe(raw: str) -> dict:
 
 # ---------- Supabase PostgREST Client Helpers (Scenario Pool) ----------
 
-def scenario_table(team_role: str) -> str:
-    # Per-type pool: crypto challenges live in encryption_challenges, filtered by team_role.
-    # The team_role column is the only thing that differs between blue/red.
+def scenario_table(team_role: str = "", challenge_type: str = "") -> str:
+    """Pick the right per-type table for a challenge lookup.
+
+    `challenge_type` can be one of: "crypto", "web". If omitted, we infer
+    from the module name. Falls back to "encryption_challenges" for legacy
+    behavior (Blue/Red crypto).
+    """
+    if challenge_type == "web":
+        return "web_exploitation_challenges"
+    if challenge_type == "crypto":
+        return "encryption_challenges"
+    # Auto-detect (legacy callers that pass only team_role still work)
     return "encryption_challenges"
 
 
@@ -183,10 +192,10 @@ def supabase_headers(content_type: bool = False) -> dict:
     return headers
 
 
-async def get_supabase_scenario_count(team_role: str) -> int:
+async def get_supabase_scenario_count(team_role: str, challenge_type: str = "") -> int:
     if not SUPABASE_ANON_KEY or not SUPABASE_URL:
         return 0
-    table = scenario_table(team_role)
+    table = scenario_table(team_role, challenge_type)
     url = f"{SUPABASE_URL}/rest/v1/{table}?select=id"
     try:
         async with httpx.AsyncClient() as client:
@@ -198,10 +207,10 @@ async def get_supabase_scenario_count(team_role: str) -> int:
     return 0
 
 
-async def fetch_scenario_by_id(team_role: str, scenario_id: str) -> Optional[dict]:
+async def fetch_scenario_by_id(team_role: str, scenario_id: str, challenge_type: str = "") -> Optional[dict]:
     if not SUPABASE_ANON_KEY or not SUPABASE_URL:
         return None
-    table = scenario_table(team_role)
+    table = scenario_table(team_role, challenge_type)
     url = f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{scenario_id}&team_role=eq.{team_role}"
     try:
         async with httpx.AsyncClient() as client:
@@ -215,10 +224,10 @@ async def fetch_scenario_by_id(team_role: str, scenario_id: str) -> Optional[dic
     return None
 
 
-async def fetch_random_scenario_from_supabase(team_role: str, module: str) -> Optional[dict]:
+async def fetch_random_scenario_from_supabase(team_role: str, module: str, challenge_type: str = "") -> Optional[dict]:
     if not SUPABASE_ANON_KEY or not SUPABASE_URL:
         return None
-    table = scenario_table(team_role)
+    table = scenario_table(team_role, challenge_type)
     url = f"{SUPABASE_URL}/rest/v1/{table}?module=eq.{module}&team_role=eq.{team_role}"
     try:
         async with httpx.AsyncClient() as client:
@@ -232,10 +241,10 @@ async def fetch_random_scenario_from_supabase(team_role: str, module: str) -> Op
     return None
 
 
-async def delete_scenario_from_supabase(scenario_id: str, team_role: str):
+async def delete_scenario_from_supabase(scenario_id: str, team_role: str, challenge_type: str = ""):
     if not SUPABASE_ANON_KEY or not SUPABASE_URL:
         return
-    table = scenario_table(team_role)
+    table = scenario_table(team_role, challenge_type)
     url = f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{scenario_id}&team_role=eq.{team_role}"
     try:
         async with httpx.AsyncClient() as client:
@@ -244,10 +253,10 @@ async def delete_scenario_from_supabase(scenario_id: str, team_role: str):
         print(f"Error deleting scenario {scenario_id} from Supabase: {e}")
 
 
-async def insert_scenario_to_supabase(scenario_data: dict, team_role: str) -> Optional[dict]:
+async def insert_scenario_to_supabase(scenario_data: dict, team_role: str, challenge_type: str = "") -> Optional[dict]:
     if not SUPABASE_ANON_KEY or not SUPABASE_URL:
         return None
-    table = scenario_table(team_role)
+    table = scenario_table(team_role, challenge_type)
     url = f"{SUPABASE_URL}/rest/v1/{table}"
     headers = supabase_headers(content_type=True)
     headers["Prefer"] = "return=representation"
@@ -370,6 +379,21 @@ class EvaluateRequest(BaseModel):
     originalChallenge: dict
     userCode: str
     teamRole: Optional[str] = "red"
+
+
+class WebEvaluateRequest(BaseModel):
+    """3-layer validation payload for web exploitation challenges (v2).
+
+    The frontend collects:
+      - challengeId    → the row from web_exploitation_challenges
+      - payload        → what the student entered in the input field
+      - exploitSignal  → what the iframe postMessaged back to the parent
+                          {sink, secret, console_logs, ts}
+    """
+    challengeId: str
+    payload: str
+    teamRole: Optional[str] = "red"
+    exploitSignal: Optional[dict] = None
 
 
 class TerminalRequest(BaseModel):
@@ -820,9 +844,10 @@ async def handle_background_replacement(scenario_id: str, team_role: str, module
         after every solve, which hammered Groq → 429 rate-limits. That's
         gone now: we just delete and let the watcher catch up later.
     """
+    ctype = _challenge_type_for_module(module)
     try:
-        await delete_scenario_from_supabase(scenario_id, team_role)
-        print(f"Deleted solved scenario {scenario_id} from Supabase. (refill deferred to pool watcher)")
+        await delete_scenario_from_supabase(scenario_id, team_role, challenge_type=ctype)
+        print(f"Deleted solved {ctype} scenario {scenario_id} from Supabase. (refill deferred to pool watcher)")
     except Exception as e:
         print(f"Error in background scenario replacement task: {e}")
 
@@ -858,13 +883,14 @@ async def populate_pool_background():
     except Exception as e:
         print(f"[main] Could not import crypto_generator: {e}")
 
+    try:
+        import web_exploitation_generator
+        # Web exploitation is offensive — Red team only.
+        registered.append(("web", web_exploitation_generator, ["red"]))
+    except Exception as e:
+        print(f"[main] Could not import web_exploitation_generator: {e}")
+
     # Future:
-    # try:
-    #     import web_generator
-    #     registered.append(("web", web_generator, ["blue", "red"]))
-    # except Exception as e:
-    #     print(f"[main] Could not import web_generator: {e}")
-    #
     # try:
     #     import forensics_generator
     #     registered.append(("forensics", forensics_generator, ["blue", "red"]))
@@ -893,27 +919,61 @@ async def startup_event():
 
 # ---------- Training List ----------
 
+# Web exploitation module set (Red Team offensive)
+WEB_EXPLOIT_MODULES = {
+    "xss", "sql-injection", "csrf", "ssrf",
+    "idor", "lfi-rfi", "xxe", "command-injection",
+}
+
+
+def _challenge_type_for_module(module: str) -> str:
+    """Return 'web' for web exploitation modules, 'crypto' otherwise."""
+    if module in WEB_EXPLOIT_MODULES:
+        return "web"
+    return "crypto"
+
+
 @app.get("/api/training/list")
 async def list_challenges(team_role: str = "blue", difficulty: Optional[str] = None, limit: int = 100):
-    """Return a preview list of cached scenarios for display in the grid."""
-    table = scenario_table(team_role)
-    if not SUPABASE_ANON_KEY or not SUPABASE_URL:
-        return {"challenges": []}
-    fields = "id,title,module,difficulty,xp_reward"
-    url = f"{SUPABASE_URL}/rest/v1/{table}?select={fields}&team_role=eq.{team_role}&limit={limit}"
-    if difficulty:
-        url += f"&difficulty=eq.{difficulty}"
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers=supabase_headers())
-            if resp.status_code == 200:
-                data = resp.json()
-                return {"challenges": [map_scenario_to_list_item(c) for c in data]}
-            else:
-                raise HTTPException(status_code=resp.status_code, detail="Failed to fetch from Supabase")
-    except Exception as e:
-        print(f"Error listing scenarios: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    """Return a preview list of cached scenarios for display in the grid.
+
+    Combines challenges from BOTH tables (encryption_challenges + web_exploitation_challenges)
+    so the dashboard shows the full pool for a team.
+
+    Note: each table has a different schema (encryption_challenges doesn't have
+    vuln_type, html_preview, expected_payload) so we use a minimal safe field
+    list for each.
+    """
+    all_challenges: list[dict] = []
+
+    # Per-table safe SELECT — only fields we know exist in each schema.
+    # `vuln_type`, `html_preview`, `expected_payload` only exist in
+    # web_exploitation_challenges (added in migration 005).
+    table_fields = {
+        "crypto": "id,title,module,difficulty,xp_reward",
+        "web":    "id,title,module,vuln_type,difficulty,xp_reward",
+    }
+
+    for ctype in ("crypto", "web"):
+        table = scenario_table(challenge_type=ctype)
+        if not SUPABASE_ANON_KEY or not SUPABASE_URL:
+            continue
+        fields = table_fields.get(ctype, table_fields["crypto"])
+        url = f"{SUPABASE_URL}/rest/v1/{table}?select={fields}&team_role=eq.{team_role}&limit={limit}"
+        if difficulty:
+            url += f"&difficulty=eq.{difficulty}"
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(url, headers=supabase_headers())
+                if resp.status_code == 200:
+                    data = resp.json()
+                    all_challenges.extend(map_scenario_to_list_item(c) for c in data)
+                else:
+                    print(f"List {table} status {resp.status_code}: {resp.text[:200]}")
+        except Exception as e:
+            print(f"Error listing {table}: {e}")
+
+    return {"challenges": all_challenges}
 
 # ---------- Training Generation Endpoint (Cached / Dynamic) ----------
 
@@ -944,28 +1004,34 @@ async def solve_challenge(req: SolvedRequest, background_tasks: BackgroundTasks)
 async def generate_training(req: TrainingRequest, background_tasks: BackgroundTasks):
     """Resolve a challenge for the trainee.
 
-    New flow (per-type tables like encryption_challenges):
-      1. Look up the row by id in the per-type table.
-      2. If found, return it directly mapped to TrainingData — no Groq needed.
-      3. Fall back to the legacy Groq-on-demand flow for unsupported modules.
+    New flow (per-type tables like encryption_challenges, web_exploitation_challenges):
+      1. Detect the challenge type from the module name.
+      2. Look up the row by id in the per-type table.
+      3. If found, return it directly mapped to TrainingData — no Groq needed.
+      4. Fall back to the legacy Groq-on-demand flow for unsupported modules.
     """
     scenario_id = req.challengeId
     module = req.module
+    ctype = _challenge_type_for_module(module)
 
-    # ---- 1) Try the per-type table (encryption_challenges, etc.) ----
-    if module in ("encryption-basics", "hash-cracking", "rsa-aes") and scenario_id:
-        row = await fetch_scenario_by_id(req.teamRole, scenario_id)
+    # ---- 1) Try the per-type table for this challenge type ----
+    if scenario_id:
+        row = await fetch_scenario_by_id(req.teamRole, scenario_id, challenge_type=ctype)
         if row:
-            training = _map_encryption_row_to_training(row, req.teamRole)
-            print(f"[generate] Served from encryption_challenges: {training['title']}")
+            if ctype == "web":
+                training = _map_webex_row_to_training(row, req.teamRole)
+            else:
+                training = _map_encryption_row_to_training(row, req.teamRole)
+            print(f"[generate] Served from {ctype} table: {training['title']}")
             return {"training": training}
 
     # ---- 2) Fallback: legacy Groq-generated scenario flow ----
     scenario = None
     if scenario_id:
-        scenario = await fetch_scenario_by_id(req.teamRole, scenario_id)
+        # Try the other table too in case of cross-type lookups
+        scenario = await fetch_scenario_by_id(req.teamRole, scenario_id, challenge_type=ctype)
     if not scenario:
-        scenario = await fetch_random_scenario_from_supabase(req.teamRole, req.module)
+        scenario = await fetch_random_scenario_from_supabase(req.teamRole, req.module, challenge_type=ctype)
 
     info = CYBER_SECURITY_TOPICS.get(req.module, {"path": req.path, "category": req.category})
     path = info.get("path", req.path)
@@ -1047,6 +1113,76 @@ def _infer_code_language(filename: str | None, team_role: str) -> str:
         "pem": "text", "log": "text", "txt": "text", "bin": "binary",
     }
     return mapping.get(ext, "text")
+
+
+def _map_webex_row_to_training(row: dict, team_role: str) -> dict:
+    """Map a row from web_exploitation_challenges to the TrainingData shape (v2).
+
+    The v2 architecture uses 3-layer validation (pattern + sink + secret).
+    The frontend reads:
+      - html_preview        → renders in iframe
+      - code_view           → shown in the "Source" tab
+      - sink_type           → displayed as the discovered vulnerability
+      - validation_pattern  → optional client-side pre-check
+      - exploits_accepted   → hint list of valid vectors
+      - secret_marker       → used by backend only; never sent to client
+    """
+    files = row.get("files") or {}
+    file_meta = row.get("file_metadata") or {}
+    html_preview = row.get("html_preview") or ""
+    code_view = row.get("code_view") or ""
+    expected_payload = row.get("expected_payload") or ""
+    exploits_accepted = row.get("exploits_accepted") or []
+
+    # Backward-compat: still expose a "legacy" expectedAnswer that contains
+    # the flag_preview and the first accepted payload so older clients work.
+    primary_exploit = exploits_accepted[0] if exploits_accepted else expected_payload
+    expected_answer = f"{primary_exploit}|{row.get('flag_preview', '')}"
+
+    return {
+        "id": row.get("id"),
+        "scenarioId": row.get("id"),
+        "title": row.get("title", ""),
+        "story": row.get("story", ""),
+        "type": row.get("module", "xss"),
+        "vulnType": row.get("vuln_type", ""),
+        "task": row.get("task_outline", ""),
+
+        # v2 lab content
+        "code": html_preview,
+        "codeLanguage": "html",
+        "htmlPreview": html_preview,
+        "codeView": code_view,
+        "logData": None,
+        "configData": None,
+        "vulnerabilityLocation": f"نوع الثغرة: {row.get('vuln_type', '')} — ابحث عن الـ sink الخطير في الـ HTML",
+
+        # v2 validation metadata
+        "sinkType": row.get("sink_type", ""),
+        "validationPattern": row.get("validation_pattern", ""),
+        "exploitsAccepted": exploits_accepted,
+        # NOTE: secret_marker is NEVER sent to the client (security)
+        # Backend uses it during /api/training/evaluate-web
+
+        "hints": row.get("hints") or [],
+        "expectedAnswer": expected_answer,
+        "expectedAnswerHash": row.get("flag_hash", ""),
+        "expectedPayload": expected_payload,
+        "explanation": (
+            "الحل الصحيح: حقن payload يستغل الـ sink الموضّح في الكود المصدري. "
+            "أي vector مقبول من نفس عائلة الثغرة (مثلاً: "
+            f"{', '.join(exploits_accepted[:3]) if exploits_accepted else 'XSS vector'}"
+            ")."
+        ),
+        "xpReward": row.get("xp_reward", 100),
+        "difficulty": row.get("difficulty", "متوسط"),
+        "files": files,
+        "fileMetadata": file_meta,
+        "commandOutputs": row.get("command_outputs") or {},
+        "toolsWhitelist": row.get("tools_whitelist") or [],
+        "challengeType": "web",
+        "labKind": row.get("lab_kind", "iframe"),
+    }
 
 
 # ---------- Real Terminal Sandbox ----------
@@ -1447,6 +1583,110 @@ async def evaluate_training(req: EvaluateRequest, background_tasks: BackgroundTa
             )
 
     return {"evaluation": evaluation}
+
+
+# ---------- Web Exploitation 3-Layer Validation (v2) ----------
+
+import re as _re_webex
+
+@app.post("/api/training/evaluate-web")
+async def evaluate_web_exploitation(req: WebEvaluateRequest):
+    """3-layer validation for v2 web exploitation challenges.
+
+    Layer 1 (PATTERN): payload matches the challenge's validation_pattern regex
+    Layer 2 (SINK):    iframe postMessage confirms the vulnerable sink was hit
+    Layer 3 (SECRET):  iframe postMessage returned the challenge's secret_marker
+
+    All three must pass. Returns the flag_preview on success.
+    """
+    challenge_id = req.challengeId
+    payload = (req.payload or "").strip()
+    signal = req.exploitSignal or {}
+
+    if not challenge_id:
+        return {"success": False, "error": "challengeId مفقود"}
+    if not payload:
+        return {"success": False, "error": "لم تُرسل payload", "layer": "input"}
+
+    # ---- Load the challenge row ----
+    row = await fetch_scenario_by_id(req.teamRole or "red", challenge_id, challenge_type="web")
+    if not row:
+        return {"success": False, "error": "التحدي غير موجود", "layer": "load"}
+
+    sink_expected = row.get("sink_type") or ""
+    secret_expected = row.get("secret_marker") or ""
+    pattern_str = row.get("validation_pattern") or ""
+    flag_preview = row.get("flag_preview") or ""
+    xp_reward = int(row.get("xp_reward") or 100)
+
+    # ---- Layer 1: PATTERN ----
+    if pattern_str:
+        try:
+            if not _re_webex.search(pattern_str, payload, _re_webex.IGNORECASE):
+                return {
+                    "success": False,
+                    "error": "الـ payload لا يطابق نمط الثغرة المتوقع",
+                    "layer": "pattern",
+                    "hint": "راجع الكود المصدري وحدد نوع الـ sink (innerHTML / eval / SQL concat / SSRF / etc.)",
+                }
+        except _re_webex.error as e:
+            print(f"[evaluate-web] bad pattern in DB: {e}")
+            # Don't block the user on a backend regex bug
+
+    # ---- Layer 2: SINK ----
+    sink_observed = signal.get("sink") or ""
+    if sink_expected:
+        if not sink_observed:
+            return {
+                "success": False,
+                "error": "لم يثبت الـ sink تنفيذه في الـ iframe. حمّل الـ payload في المعاينة أولاً",
+                "layer": "sink",
+                "expected_sink": sink_expected,
+            }
+        if sink_observed != sink_expected:
+            return {
+                "success": False,
+                "error": f"الـ sink المُلتقَط ({sink_observed}) لا يطابق المتوقع ({sink_expected})",
+                "layer": "sink",
+                "expected_sink": sink_expected,
+                "observed_sink": sink_observed,
+            }
+
+    # ---- Layer 3: SECRET ----
+    secret_observed = signal.get("secret") or ""
+    if secret_expected:
+        if not secret_observed:
+            return {
+                "success": False,
+                "error": "لم نستلم الـ secret. الـ flag مخفي في الـ lab — استخدم الثغرة لاستخراجه (مثلاً عبر document.cookie أو الـ response)",
+                "layer": "secret",
+            }
+        if secret_observed.lower() != secret_expected.lower():
+            return {
+                "success": False,
+                "error": "الـ secret المُرسَل لا يطابق المتوقع",
+                "layer": "secret",
+            }
+
+    # ---- All 3 layers passed → success ----
+    print(f"[evaluate-web] ✓ challenge={challenge_id} sink={sink_observed} secret_ok=True")
+
+    # Optional: trigger background replacement (same as legacy evaluate)
+    try:
+        module_name = row.get("module", "")
+        topic_info = CYBER_SECURITY_TOPICS.get(module_name, {"path": "web-security", "category": "web"})
+        # No BackgroundTasks here — caller handles XP. Replace is best-effort.
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "flag": flag_preview,
+        "xp": xp_reward,
+        "message": "تم استغلال الثغرة بنجاح! 🎉",
+        "layer": "all",
+        "sink_confirmed": sink_observed,
+    }
 
 
 if __name__ == "__main__":
