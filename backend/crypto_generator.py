@@ -9,19 +9,23 @@ orchestrator that runs all of them):
     main.py watcher  (polls encryption_challenges count)
             │
             ▼
-    refill_pool(team_role, count)  ──→  ai_generate_scenario()  ──→  Groq
-            │                              │
-            │                              ▼
-            │                       ScenarioSpec
-            │                              │
-            │                              ▼
-            │                       ChallengeBuilder.build()  ──→  CryptoExecutor (runs Python)
-            │                              │
-            ▼                              ▼
-        insert_to_db()  ◄───── Challenge (DB-ready)
+    refill_pool(team_role, count)
+            │
+            ▼
+    _refill_pool_unlocked()
+            │
+            │  1. System pre-selects algorithm (ALGORITHM_ROTATION)
+            │  2. AI generates: title + story + task + hints + plaintext
+            │  3. Python encrypts the plaintext with the pre-selected algo
+            │  4. ChallengeBuilder produces a Challenge, insert to DB
             │
             ▼
     public.encryption_challenges
+
+The algorithm is FIXED per slot — the AI is only asked to write flavor text
+(title, story, task, hints) plus the plaintext. Python handles all
+encryption deterministically. This guarantees the algorithm always matches
+its module, and the crypto logic is provably correct (no LLM hallucination).
 
 Public API (used by main.py):
     - POOL_TARGET = 5           per (team, module)
@@ -83,6 +87,100 @@ ALGOS_BY_MODULE = {
     "rsa-aes":           {"RSA-1024"},
 }
 
+# Round-robin list of algorithms the system pre-selects for each slot.
+# The AI no longer picks the algorithm — it only generates the flavor
+# (title, story, task, hints, plaintext). Python then encrypts the
+# plaintext using the algorithm the system chose, so the algorithm is
+# always guaranteed to match the module and the crypto is deterministic.
+ALGORITHM_ROTATION = [
+    ("encryption-basics", "AES-256-CBC"),
+    ("hash-cracking",     "SHA-256"),
+    ("encryption-basics", "CAESAR"),
+    ("encryption-basics", "VIGENERE"),
+    ("hash-cracking",     "MD5"),
+    ("encryption-basics", "AES-256-GCM"),
+    ("encryption-basics", "XOR"),
+    ("rsa-aes",           "RSA-1024"),
+    ("hash-cracking",     "HMAC-SHA256"),
+    ("hash-cracking",     "SHA-1+SALT"),
+]
+
+
+def _pick_algorithm_for_slot(i: int) -> tuple[str, str]:
+    """Return (module, algorithm) for slot i in the refill cycle.
+
+    The AI is NOT asked to pick an algorithm — the system pre-selects
+    one from ALGORITHM_ROTATION, guaranteeing it always belongs to a
+    legal module.
+    """
+    return ALGORITHM_ROTATION[i % len(ALGORITHM_ROTATION)]
+
+
+def _generate_key_for_algo(algorithm: str, extra: dict) -> tuple[str, dict]:
+    """Auto-generate key_material (and any extra params) for the given algorithm.
+
+    Returns (key_material, updated_extra). Called when the AI didn't supply
+    a key (or supplied an empty one). The output is what the
+    CryptoExecutor expects for that algorithm.
+    """
+    algo = _normalize_algo(algorithm).upper()
+    out_extra = dict(extra) if extra else {}
+
+    if algo == "AES-256-CBC":
+        passwords = [
+            "P@ssw0rd!2024", "CryptoK3y#Secure", "AES-Strong!Key9",
+            "B1ueT34m$Lock", "C0mpl3x!Pass2025", "R3dT3am@K3y256",
+            "S3cur3Pass!2024", "QuantumSafe!Key",
+        ]
+        return random.choice(passwords), out_extra
+
+    if algo == "AES-256-GCM":
+        passwords = [
+            "GCM@SecureK3y!", "AuthT4g$Pass2024", "AEAD#K3yStr0ng",
+            "NetS3cure!2024", "Cloud!Encrypt#9", "P@cketK3y$AEAD",
+        ]
+        return random.choice(passwords), out_extra
+
+    if algo == "RSA-1024":
+        return "", out_extra  # RSA generates its own key
+
+    if algo == "VIGENERE":
+        keys = ["RADIO", "ENIGMA", "BLITZ", "LONDON", "AXIS", "OMEGA", "NEXUS", "KILO", "TANGO"]
+        return random.choice(keys), out_extra
+
+    if algo == "CAESAR":
+        shift = random.choice([3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25])
+        out_extra["shift"] = shift
+        return f"shift={shift}", out_extra
+
+    if algo == "XOR":
+        key_byte = random.choice([0x42, 0x55, 0x77, 0xA3, 0xC9, 0xE5, 0x4F, 0x9B,
+                                  0x88, 0xAA, 0xC7, 0xE2, 0xB1, 0x9C, 0xD4, 0xF6])
+        out_extra["key_byte"] = key_byte
+        return f"key_byte=0x{key_byte:02X}", out_extra
+
+    if algo == "MD5":
+        return f"$P${_rand8_alnum()}{_rand8_alnum()[:4]}", out_extra
+
+    if algo == "SHA-1+SALT":
+        salt = random.choice(["apex2026", "linux42", "r00tme", "cisco99", "salted", "redhat9"])
+        out_extra["salt"] = salt
+        return f"$1${salt}$", out_extra
+
+    if algo == "SHA-256":
+        return "", out_extra
+
+    if algo == "HMAC-SHA256":
+        keys = ["hmac-shared-secret-2024", "RedTeam@K3y!9", "APEX#MAC$K3y", "Auth$Sign@2025"]
+        return random.choice(keys), out_extra
+
+    return "", out_extra
+
+
+def _rand8_alnum() -> str:
+    """Return 8 random alphanumeric characters (used for MD5 fake hash prefixes)."""
+    return "".join(random.choice("abcdefghijklmnopqrstuvwxyz0123456789") for _ in range(8))
+
 
 def _normalize_algo(algorithm: str) -> str:
     """If Groq returns a pipe-separated list like 'AES-256-CBC|VIGENERE',
@@ -128,7 +226,7 @@ def _repair_json(raw: str) -> dict:
     """Best-effort JSON repair for common LLM malformations.
 
     Handles: trailing commas, truncated output (missing closing braces),
-    and stray text around the JSON blob.
+    truncated mid-string, and stray text around the JSON blob.
     """
     import re
     text = raw.strip()
@@ -148,25 +246,50 @@ def _repair_json(raw: str) -> dict:
 
     text = re.sub(r",\s*([}\]])", r"\1", text)
 
+    # Quick path: already valid JSON
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
 
+    # Detect mid-string truncation: if the text ends inside an unescaped
+    # double-quote, close it. This is the common case when the Groq SDK
+    # returns a body that was cut off at max_completion_tokens.
+    def _close_truncated_string(s: str) -> str:
+        # Walk the string tracking string state (rough but works for
+        # our LLM JSON output which is single-line except for \n escapes).
+        in_string = False
+        escape = False
+        last_quote_idx = -1
+        for i, ch in enumerate(s):
+            if escape:
+                escape = False
+                continue
+            if ch == '\\':
+                escape = True
+                continue
+            if ch == '"':
+                in_string = not in_string
+                last_quote_idx = i
+        if in_string and last_quote_idx >= 0:
+            return s + '"'
+        return s
+
     open_braces = text.count("{") - text.count("}")
     open_brackets = text.count("[") - text.count("]")
-    candidate = text + "]" * max(0, open_brackets) + "}" * max(0, open_braces)
+    candidate = _close_truncated_string(text)
+    candidate = candidate + "]" * max(0, open_brackets) + "}" * max(0, open_braces)
     try:
         return json.loads(candidate)
     except json.JSONDecodeError:
         pass
 
-    idx = candidate.rfind("}")
-    if idx != -1:
-        snippet = candidate[:idx + 1]
-        ob = snippet.count("{") - snippet.count("}")
-        oc = snippet.count("[") - snippet.count("]")
-        snippet += "]" * max(0, oc) + "}" * max(0, ob)
+    # Last resort: chop off the partial last key/value pair and try again.
+    # Find the last complete top-level key by looking for the last `,"` or
+    # `{"` boundary.
+    idx = candidate.rfind(",")
+    if idx > 0:
+        snippet = candidate[:idx] + "]" * max(0, open_brackets) + "}" * max(0, open_braces)
         try:
             return json.loads(snippet)
         except json.JSONDecodeError:
@@ -651,21 +774,18 @@ CRYPTO_SCENARIO_PROMPT = """أنت مصمم تحديات أمن سيبراني �
 المطلوب: ولّد SPEC لتحدي تشفير للفريق {team_role} في موديول {module}.
 
 قواعد حاسمة:
-- الـ algorithm يجب أن يطابق الـ module حصراً:
-  - encryption-basics → AES-256-CBC | AES-256-GCM | VIGENERE | CAESAR | XOR
-  - hash-cracking    → MD5 | SHA-1+SALT | SHA-256 | HMAC-SHA256
-  - rsa-aes          → RSA-1024
-  أي رد بـ algorithm من خارج هذه القائمة للـ module المعطى يُرفض.
+- الخوارزمية محددة لك مسبقاً ({algorithm}) — لا تخترع خوارزمية أخرى. اكتب سيناريو يناسبها.
 - لا تذكر اسم الخوارزمية (AES/RSA/Vigenere/Caesar/MD5/SHA/HMAC/XOR) داخل story أو task.
 - الـ title: عنوان عربي محدد وجذاب — ليس عاماً. كل تحدي يجب أن يكون قصة مختلفة جذرياً عن أي تحدي آخر.
 - الـ story: سيناريو واقعي من 2-3 جمل يربط الـ title بسياق حقيقي.
 - الـ task_outline: ماذا يجب على الطالب فعله، بدون ذكر الأوامر بالأحرف.
 - للفريق blue: سيناريو تطبيق تشفير/توقيع على ملف موجود.
 - للفريق red: سيناريو كسر/فك تشفير/استخراج plaintext من مشفّر.
-- الـ plaintext: محتوى ملف input قصير وواقعي (CSV, JSON, config, log, password, payload...).
+- الـ plaintext: محتوى ملف input قصير وواقعي (CSV, JSON, config, log, password, payload...). اكتبه بالعربية أو بالإنجليزية حسب القصة، واجعله قصيراً (سطرين إلى خمسة أسطر).
+- الـ key_material (اختياري): إذا خطر ببالك key أو password مناسب للقصة، ضعه هنا. لا تذكره داخل الـ story. إذا لم يخطر لك، اتركه فاضياً وسيتم توليده تلقائياً.
 - الصعوبة: {difficulty}
-- الـ key_material: ضع key أو password أو salt هنا. لا تذكره في الـ story.
 - اسم الملف الذي يحتوي المحتوى (مثال: intercept.txt، leak.bin، firmware.bin، contract.txt، payload.json): ضعه في `extra.filename` واستعمل نفس الاسم داخل story و task_outline بالضبط.
+- الـ hints: 3 تلميحات سقراطية غير مباشرة — توجّه الطالب للتفكير بدون إعطاء الجواب.
 
 أمثلة على عناوين مميزة (استلهم منها، لا تنسخها حرفياً):
 - "اعتراض بث مشفر من ضابط ألماني في الـ Afrika Korps"
@@ -682,9 +802,9 @@ CRYPTO_SCENARIO_PROMPT = """أنت مصمم تحديات أمن سيبراني �
   "title": "عنوان عربي محدد وجذاب",
   "story": "قصة واقعية 2-3 جمل بدون أسماء خوارزميات",
   "task_outline": "مطلوب الطالب بدقة بدون أوامر",
-  "algorithm": "AES-256-CBC | AES-256-GCM | RSA-1024 | SHA-256 | HMAC-SHA256 | MD5 | SHA-1+SALT | VIGENERE | CAESAR | XOR",
-  "plaintext": "محتوى الملف input",
-  "key_material": "password أو key (لا تضعه داخل story)",
+  "plaintext": "محتوى الملف input (سطرين إلى خمسة أسطر)",
+  "key_material": "password أو key أو salt (اختياري — فاضي مقبول)",
+  "hints": ["تلميح 1 غير مباشر", "تلميح 2 غير مباشر", "تلميح 3 غير مباشر"],
   "extra": {{
     "filename": "اسم_الملف.لاحقة"
   }}
@@ -692,17 +812,26 @@ CRYPTO_SCENARIO_PROMPT = """أنت مصمم تحديات أمن سيبراني �
 
 
 async def ai_generate_scenario(team_role: str, module: str, difficulty: str,
-                                groq_api_key: str, model: str | None = None) -> ScenarioSpec:
+                                groq_api_key: str, model: str | None = None,
+                                algorithm: str | None = None) -> ScenarioSpec:
     """Call Groq to produce a scenario. Validates and returns a ScenarioSpec.
 
     Uses the official `groq` Python SDK (sync). The SDK call is wrapped in
     `asyncio.to_thread` so the existing async call sites in `refill_pool`
     keep working without blocking the event loop.
+
+    The `algorithm` is now pre-selected by the system (see _pick_algorithm_for_slot).
+    The AI is asked to write a story that fits it, but the algorithm itself
+    is fixed — the AI only generates flavor (title, story, task, hints, plaintext)
+    plus an optional key_material suggestion.
     """
     if model is None:
         model = GROQ_MODEL  # env var or default to llama-3.1-8b-instant
     from groq import Groq
-    prompt = CRYPTO_SCENARIO_PROMPT.format(team_role=team_role, module=module, difficulty=difficulty)
+    prompt = CRYPTO_SCENARIO_PROMPT.format(
+        team_role=team_role, module=module, difficulty=difficulty,
+        algorithm=algorithm or "any",
+    )
 
     def _call_groq() -> str:
         client = Groq(api_key=groq_api_key)
@@ -713,12 +842,20 @@ async def ai_generate_scenario(team_role: str, module: str, difficulty: str,
                 {"role": "user", "content": prompt},
             ],
             temperature=0.7,
-            max_completion_tokens=1500,
+            max_completion_tokens=3000,
             top_p=1,
             stream=False,
             stop=None,
         )
-        return (completion.choices[0].message.content or "").strip()
+        msg = completion.choices[0].message
+        content = (msg.content or "").strip()
+        finish = completion.choices[0].finish_reason
+        # If the model hit the token cap, the JSON is likely truncated
+        # mid-string — treat as a transient error so the caller falls
+        # through to DeepSeek/seed.
+        if finish == "length":
+            raise _ResponseTruncated("Groq response hit max_completion_tokens")
+        return content
 
     content = await asyncio.to_thread(_call_groq)
 
@@ -729,7 +866,14 @@ async def ai_generate_scenario(team_role: str, module: str, difficulty: str,
             content = content[4:]
         content = content.strip().rstrip("`")
 
-    data = _repair_json(content)
+    try:
+        data = _repair_json(content)
+    except (ValueError, json.JSONDecodeError) as e:
+        # The Groq SDK sometimes returns finish_reason="stop" with a
+        # body that is actually truncated (connection was closed
+        # mid-stream). Treat any JSON-parse failure as a transient
+        # truncation so the caller falls through to DeepSeek/seed.
+        raise _ResponseTruncated(f"Could not repair JSON: {e}") from e
     extra = data.get("extra", {}) or {}
     if "filename" not in extra or not extra["filename"]:
         m = _FILENAME_RE.findall(data.get("story", "") or "")
@@ -738,12 +882,29 @@ async def ai_generate_scenario(team_role: str, module: str, difficulty: str,
     if extra.get("filename"):
         data["story"] = _align_filename_in_story(data.get("story", ""), extra["filename"])
         data["task_outline"] = _align_filename_in_story(data.get("task_outline", ""), extra["filename"])
+
+    # The system pre-selects the algorithm — always use it, never the AI's pick.
+    final_algo = _normalize_algo(algorithm or data.get("algorithm", ""))
+    ai_key = (data.get("key_material") or "").strip()
+
+    # If the AI didn't suggest a key, auto-generate one that fits the algorithm.
+    if ai_key:
+        key_material, extra = ai_key, extra
+    else:
+        key_material, extra = _generate_key_for_algo(final_algo, extra)
+
+    hints_raw = data.get("hints") or []
+    if isinstance(hints_raw, list):
+        hints = [str(h).strip() for h in hints_raw if str(h).strip()]
+    else:
+        hints = []
+
     return ScenarioSpec(
         team_role=team_role, module=module, difficulty=difficulty,
-        algorithm=data["algorithm"], plaintext=data["plaintext"],
-        key_material=data.get("key_material", ""),
+        algorithm=final_algo, plaintext=data["plaintext"],
+        key_material=key_material,
         title=data["title"], story=data["story"], task_outline=data["task_outline"],
-        extra=extra,
+        extra=extra, hints=hints,
     )
 
 
@@ -754,19 +915,31 @@ _GROQ_TRANSIENT_EXCEPTIONS = (httpx.TimeoutException, httpx.ReadTimeout,
                               httpx.ConnectError, httpx.RemoteProtocolError)
 
 
+class _ResponseTruncated(Exception):
+    """Raised when the Groq model returns a finish_reason=length response
+    (i.e. the JSON was cut off mid-string). Treated as transient."""
+    pass
+
+
 async def ai_generate_scenario_via_deepseek(team_role: str, module: str, difficulty: str,
                                             nvidia_api_key: str,
-                                            model: str | None = None) -> ScenarioSpec:
+                                            model: str | None = None,
+                                            algorithm: str | None = None) -> ScenarioSpec:
     """Fallback AI: call NVIDIA integrate (DeepSeek v4-pro) when Groq is unreachable.
 
     OpenAI-compatible chat-completions endpoint. Returns a ScenarioSpec the
     same way ai_generate_scenario does. Raises on transport errors so the
     caller can decide what to do next (e.g. fall back to a curated seed).
+
+    The `algorithm` is pre-selected by the system (see _pick_algorithm_for_slot).
     """
     if not nvidia_api_key:
         raise RuntimeError("NVIDIA_API_KEY not configured")
     model = model or NVIDIA_MODEL
-    prompt = CRYPTO_SCENARIO_PROMPT.format(team_role=team_role, module=module, difficulty=difficulty)
+    prompt = CRYPTO_SCENARIO_PROMPT.format(
+        team_role=team_role, module=module, difficulty=difficulty,
+        algorithm=algorithm or "any",
+    )
     body = {
         "model": model,
         "messages": [
@@ -803,12 +976,29 @@ async def ai_generate_scenario_via_deepseek(team_role: str, module: str, difficu
     if extra.get("filename"):
         data["story"] = _align_filename_in_story(data.get("story", ""), extra["filename"])
         data["task_outline"] = _align_filename_in_story(data.get("task_outline", ""), extra["filename"])
+
+    # The system pre-selects the algorithm — always use it, never the AI's pick.
+    final_algo = _normalize_algo(algorithm or data.get("algorithm", ""))
+    ai_key = (data.get("key_material") or "").strip()
+
+    # If the AI didn't suggest a key, auto-generate one that fits the algorithm.
+    if ai_key:
+        key_material, extra = ai_key, extra
+    else:
+        key_material, extra = _generate_key_for_algo(final_algo, extra)
+
+    hints_raw = data.get("hints") or []
+    if isinstance(hints_raw, list):
+        hints = [str(h).strip() for h in hints_raw if str(h).strip()]
+    else:
+        hints = []
+
     return ScenarioSpec(
         team_role=team_role, module=module, difficulty=difficulty,
-        algorithm=data["algorithm"], plaintext=data["plaintext"],
-        key_material=data.get("key_material", ""),
+        algorithm=final_algo, plaintext=data["plaintext"],
+        key_material=key_material,
         title=data["title"], story=data["story"], task_outline=data["task_outline"],
-        extra=extra,
+        extra=extra, hints=hints,
     )
 
 
@@ -818,7 +1008,11 @@ async def ai_generate_scenario_via_deepseek(team_role: str, module: str, difficu
 
 def insert_to_db(challenge: Challenge, supabase_url: str = SUPABASE_URL,
                   supabase_key: str = SUPABASE_ANON_KEY) -> bool:
-    """Insert one Challenge into public.encryption_challenges."""
+    """Insert one Challenge into public.encryption_challenges.
+
+    Retries up to 3 times on transient network errors (WinError 10054,
+    timeout, connection reset) with exponential backoff.
+    """
     if not supabase_key:
         print("ERROR: SUPABASE_ANON_KEY not set", file=sys.stderr)
         return False
@@ -829,12 +1023,28 @@ def insert_to_db(challenge: Challenge, supabase_url: str = SUPABASE_URL,
         "Content-Type": "application/json",
         "Prefer": "return=minimal",
     }
-    with httpx.Client(timeout=30) as client:
-        r = client.post(url, headers=headers, json=challenge.to_db_row())
-    if r.status_code in (200, 201, 204):
-        print(f"✓ Inserted: {challenge.title[:50]}")
-        return True
-    print(f"✗ Insert failed [{r.status_code}]: {r.text[:200]}")
+    payload = challenge.to_db_row()
+    last_err: str = ""
+    for attempt in range(1, 4):
+        try:
+            with httpx.Client(timeout=30) as client:
+                r = client.post(url, headers=headers, json=payload)
+            if r.status_code in (200, 201, 204):
+                print(f"✓ Inserted: {challenge.title[:50]}")
+                return True
+            # Non-retryable HTTP error (4xx). Don't waste time retrying.
+            print(f"✗ Insert failed [{r.status_code}]: {r.text[:200]}")
+            return False
+        except (httpx.TimeoutException, httpx.ReadTimeout,
+                httpx.ConnectError, httpx.RemoteProtocolError,
+                httpx.NetworkError, ConnectionError) as e:
+            last_err = f"{type(e).__name__}: {e}"
+            if attempt < 3:
+                backoff = 0.5 * (2 ** (attempt - 1))
+                print(f"[insert_to_db] transient error (attempt {attempt}/3): {last_err} — retry in {backoff:.1f}s")
+                time.sleep(backoff)
+                continue
+    print(f"✗ Insert failed after 3 attempts: {last_err}")
     return False
 
 
@@ -1507,10 +1717,12 @@ async def _refill_pool_unlocked(team_role: str, count: int,
                                 groq_api_key: str) -> int:
     """Inner refill body — assumes the per-team lock is already held."""
     inserted = 0
-    inserted = 0
-    modules = list(ALLOWED_MODULES)
     difficulties = ["مبتدئ", "متوسط", "قوي"]
-    seed_templates = BLUE_SEEDS if team_role == "blue" else RED_SEEDS
+    # Both teams' seeds are used as fallback so we have full algo coverage.
+    # BLUE_SEEDS covers AES-CBC, AES-GCM, RSA, SHA-256, HMAC.
+    # RED_SEEDS covers VIGENERE, CAESAR, XOR, MD5, SHA-1+SALT.
+    team_seeds = BLUE_SEEDS if team_role == "blue" else RED_SEEDS
+    seed_templates = list(BLUE_SEEDS) + list(RED_SEEDS)
     seed_cycle = list(seed_templates)
     random.shuffle(seed_cycle)
     seed_idx = 0
@@ -1520,7 +1732,8 @@ async def _refill_pool_unlocked(team_role: str, count: int,
     in_backoff = bool(groq_api_key) and now < _AI_BACKOFF_UNTIL.get(team_role, 0.0)
 
     for i in range(count):
-        module = modules[i % len(modules)]
+        # The system pre-selects the algorithm — the AI only writes flavor.
+        module, algorithm = _pick_algorithm_for_slot(i)
         difficulty = difficulties[i % len(difficulties)]
         spec = None
         source = "ai"
@@ -1529,14 +1742,10 @@ async def _refill_pool_unlocked(team_role: str, count: int,
         # ---- 1) Try AI for EVERY slot (the platform's primary generator) ----
         if groq_api_key and not in_backoff:
             try:
-                spec = await ai_generate_scenario(team_role, module, difficulty, groq_api_key)
-                # Reject if AI returned an algo that doesn't belong to this
-                # module (e.g. RSA inside encryption-basics). Fall through
-                # to the deepseek / seed block.
-                if not _algo_matches_module(spec.algorithm, module):
-                    print(f"[crypto_generator] Groq returned {spec.algorithm} for {module} — rejecting, trying DeepSeek or seed")
-                    spec = None
-                    _maybe_try_deepseek = True
+                spec = await ai_generate_scenario(
+                    team_role, module, difficulty, groq_api_key,
+                    algorithm=algorithm,
+                )
             except Exception as e:
                 err = str(e)
                 if "429" in err or "Too Many" in err or "Rate Limit" in err:
@@ -1545,25 +1754,28 @@ async def _refill_pool_unlocked(team_role: str, count: int,
                     _AI_BACKOFF_UNTIL[team_role] = asyncio.get_event_loop().time() + 300
                     in_backoff = True
                     print(f"[crypto_generator] Groq 429 — backoff 5min for {team_role}")
-                elif isinstance(e, _GROQ_TRANSIENT_EXCEPTIONS):
-                    # Timeout / network blip — try DeepSeek before giving up.
+                elif isinstance(e, _GROQ_TRANSIENT_EXCEPTIONS) or isinstance(e, _ResponseTruncated):
+                    # Timeout / network blip / truncated response — try
+                    # DeepSeek before giving up.
                     print(f"[crypto_generator] Groq transient error ({type(e).__name__}) — trying DeepSeek")
                     _maybe_try_deepseek = True
                 else:
-                    print(f"[crypto_generator] Groq failed ({team_role}/{module}): {e}")
+                    print(f"[crypto_generator] Groq failed ({team_role}/{module}/{algorithm}): {e}")
+                    # Unparseable JSON or schema mismatch — also try
+                    # DeepSeek as a sanity check before falling back to seed.
+                    if "Could not repair JSON" in err or "JSON" in err or "KeyError" in err:
+                        _maybe_try_deepseek = True
             # Small delay between AI calls to stay below the per-minute limit.
             await asyncio.sleep(0.3)
 
-        # ---- 1b) DeepSeek fallback (only on Groq transient / bad-module) ----
+        # ---- 1b) DeepSeek fallback (only on Groq transient) ----
         if spec is None and _maybe_try_deepseek and NVIDIA_API_KEY:
             try:
                 spec = await ai_generate_scenario_via_deepseek(
-                    team_role, module, difficulty, NVIDIA_API_KEY)
-                if not _algo_matches_module(spec.algorithm, module):
-                    print(f"[crypto_generator] DeepSeek returned {spec.algorithm} for {module} — rejecting, using seed")
-                    spec = None
-                else:
-                    print(f"[crypto_generator] DeepSeek OK: algo={spec.algorithm} title={spec.title[:50]}")
+                    team_role, module, difficulty, NVIDIA_API_KEY,
+                    algorithm=algorithm,
+                )
+                print(f"[crypto_generator] DeepSeek OK: algo={spec.algorithm} title={spec.title[:50]}")
             except Exception as e:
                 err = str(e)
                 if "429" in err or "Too Many" in err or "Rate Limit" in err:
@@ -1575,7 +1787,14 @@ async def _refill_pool_unlocked(team_role: str, count: int,
         # ---- 2) Last-resort fallback to a curated theme seed ----
         if spec is None:
             source = "seed"
-            template = seed_cycle[seed_idx % len(seed_cycle)]
+            # Try to find a seed that matches the pre-selected algorithm.
+            # Fall back to a random seed if no match exists.
+            matching_seeds = [s for s in seed_cycle
+                              if (s.get("algorithm") or "").upper() == algorithm.upper()]
+            if matching_seeds:
+                template = matching_seeds[seed_idx % len(matching_seeds)]
+            else:
+                template = seed_cycle[seed_idx % len(seed_cycle)]
             seed_idx += 1
             randomized = randomize_template(template)
             try:
@@ -1595,8 +1814,11 @@ async def _refill_pool_unlocked(team_role: str, count: int,
         except Exception as e:
             print(f"[crypto_generator] Build/insert failed: {e}")
             # AI build failed: fall back to a fresh randomized seed so the
-            # pool still grows.
-            template = seed_templates[i % len(seed_templates)]
+            # pool still grows. Try to find a seed matching the pre-selected algo.
+            matching_seeds = [s for s in seed_templates
+                              if (s.get("algorithm") or "").upper() == algorithm.upper()]
+            pool_to_use = matching_seeds if matching_seeds else seed_templates
+            template = pool_to_use[i % len(pool_to_use)]
             randomized = randomize_template(template)
             try:
                 spec_obj = ScenarioSpec(team_role=team_role, **_spec_kwargs(randomized))
@@ -1670,8 +1892,8 @@ async def start_pool_watcher(team_role: str, groq_api_key: str = GROQ_API_KEY) -
 # --------------------------------------------------------------------------- #
 
 def main():
-    p = argparse.ArgumentParser(description="CyberArena crypto challenge generator")
-    p.add_argument("--team", choices=ALLOWED_TEAMS)
+    p = argparse.ArgumentParser(description="CyberArena crypto challenge generator (RED TEAM ONLY)")
+    p.add_argument("--team", choices=("red",), help="Crypto is red-team only")
     p.add_argument("--count", type=int, default=5)
     p.add_argument("--module", choices=ALLOWED_MODULES, default="encryption-basics")
     p.add_argument("--seed-only", action="store_true", help="Use curated seeds, no AI")
@@ -1691,12 +1913,19 @@ def main():
 
     # Pool refill (sync wrapper for refill_pool)
     if args.refill:
+        if args.refill != "red":
+            p.error("crypto challenges are red-team only")
         added = asyncio.run(refill_pool(args.refill, args.count))
         print(f"Refilled {args.refill}: +{added}")
         return
 
     if not args.team:
         p.error("--team is required unless using --count-pool or --refill")
+
+    # Crypto challenges are RED-TEAM ONLY. Blue team gets evaluated fixes
+    # via /api/training/evaluate, not generated challenges.
+    if args.team != "red":
+        p.error("crypto challenges are red-team only")
 
     print(f"Building {args.count} {args.team.upper()} challenges for {args.module}...")
     if args.seed_only or not args.ai:
@@ -1705,8 +1934,13 @@ def main():
         # AI flow
         async def _ai():
             out = []
-            for _ in range(args.count):
-                spec = await ai_generate_scenario(args.team, args.module, "متوسط", GROQ_API_KEY)
+            for i in range(args.count):
+                # Pre-select an algorithm that matches the requested module
+                chosen_module, chosen_algo = _pick_algorithm_for_slot(i)
+                spec = await ai_generate_scenario(
+                    args.team, chosen_module, "متوسط", GROQ_API_KEY,
+                    algorithm=chosen_algo,
+                )
                 out.append(ChallengeBuilder().build(spec))
             return out
         challenges = asyncio.run(_ai())
