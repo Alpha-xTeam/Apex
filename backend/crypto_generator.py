@@ -84,11 +84,20 @@ ALGOS_BY_MODULE = {
 }
 
 
+def _normalize_algo(algorithm: str) -> str:
+    """If Groq returns a pipe-separated list like 'AES-256-CBC|VIGENERE',
+    pick the first token so downstream checks can match it."""
+    if "|" in algorithm:
+        return algorithm.split("|")[0].strip()
+    return algorithm.strip()
+
+
 def _algo_matches_module(algorithm: str, module: str) -> bool:
     """True if the algorithm is allowed inside the given module bucket."""
-    if algorithm.startswith("RSA"):
+    algo = _normalize_algo(algorithm)
+    if algo.startswith("RSA"):
         return module == "rsa-aes"
-    return algorithm in ALGOS_BY_MODULE.get(module, set())
+    return algo in ALGOS_BY_MODULE.get(module, set())
 
 # Pool tuning — per (team, module) bucket.
 POOL_TARGET = 5       # max cached
@@ -98,6 +107,73 @@ WATCHER_POLL_SECS = 60    # how often the background task polls the DB
 WATCHER_COOLDOWN = 12     # sleep between AI calls (Groq rate-limit guard)
 IDLE_POLL_SECS = 60      # how long to wait when the pool is full (1 min)
 _AI_BACKOFF_UNTIL: dict[str, float] = {}  # per-team epoch timestamp until which AI is paused after a 429
+
+# Concurrency control — see refill_pool / start_pool_watcher.
+# One asyncio.Lock per team serialises any concurrent refill attempts
+# (watcher vs CLI --refill, two watcher tasks, etc.) so the pool never
+# overshoots POOL_TARGET due to a stale count.
+_POOL_LOCKS: dict[str, asyncio.Lock] = {}
+# Dedup set so two `start_pool_watcher` calls in the same process don't
+# both spin up a loop.
+_WATCHER_STARTED: set[tuple[str, str]] = set()  # (generator_name, team_role)
+
+
+def _get_pool_lock(team_role: str) -> asyncio.Lock:
+    if team_role not in _POOL_LOCKS:
+        _POOL_LOCKS[team_role] = asyncio.Lock()
+    return _POOL_LOCKS[team_role]
+
+
+def _repair_json(raw: str) -> dict:
+    """Best-effort JSON repair for common LLM malformations.
+
+    Handles: trailing commas, truncated output (missing closing braces),
+    and stray text around the JSON blob.
+    """
+    import re
+    text = raw.strip()
+
+    if text.startswith("```"):
+        parts = text.split("```")
+        if len(parts) >= 3:
+            text = parts[1]
+            if text.startswith("json"):
+                text = text[4:]
+            text = text.strip().rstrip("`")
+
+    first_brace = text.find("{")
+    last_brace = text.rfind("}")
+    if first_brace != -1 and last_brace > first_brace:
+        text = text[first_brace:last_brace + 1]
+
+    text = re.sub(r",\s*([}\]])", r"\1", text)
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    open_braces = text.count("{") - text.count("}")
+    open_brackets = text.count("[") - text.count("]")
+    candidate = text + "]" * max(0, open_brackets) + "}" * max(0, open_braces)
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError:
+        pass
+
+    idx = candidate.rfind("}")
+    if idx != -1:
+        snippet = candidate[:idx + 1]
+        ob = snippet.count("{") - snippet.count("}")
+        oc = snippet.count("[") - snippet.count("]")
+        snippet += "]" * max(0, oc) + "}" * max(0, ob)
+        try:
+            return json.loads(snippet)
+        except json.JSONDecodeError:
+            pass
+
+    raise ValueError(f"Could not repair JSON: {raw[:200]}")
+
 
 XP_BY_DIFFICULTY = {"مبتدئ": 100, "متوسط": 150, "قوي": 200}
 
@@ -155,6 +231,9 @@ class ScenarioSpec:
         assert self.team_role in ALLOWED_TEAMS
         assert self.module in ALLOWED_MODULES
         assert self.difficulty in ALLOWED_DIFFICULTIES
+        # Normalize: Groq sometimes returns pipe-separated algos like
+        # "AES-256-CBC|VIGENERE" — take the first token.
+        self.algorithm = _normalize_algo(self.algorithm)
         assert self.algorithm, "algorithm required"
         assert self.story and self.task_outline
         # Anti-pattern: never reveal the exact algorithm in the task_outline.
@@ -614,28 +693,34 @@ CRYPTO_SCENARIO_PROMPT = """أنت مصمم تحديات أمن سيبراني �
 
 async def ai_generate_scenario(team_role: str, module: str, difficulty: str,
                                 groq_api_key: str, model: str | None = None) -> ScenarioSpec:
-    """Call Groq to produce a scenario. Validates and returns a ScenarioSpec."""
+    """Call Groq to produce a scenario. Validates and returns a ScenarioSpec.
+
+    Uses the official `groq` Python SDK (sync). The SDK call is wrapped in
+    `asyncio.to_thread` so the existing async call sites in `refill_pool`
+    keep working without blocking the event loop.
+    """
     if model is None:
         model = GROQ_MODEL  # env var or default to llama-3.1-8b-instant
-    import asyncio as _asyncio
+    from groq import Groq
     prompt = CRYPTO_SCENARIO_PROMPT.format(team_role=team_role, module=module, difficulty=difficulty)
-    body = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": "You output valid JSON only. No prose, no markdown fences."},
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0.7,
-        "max_tokens": 1500,
-    }
-    async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {groq_api_key}", "Content-Type": "application/json"},
-            json=body,
+
+    def _call_groq() -> str:
+        client = Groq(api_key=groq_api_key)
+        completion = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You output valid JSON only. No prose, no markdown fences."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.7,
+            max_completion_tokens=1500,
+            top_p=1,
+            stream=False,
+            stop=None,
         )
-        r.raise_for_status()
-        content = r.json()["choices"][0]["message"]["content"].strip()
+        return (completion.choices[0].message.content or "").strip()
+
+    content = await asyncio.to_thread(_call_groq)
 
     # Strip optional code fences
     if content.startswith("```"):
@@ -644,7 +729,7 @@ async def ai_generate_scenario(team_role: str, module: str, difficulty: str,
             content = content[4:]
         content = content.strip().rstrip("`")
 
-    data = json.loads(content)
+    data = _repair_json(content)
     extra = data.get("extra", {}) or {}
     if "filename" not in extra or not extra["filename"]:
         m = _FILENAME_RE.findall(data.get("story", "") or "")
@@ -709,7 +794,7 @@ async def ai_generate_scenario_via_deepseek(team_role: str, module: str, difficu
             content = content[4:]
         content = content.strip().rstrip("`")
 
-    data = json.loads(content)
+    data = _repair_json(content)
     extra = data.get("extra", {}) or {}
     if "filename" not in extra or not extra["filename"]:
         m = _FILENAME_RE.findall(data.get("story", "") or "")
@@ -1387,7 +1472,7 @@ def get_pool_count(team_role: str, module: Optional[str] = None) -> int:
 
 async def refill_pool(team_role: str, count: int = POOL_BATCH,
                        groq_api_key: str = GROQ_API_KEY) -> int:
-    """Generate and insert `count` challenges for a team.
+    """Generate and insert up to `count` challenges for a team.
 
     AI is the PRIMARY source of every scenario. Curated seeds are only a
     last-resort fallback when Groq fails (rate-limit, timeout, parse error,
@@ -1397,8 +1482,31 @@ async def refill_pool(team_role: str, count: int = POOL_BATCH,
     Modules are picked round-robin so the team-wide pool stays balanced
     across the 3 crypto modules (encryption-basics, hash-cracking, rsa-aes).
 
-    Returns the number of challenges actually inserted.
+    Concurrency: this function takes the per-team lock and **re-reads the
+    count under the lock** before inserting. If the pool is already at
+    POOL_TARGET (e.g. another watcher / CLI call filled it first), this
+    call is a no-op. This is the fix for the "pool goes over 5" bug — two
+    callers used to see the same stale count and both insert.
+
+    Returns the number of challenges actually inserted (≤ `count`).
     """
+    lock = _get_pool_lock(team_role)
+    async with lock:
+        # Re-check under the lock: if another caller already filled the
+        # pool, don't add any more.
+        current = get_pool_count(team_role)
+        gap = max(0, POOL_TARGET - current)
+        if gap == 0:
+            return 0
+        if count > gap:
+            count = gap
+        return await _refill_pool_unlocked(team_role, count, groq_api_key)
+
+
+async def _refill_pool_unlocked(team_role: str, count: int,
+                                groq_api_key: str) -> int:
+    """Inner refill body — assumes the per-team lock is already held."""
+    inserted = 0
     inserted = 0
     modules = list(ALLOWED_MODULES)
     difficulties = ["مبتدئ", "متوسط", "قوي"]
@@ -1509,34 +1617,52 @@ async def start_pool_watcher(team_role: str, groq_api_key: str = GROQ_API_KEY) -
     POOL_TARGET, the watcher refills exactly the missing slots (no waiting
     for the count to drop to a threshold). Above POOL_TARGET it does nothing.
 
+    Concurrency:
+      - One watcher task per (generator, team) is enforced via
+        `_WATCHER_STARTED` — second call is a no-op.
+      - The refill itself runs under the per-team lock, so even a manual
+        CLI `--refill` can't overshoot POOL_TARGET.
+
     Polling cadence:
       - When the pool is full (count >= target): poll every IDLE_POLL_SECS
         seconds (cheap, just a count() call).
       - When the pool is below target: poll every 5 seconds so a consumed
         challenge is replaced almost in real-time.
     """
-    label = f"[crypto:{team_role}]"
-    print(f"{label} watcher started (target={POOL_TARGET}).")
-    while True:
-        try:
-            count = get_pool_count(team_role)
-            if count < POOL_TARGET:
-                needed = POOL_TARGET - count
-                print(f"{label} pool below target ({count}/{POOL_TARGET}) — refilling {needed}…")
-                added = await refill_pool(team_role, needed, groq_api_key)
-                new_count = count + added
-                print(f"{label} refilled: {count} → {new_count} (target {POOL_TARGET}).")
-                # Short sleep after a refill so the new row count is visible.
-                await asyncio.sleep(5)
-            else:
-                print(f"{label} pool healthy ({count}/{POOL_TARGET}) — sleeping {IDLE_POLL_SECS}s.")
-                await asyncio.sleep(IDLE_POLL_SECS)
-        except Exception as e:
-            import traceback
-            print(f"{label} watcher error: {e}")
-            traceback.print_exc()
-            await asyncio.sleep(10)
-            await asyncio.sleep(60)
+    key = ("crypto", team_role)
+    if key in _WATCHER_STARTED:
+        print(f"[crypto:{team_role}] watcher already running — skipping duplicate start.")
+        return
+    _WATCHER_STARTED.add(key)
+    try:
+        label = f"[crypto:{team_role}]"
+        print(f"{label} watcher started (target={POOL_TARGET}).")
+        while True:
+            try:
+                # Hold the lock across the count-check + refill so a racing
+                # CLI --refill or second watcher can't double-insert.
+                # The lock is released BEFORE the sleep so we don't block
+                # other callers for IDLE_POLL_SECS seconds.
+                sleep_secs = IDLE_POLL_SECS
+                async with _get_pool_lock(team_role):
+                    count = get_pool_count(team_role)
+                    if count < POOL_TARGET:
+                        needed = POOL_TARGET - count
+                        print(f"{label} pool below target ({count}/{POOL_TARGET}) — refilling {needed}…")
+                        added = await _refill_pool_unlocked(team_role, needed, groq_api_key)
+                        new_count = count + added
+                        print(f"{label} refilled: {count} → {new_count} (target {POOL_TARGET}).")
+                        sleep_secs = 5
+                    else:
+                        print(f"{label} pool healthy ({count}/{POOL_TARGET}) — sleeping {IDLE_POLL_SECS}s.")
+                await asyncio.sleep(sleep_secs)
+            except Exception as e:
+                import traceback
+                print(f"{label} watcher error: {e}")
+                traceback.print_exc()
+                await asyncio.sleep(10)
+    finally:
+        _WATCHER_STARTED.discard(key)
 
 
 # --------------------------------------------------------------------------- #
