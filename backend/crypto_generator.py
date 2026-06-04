@@ -305,9 +305,17 @@ DEFAULT_TOOLS = ["cat", "ls", "echo", "openssl", "sha256sum", "base64", "file"]
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://yevtnyokixocpihhdwqu.supabase.co")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+# Primary AI: Cloudflare Workers AI (minimax-m3 if available, else llama-3.1-8b)
+CLOUDFLARE_API_TOKEN = os.environ.get("CLOUDFLARE_API_TOKEN", "")
+CLOUDFLARE_ACCOUNT_ID = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "")
+CLOUDFLARE_MODEL = os.environ.get("CLOUDFLARE_MODEL", "@cf/meta/llama-3.1-8b-instruct")
+CLOUDFLARE_URL = (
+    f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run/{CLOUDFLARE_MODEL}"
+    if CLOUDFLARE_ACCOUNT_ID else ""
+)
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
-# Secondary AI: NVIDIA integrate API (DeepSeek v4-pro). OpenAI-compatible.
+# Tertiary AI: NVIDIA integrate API (DeepSeek v4-pro). OpenAI-compatible.
 NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY", "")
 NVIDIA_MODEL = os.environ.get("NVIDIA_MODEL", "deepseek-ai/deepseek-v4-pro")
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
@@ -809,6 +817,95 @@ CRYPTO_SCENARIO_PROMPT = """أنت مصمم تحديات أمن سيبراني �
     "filename": "اسم_الملف.لاحقة"
   }}
 }}"""
+
+
+async def ai_generate_scenario_via_cloudflare(
+    team_role: str, module: str, difficulty: str,
+    api_token: str, account_id: str, model: str = CLOUDFLARE_MODEL,
+    algorithm: str | None = None,
+) -> ScenarioSpec:
+    """Primary AI: Cloudflare Workers AI (minimax-m3).
+
+    Uses the Cloudflare REST API. The model is pre-selected by the system
+    (see _pick_algorithm_for_slot) — the AI only writes flavor text.
+    """
+    if not api_token or not account_id:
+        raise ValueError("CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID not set")
+    url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model}"
+    prompt = CRYPTO_SCENARIO_PROMPT.format(
+        team_role=team_role, module=module, difficulty=difficulty,
+        algorithm=algorithm or "any",
+    )
+    payload = {
+        "messages": [
+            {"role": "system", "content": "You output valid JSON only. No prose, no markdown fences."},
+            {"role": "user", "content": prompt},
+        ],
+        "max_tokens": 3000,
+        "temperature": 0.7,
+    }
+    headers = {
+        "Authorization": f"Bearer {api_token}",
+        "Content-Type": "application/json",
+    }
+
+    def _call() -> str:
+        with httpx.Client(timeout=60) as client:
+            r = client.post(url, headers=headers, json=payload)
+        if r.status_code == 429:
+            raise RuntimeError(f"Cloudflare 429: {r.text[:200]}")
+        if r.status_code >= 400:
+            raise RuntimeError(f"Cloudflare HTTP {r.status_code}: {r.text[:200]}")
+        data = r.json()
+        # Cloudflare returns {"success": true, "result": {"response": "..."}}
+        if not data.get("success"):
+            errors = data.get("errors", [])
+            raise RuntimeError(f"Cloudflare error: {errors}")
+        result = data.get("result", {}) or {}
+        return (result.get("response") or "").strip()
+
+    content = await asyncio.to_thread(_call)
+
+    if content.startswith("```"):
+        content = content.split("```", 2)[1]
+        if content.startswith("json"):
+            content = content[4:]
+        content = content.strip().rstrip("`")
+
+    try:
+        data = _repair_json(content)
+    except (ValueError, json.JSONDecodeError) as e:
+        raise _ResponseTruncated(f"Could not repair JSON: {e}") from e
+
+    extra = data.get("extra", {}) or {}
+    if "filename" not in extra or not extra["filename"]:
+        m = _FILENAME_RE.findall(data.get("story", "") or "")
+        if m:
+            extra["filename"] = m[0]
+    if extra.get("filename"):
+        data["story"] = _align_filename_in_story(data.get("story", ""), extra["filename"])
+        data["task_outline"] = _align_filename_in_story(data.get("task_outline", ""), extra["filename"])
+
+    final_algo = _normalize_algo(algorithm or data.get("algorithm", ""))
+    ai_key = (data.get("key_material") or "").strip()
+    if ai_key:
+        key_material, extra = ai_key, extra
+    else:
+        key_material, extra = _generate_key_for_algo(final_algo, extra)
+
+    hints_raw = data.get("hints") or []
+    if isinstance(hints_raw, list):
+        hints = [str(h).strip() for h in hints_raw if str(h).strip()]
+    else:
+        hints = []
+
+    return ScenarioSpec(
+        team_role=team_role, module=module, difficulty=difficulty,
+        algorithm=final_algo, plaintext=data["plaintext"],
+        key_material=key_material,
+        title=data["title"], story=data["story"], task_outline=data["task_outline"],
+        extra=extra, hints=hints,
+    )
 
 
 async def ai_generate_scenario(team_role: str, module: str, difficulty: str,
@@ -1737,15 +1834,45 @@ async def _refill_pool_unlocked(team_role: str, count: int,
         difficulty = difficulties[i % len(difficulties)]
         spec = None
         source = "ai"
+        _maybe_try_groq = False
         _maybe_try_deepseek = False
 
-        # ---- 1) Try AI for EVERY slot (the platform's primary generator) ----
-        if groq_api_key and not in_backoff:
+        # ---- 1) Cloudflare (PRIMARY AI) ----
+        if CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID:
+            try:
+                spec = await ai_generate_scenario_via_cloudflare(
+                    team_role, module, difficulty,
+                    CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID,
+                    algorithm=algorithm,
+                )
+                print(f"[crypto_generator] CF OK: algo={spec.algorithm} title={spec.title[:50]}")
+            except Exception as e:
+                err = str(e)
+                if "429" in err or "Too Many" in err or "Rate Limit" in err:
+                    # Hard rate limit — try Groq as a different infra.
+                    print(f"[crypto_generator] CF 429 — falling through to Groq")
+                    _maybe_try_groq = True
+                elif "Could not repair JSON" in err or isinstance(e, _ResponseTruncated):
+                    # Truncated/bad response — try Groq.
+                    print(f"[crypto_generator] CF bad response ({type(e).__name__}) — trying Groq")
+                    _maybe_try_groq = True
+                else:
+                    # Any other CF error (network, server, auth) — try Groq.
+                    print(f"[crypto_generator] CF failed ({type(e).__name__}): {e} — trying Groq")
+                    _maybe_try_groq = True
+            # Small delay between AI calls to stay below the per-minute limit.
+            await asyncio.sleep(0.3)
+        else:
+            _maybe_try_groq = bool(groq_api_key)
+
+        # ---- 2) Groq (SECONDARY AI) ----
+        if spec is None and _maybe_try_groq and groq_api_key and not in_backoff:
             try:
                 spec = await ai_generate_scenario(
                     team_role, module, difficulty, groq_api_key,
                     algorithm=algorithm,
                 )
+                print(f"[crypto_generator] Groq OK: algo={spec.algorithm} title={spec.title[:50]}")
             except Exception as e:
                 err = str(e)
                 if "429" in err or "Too Many" in err or "Rate Limit" in err:
@@ -1765,10 +1892,9 @@ async def _refill_pool_unlocked(team_role: str, count: int,
                     # DeepSeek as a sanity check before falling back to seed.
                     if "Could not repair JSON" in err or "JSON" in err or "KeyError" in err:
                         _maybe_try_deepseek = True
-            # Small delay between AI calls to stay below the per-minute limit.
             await asyncio.sleep(0.3)
 
-        # ---- 1b) DeepSeek fallback (only on Groq transient) ----
+        # ---- 3) DeepSeek (TERTIARY AI — only on Cloudflare/Groq transient) ----
         if spec is None and _maybe_try_deepseek and NVIDIA_API_KEY:
             try:
                 spec = await ai_generate_scenario_via_deepseek(
