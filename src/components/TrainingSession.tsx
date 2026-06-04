@@ -1424,6 +1424,27 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
               <div className="session-browser-body" style={{ background: isOpenEditor ? '#1e1e1e' : '#fff' }}>
                 {!isOpenEditor ? (
                   <>
+                    {/* v3: Theme context chip — extracted from lab HTML (brand bar) */}
+                    {training.htmlPreview && (() => {
+                      const iconMatch = training.htmlPreview.match(/apex-brand-icon">([^<]+)</);
+                      const nameMatch = training.htmlPreview.match(/apex-brand-name">([^<]+)</);
+                      const tagMatch = training.htmlPreview.match(/apex-brand-tag">· ([^<]+)</);
+                      const primaryMatch = training.htmlPreview.match(/--apex-primary:\s*([^;]+);/);
+                      if (!nameMatch && !iconMatch) return null;
+                      return (
+                        <div
+                          className="session-theme-chip"
+                          style={{
+                            background: 'var(--card-bg, #111827)',
+                            borderLeft: `3px solid ${primaryMatch ? primaryMatch[1].trim() : '#10b981'}`,
+                          }}
+                        >
+                          {iconMatch && <span className="theme-chip-icon">{iconMatch[1]}</span>}
+                          {nameMatch && <span className="theme-chip-name">{nameMatch[1]}</span>}
+                          {tagMatch && <span className="theme-chip-tag">· {tagMatch[1]}</span>}
+                        </div>
+                      );
+                    })()}
                     <iframe
                       ref={iframeRef}
                       className="session-browser-iframe"
