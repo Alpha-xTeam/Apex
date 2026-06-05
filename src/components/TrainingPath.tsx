@@ -32,11 +32,16 @@ const PATHS: Record<string, Record<string, PathData>> = {
     'web-security': {
       id: 'web-security', title: 'أمن تطبيقات الويب', desc: 'اكتشف وأصلح الثغرات في تطبيقات الويب',
       modules: [
-        { id: 'xss', title: 'XSS - هجمات الحقن البرمجي', desc: 'تعلم كيف تهاجم وتدافع ضد Cross-Site Scripting' },
-        { id: 'sql-injection', title: 'SQL Injection - حقن قواعد البيانات', desc: 'اختراق قواعد البيانات عبر الاستعلامات الخبيثة' },
-        { id: 'csrf', title: 'CSRF - تزوير الطلبات', desc: 'احمِ تطبيقاتك من هجمات التزوير عبر المواقع' },
-        { id: 'auth-bypass', title: 'ثغرات المصادقة', desc: 'اختبر وتجاوز أنظمة تسجيل الدخول الضعيفة' },
-        { id: 'misconfig', title: 'التكوين الأمني الخاطئ', desc: 'اكتشف الثغرات الناتجة عن الإعدادات غير الآمنة' },
+        { id: 'sqli',    title: 'SQL Injection - حقن قواعد البيانات', desc: 'اختراق قواعد البيانات عبر الاستعلامات الخبيثة' },
+        { id: 'xss',     title: 'XSS - هجمات الحقن البرمجي', desc: 'Cross-Site Scripting في المتصفح' },
+        { id: 'csrf',    title: 'CSRF - تزوير الطلبات', desc: 'تزوير الطلبات عبر المواقع' },
+        { id: 'idor',    title: 'IDOR - الوصول غير المصرح', desc: 'تغيير المعرّفات في الـ URL للوصول لموارد الغير' },
+        { id: 'lfi-rfi', title: 'LFI/RFI - تضمين الملفات', desc: 'تحميل ملفات محلية أو بعيدة عبر الـ path' },
+        { id: 'xxe',     title: 'XXE - كيانات XML الخارجية', desc: 'استغلال محلل XML لقراءة الملفات' },
+        { id: 'ssrf',    title: 'SSRF - تزوير الطلبات من السيرفر', desc: 'إجبار السيرفر على طلب عناوين داخلية' },
+        { id: 'cmdi',    title: 'Command Injection - حقن الأوامر', desc: 'تنفيذ أوامر نظام عبر حقول الإدخال' },
+        { id: 'auth',    title: 'Auth Flaws - ثغرات المصادقة', desc: 'تجاوز قفل الحسابات وسرقة الجلسات' },
+        { id: 'upload',  title: 'Upload - رفع الملفات الخبيثة', desc: 'رفع webshell عبر نماذج الرفع' },
       ],
     },
     'network-security': {

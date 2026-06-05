@@ -23,6 +23,9 @@ sys.stdout.reconfigure(encoding='utf-8')
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://yevtnyokixocpihpdwqu.supabase.co")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY", "")
+MISTRAL_MODEL = os.environ.get("MISTRAL_MODEL", "mistral-large-latest")
+MISTRAL_API_URL = os.environ.get("MISTRAL_API_URL", "https://api.mistral.ai/v1/chat/completions")
 
 from fastapi.staticfiles import StaticFiles
 
@@ -71,6 +74,11 @@ CYBER_SECURITY_TOPICS = {
     "lfi-rfi": {"name": "ثغرات تضمين الملفات LFI/RFI", "category": "Web Security", "path": "web-security"},
     "xxe": {"name": "ثغرات XML External Entity (XXE)", "category": "Web Security", "path": "web-security"},
     "command-injection": {"name": "حقن الأوامر البرمجية Command Injection", "category": "Web Security", "path": "web-security"},
+    # New 10-module set (replaces the 13 above)
+    "sqli":   {"name": "ثغرات SQL Injection",        "category": "Web Security", "path": "web-security"},
+    "cmdi":   {"name": "حقن الأوامر Command Injection","category": "Web Security", "path": "web-security"},
+    "auth":   {"name": "ثغرات المصادقة Auth Flaws",    "category": "Web Security", "path": "web-security"},
+    "upload": {"name": "رفع الملفات الخبيثة Upload",    "category": "Web Security", "path": "web-security"},
     
     # 2. Network Security
     "packet-analysis": {"name": "تحليل حزم الشبكات Packet Analysis", "category": "Network Security", "path": "network-security"},
@@ -103,6 +111,11 @@ CYBER_SECURITY_TOPICS = {
     # 8. Digital Forensics & Log Analysis
     "log-analysis": {"name": "تحليل سجلات الخادم والأنظمة Log Analysis", "category": "Digital Forensics", "path": "forensics"},
     "memory-forensics": {"name": "تحليل الذاكرة العشوائية Memory Forensics", "category": "Digital Forensics", "path": "forensics"},
+    
+    # 9. Code Fixing (Blue Team)
+    "code-fixing": {"name": "تصحيح الكود المصاب بثغرات أمنية", "category": "تصحيح الكود (Code Fixing)", "path": "code-fixing"},
+    "web-security": {"name": "تصحيح الكود المصاب بثغرات أمنية", "category": "تصحيح الكود (Code Fixing)", "path": "code-fixing"},
+    "systems-security": {"name": "تصحيح الكود المصاب بثغرات أمنية", "category": "تصحيح الكود (Code Fixing)", "path": "code-fixing"},
 }
 
 TOPIC_KEYWORDS = {
@@ -170,7 +183,7 @@ def parse_json_safe(raw: str) -> dict:
 def scenario_table(team_role: str = "", challenge_type: str = "") -> str:
     """Pick the right per-type table for a challenge lookup.
 
-    `challenge_type` can be one of: "crypto", "web". If omitted, we infer
+    `challenge_type` can be one of: "crypto", "web", "code-fixing", "log-analysis". If omitted, we infer
     from the module name. Falls back to "encryption_challenges" for legacy
     behavior (Blue/Red crypto).
     """
@@ -178,6 +191,10 @@ def scenario_table(team_role: str = "", challenge_type: str = "") -> str:
         return "web_exploitation_challenges"
     if challenge_type == "crypto":
         return "encryption_challenges"
+    if challenge_type == "code-fixing":
+        return "code_fixing_challenges"
+    if challenge_type == "log-analysis":
+        return "log_analysis_challenges"
     # Auto-detect (legacy callers that pass only team_role still work)
     return "encryption_challenges"
 
@@ -422,6 +439,24 @@ class CertificateRequest(BaseModel):
     details: Optional[dict] = None
 
 
+class CodeFixEvaluateRequest(BaseModel):
+    """Request model for code-fixing challenge evaluation."""
+    challengeId: str
+    fixedCode: str
+    teamRole: Optional[str] = "blue"
+
+
+class LogAnalysisEvaluateRequest(BaseModel):
+    """Request model for log-analysis challenge evaluation."""
+    challengeId: str
+    attackType: str
+    attackerIp: str
+    timestamp: str
+    ioc: str
+    explanation: str = ""
+    teamRole: Optional[str] = "blue"
+
+
 # ---------- Proxy Auth to Supabase Edge Function ----------
 
 @app.post("/api/auth")
@@ -606,11 +641,11 @@ async def generate_scenario_from_groq(team_role: str, module: str, path: str = "
         resp = await client.post(GROQ_API_URL, json={
             "model": "llama-3.3-70b-versatile",
             "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
+                {"role": "system", "content": "أنت مقيّم أكواد أمني خبير. أعد JSON صالحاً فقط بدون أي نص قبله أو بعده. اكتب جميع القيم النصية باللغة العربية حصراً. لا تستخدم أي لغة أخرى (لا إنجليزية، لا صينية، لا أي لغة غير العربية) في حقل feedback."},
+                {"role": "user", "content": eval_prompt},
             ],
-            "temperature": 0.85,
-            "max_tokens": 3500,
+            "temperature": 0.2,
+            "max_tokens": 2048,
         }, headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -665,7 +700,7 @@ async def generate_challenge_from_groq(
     topic_info = CYBER_SECURITY_TOPICS.get(module, {"name": f"موضوع: {module}", "category": category, "path": path})
     topic = topic_info["name"]
 
-    is_web = module in ["xss", "sql-injection", "csrf", "ssrf", "idor", "lfi-rfi", "xxe", "command-injection", "auth-bypass", "misconfig"]
+    is_web = module in ["xss", "sqli", "csrf", "ssrf", "idor", "lfi-rfi", "xxe", "cmdi", "auth", "upload"]
 
     role_instructions = ""
     if is_web:
@@ -890,6 +925,20 @@ async def populate_pool_background():
     except Exception as e:
         print(f"[main] Could not import web_exploitation_generator: {e}")
 
+    try:
+        import code_fixing_generator
+        # Code fixing is defensive — Blue team only.
+        registered.append(("code-fixing", code_fixing_generator, ["blue"]))
+    except Exception as e:
+        print(f"[main] Could not import code_fixing_generator: {e}")
+
+    try:
+        import log_analysis_generator
+        # Log analysis is defensive — Blue team only.
+        registered.append(("log-analysis", log_analysis_generator, ["blue"]))
+    except Exception as e:
+        print(f"[main] Could not import log_analysis_generator: {e}")
+
     # Future:
     # try:
     #     import forensics_generator
@@ -921,15 +970,20 @@ async def startup_event():
 
 # Web exploitation module set (Red Team offensive)
 WEB_EXPLOIT_MODULES = {
-    "xss", "sql-injection", "csrf", "ssrf",
-    "idor", "lfi-rfi", "xxe", "command-injection",
+    "xss", "sqli", "csrf", "ssrf",
+    "idor", "lfi-rfi", "xxe", "cmdi",
+    "auth", "upload",
 }
 
 
 def _challenge_type_for_module(module: str) -> str:
-    """Return 'web' for web exploitation modules, 'crypto' otherwise."""
+    """Return challenge type based on module name."""
     if module in WEB_EXPLOIT_MODULES:
         return "web"
+    if module in ("code-fixing", "web-security", "systems-security"):
+        return "code-fixing"
+    if module in ("log-analysis", "forensics"):
+        return "log-analysis"
     return "crypto"
 
 
@@ -937,24 +991,20 @@ def _challenge_type_for_module(module: str) -> str:
 async def list_challenges(team_role: str = "blue", difficulty: Optional[str] = None, limit: int = 100):
     """Return a preview list of cached scenarios for display in the grid.
 
-    Combines challenges from BOTH tables (encryption_challenges + web_exploitation_challenges)
+    Combines challenges from tables (encryption_challenges + web_exploitation_challenges + code_fixing_challenges)
     so the dashboard shows the full pool for a team.
-
-    Note: each table has a different schema (encryption_challenges doesn't have
-    vuln_type, html_preview, expected_payload) so we use a minimal safe field
-    list for each.
     """
     all_challenges: list[dict] = []
 
     # Per-table safe SELECT — only fields we know exist in each schema.
-    # `vuln_type`, `html_preview`, `expected_payload` only exist in
-    # web_exploitation_challenges (added in migration 005).
     table_fields = {
         "crypto": "id,title,module,difficulty,xp_reward",
         "web":    "id,title,module,vuln_type,difficulty,xp_reward",
+        "code-fixing": "id,title,module,difficulty,xp_reward",
+        "log-analysis": "id,title,module,log_type,difficulty,xp_reward",
     }
 
-    for ctype in ("crypto", "web"):
+    for ctype in ("crypto", "web", "code-fixing", "log-analysis"):
         table = scenario_table(challenge_type=ctype)
         if not SUPABASE_ANON_KEY or not SUPABASE_URL:
             continue
@@ -1020,6 +1070,10 @@ async def generate_training(req: TrainingRequest, background_tasks: BackgroundTa
         if row:
             if ctype == "web":
                 training = _map_webex_row_to_training(row, req.teamRole)
+            elif ctype == "code-fixing":
+                training = _map_code_fixing_row_to_training(row, req.teamRole)
+            elif ctype == "log-analysis":
+                training = _map_log_analysis_row_to_training(row, req.teamRole)
             else:
                 training = _map_encryption_row_to_training(row, req.teamRole)
             print(f"[generate] Served from {ctype} table: {training['title']}")
@@ -1182,6 +1236,61 @@ def _map_webex_row_to_training(row: dict, team_role: str) -> dict:
         "toolsWhitelist": row.get("tools_whitelist") or [],
         "challengeType": "web",
         "labKind": row.get("lab_kind", "iframe"),
+    }
+
+
+def _map_code_fixing_row_to_training(row: dict, team_role: str) -> dict:
+    """Map a row from code_fixing_challenges to the TrainingData shape.
+
+    The frontend expects properties on the challenge object matching what CodeFixEditor needs.
+    """
+    return {
+        "id": row.get("id"),
+        "scenarioId": row.get("id"),
+        "title": row.get("title", ""),
+        "story": row.get("story", ""),
+        "type": "code-fixing",
+        "task": row.get("task_outline", ""),
+
+        # Additional fields for code-fixing
+        "language": row.get("language", "PYTHON"),
+        "vulnerable_code": row.get("vulnerable_code", ""),
+        "vulnerability_type": row.get("vulnerability_type", ""),
+        "vulnerability_description": row.get("vulnerability_description", ""),
+        "difficulty": row.get("difficulty", "متوسط"),
+        "xpReward": row.get("xp_reward", 150),
+        "hints": row.get("hints") or [],
+    }
+
+
+def _map_log_analysis_row_to_training(row: dict, team_role: str) -> dict:
+    """Map a row from log_analysis_challenges to the TrainingData shape."""
+    storage_path = row.get("storage_path", "")
+    is_inline = storage_path.startswith("inline://")
+    actual_path = storage_path.replace("inline://", "") if is_inline else storage_path
+
+    # Public URL (bucket is public)
+    log_url = ""
+    if not is_inline and SUPABASE_URL and actual_path:
+        log_url = f"{SUPABASE_URL}/storage/v1/object/public/log-analysis-files/{actual_path}"
+
+    return {
+        "id": row.get("id"),
+        "scenarioId": row.get("id"),
+        "title": row.get("title", ""),
+        "story": row.get("story", ""),
+        "type": "log-analysis",
+        "task": row.get("task_outline", ""),
+        # Log-analysis specific
+        "log_type": row.get("log_type", "auth"),
+        "storage_path": storage_path,
+        "log_url": log_url,
+        "is_inline": is_inline,
+        "file_size_bytes": row.get("file_size_bytes", 0),
+        "vulnerability_description": row.get("vulnerability_description", ""),
+        "difficulty": row.get("difficulty", "متوسط"),
+        "xpReward": row.get("xp_reward", 150),
+        "hints": row.get("hints") or [],
     }
 
 
@@ -1619,6 +1728,22 @@ async def evaluate_web_exploitation(req: WebEvaluateRequest):
     flag_preview = row.get("flag_preview") or ""
     xp_reward = int(row.get("xp_reward") or 100)
 
+    # ---- Check if user submitted the flag or secret_marker directly ----
+    user_flag = payload.strip().lower()
+    expected_flag = flag_preview.strip().lower()
+    expected_secret = secret_expected.strip().lower()
+
+    if user_flag == expected_flag or user_flag == expected_secret or user_flag.replace("cyberarena{", "").replace("}", "") == expected_secret:
+        print(f"[evaluate-web] flag solved directly: challenge={challenge_id}")
+        return {
+            "success": True,
+            "flag": flag_preview,
+            "xp": xp_reward,
+            "message": "تم استغلال الثغرة واستخراج العلم بنجاح! 🎉",
+            "layer": "all",
+            "sink_confirmed": True,
+        }
+
     # ---- Layer 1: PATTERN ----
     if pattern_str:
         try:
@@ -1686,6 +1811,289 @@ async def evaluate_web_exploitation(req: WebEvaluateRequest):
         "message": "تم استغلال الثغرة بنجاح! 🎉",
         "layer": "all",
         "sink_confirmed": sink_observed,
+    }
+
+
+# ---------- Code Fixing Evaluation (AI-powered) ----------
+
+@app.post("/api/training/evaluate-code-fix")
+async def evaluate_code_fix(req: CodeFixEvaluateRequest, background_tasks: BackgroundTasks):
+    """Evaluate a code-fixing challenge submission using AI.
+
+    The AI checks:
+    1. Whether the vulnerability is actually fixed
+    2. Whether the code is syntactically correct
+    3. Whether the fix follows best practices
+    """
+    challenge_id = req.challengeId
+    fixed_code = req.fixedCode
+
+    if not challenge_id:
+        return {"success": False, "error": "challengeId مفقود"}
+    if not fixed_code or not fixed_code.strip():
+        return {"success": False, "error": "لم تُرسل كود مُعدل"}
+
+    # ---- Load the challenge row ----
+    row = await fetch_scenario_by_id(req.teamRole or "blue", challenge_id, challenge_type="code-fixing")
+    if not row:
+        return {"success": False, "error": "التحدي غير موجود"}
+
+    vulnerable_code = row.get("vulnerable_code") or ""
+    vuln_type = row.get("vulnerability_type") or ""
+    vuln_desc = row.get("vulnerability_description") or ""
+    language = row.get("language") or ""
+    xp_reward = int(row.get("xp_reward") or 150)
+
+    # ---- AI Evaluation ----
+    eval_prompt = f"""أنت مهندس أمن سيبراني خبير ومراجع أكواد.
+
+مهمتك: تقييم الكود المُعدل الذي قدمه المتدرب لتصحيح ثغرة أمنية.
+
+معلومات التحدي:
+- اللغة: {language}
+- نوع الثغرة: {vuln_type}
+- وصف الثغرة: {vuln_desc}
+
+الكود الأصلي (المصاب بالثغرة):
+```{language}
+{vulnerable_code}
+```
+
+الكود المُعدل من المتدرب:
+```{language}
+{fixed_code}
+```
+
+قيّم الكود المُعدل وتحقق من:
+1. هل الثغرة أُصلحت فعلياً؟
+2. هل الكود صحيح نحويًا (syntax)؟
+3. هل الحل يتبع أفضل الممارسات الأمنية؟
+
+قاعدة صارمة: اكتب حقل "feedback" باللغة العربية فقط. ممنوع منعاً باتاً استخدام أي كلمة بلغة أخرى.
+
+أرجع JSON صالحاً فقط بالشكل التالي (بدون أي نص قبله أو بعده):
+{{
+  "secured": true/false,
+  "feedback": "تقييمك المختصر بالعربية فقط يشرح هل الثغرة أُصلحت ولماذا",
+  "vulnerability_fixed": true/false,
+  "code_valid": true/false
+}}"""
+
+    print(f"[evaluate-code-fix] Evaluating challenge={challenge_id} lang={language}")
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        resp = await client.post(GROQ_API_URL, json={
+            "model": "llama-3.3-70b-versatile",
+            "messages": [
+                {"role": "system", "content": "أنت مقيّم أكواد أمني. أعد JSON فقط."},
+                {"role": "user", "content": eval_prompt},
+            ],
+            "temperature": 0.2,
+            "max_tokens": 1024,
+        }, headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+        })
+
+    if resp.status_code != 200:
+        error_detail = f"AI evaluation error: {resp.status_code}"
+        try:
+            error_detail += f" - {resp.text[:200]}"
+        except:
+            pass
+        raise HTTPException(status_code=500, detail=error_detail)
+
+    content = resp.json()["choices"][0]["message"]["content"]
+    evaluation = parse_json_safe(content)
+
+    if evaluation.get("secured") is True:
+        # Consume the challenge from pool
+        background_tasks.add_task(
+            handle_background_replacement,
+            challenge_id,
+            req.teamRole or "blue",
+            row.get("module", ""),
+            "web-security",
+            row.get("difficulty", "متوسط"),
+            row.get("difficulty", "متوسط"),
+        )
+
+    return {"evaluation": evaluation}
+
+
+# ---------- Log Analysis Evaluation (Hybrid: exact + AI feedback) ----------
+
+def _normalize_str(s: str) -> str:
+    return (s or "").strip().lower()
+
+
+def _ip_matches(user_ip: str, expected_ip: str) -> bool:
+    """Loose IP match: trim, lowercase, ignore trailing port or zone id."""
+    u = _normalize_str(user_ip).split("/")[0]
+    e = _normalize_str(expected_ip).split("/")[0]
+    return u == e and u != ""
+
+
+def _ioc_matches(user_ioc: str, expected_ioc: str) -> bool:
+    """IOC match: case-insensitive substring."""
+    u = _normalize_str(user_ioc)
+    e = _normalize_str(expected_ioc)
+    if not u or not e:
+        return False
+    return e in u or u in e
+
+
+def _timestamp_close(user_ts: str, expected_ts: str) -> bool:
+    """Timestamp match: if exact, return True. If user_ts contains the date or
+    hour portion of expected_ts, return True. Lenient by design."""
+    u = _normalize_str(user_ts)
+    e = _normalize_str(expected_ts)
+    if not u or not e:
+        return False
+    if u == e:
+        return True
+    # Try day-hour match (e.g., "15/Dec" or "Mar 12" or "2024-11-08")
+    e_tokens = re.findall(r"[a-zA-Z]+|\d+", e)
+    if not e_tokens:
+        return False
+    return all(tok.lower() in u for tok in e_tokens[:2])
+
+
+@app.post("/api/training/evaluate-log-analysis")
+async def evaluate_log_analysis(req: LogAnalysisEvaluateRequest, background_tasks: BackgroundTasks):
+    """Evaluate a log-analysis submission.
+
+    Strategy: exact match on 4 fields (attack_type, IP, timestamp, IOC) +
+    AI-generated Arabic feedback explaining what was right/wrong.
+    """
+    challenge_id = req.challengeId
+    if not challenge_id:
+        return {"success": False, "error": "challengeId مفقود"}
+
+    row = await fetch_scenario_by_id(req.teamRole or "blue", challenge_id, challenge_type="log-analysis")
+    if not row:
+        return {"success": False, "error": "التحدي غير موجود"}
+
+    expected_attack = _normalize_str(row.get("expected_attack_type", ""))
+    expected_ip = row.get("expected_attacker_ip") or ""
+    expected_ts = row.get("expected_timestamp") or ""
+    expected_ioc = row.get("expected_ioc") or ""
+
+    # Score each field
+    correct_fields = []
+    if _normalize_str(req.attackType) == expected_attack:
+        correct_fields.append("نوع الهجوم")
+    if _ip_matches(req.attackerIp, expected_ip):
+        correct_fields.append("عنوان IP المهاجم")
+    if _timestamp_close(req.timestamp, expected_ts):
+        correct_fields.append("الطابع الزمني")
+    if _ioc_matches(req.ioc, expected_ioc):
+        correct_fields.append("مؤشر الاختراق (IOC)")
+
+    total = 4
+    score = int(len(correct_fields) * 100 / total)
+    passed = score >= 75  # need 3 of 4
+
+    # AI feedback
+    correct_str = "، ".join(correct_fields) if correct_fields else "لا شيء"
+    missed = [f for f in ["نوع الهجوم", "عنوان IP المهاجم", "الطابع الزمني", "مؤشر الاختراق (IOC)"] if f not in correct_fields]
+    missed_str = "، ".join(missed) if missed else "لا شيء"
+
+    feedback_prompt = f"""أنت محلل خبير في مركز عمليات الأمن السيبراني (SOC). راجع إجابة المتدرب.
+
+═══════════════════════════════════════
+قواعد اللغة (مطلوبة بصرامة):
+- اكتب بالعربية الفصحى فقط، بدون أي كلمات إنجليزية.
+- ممنوع منعاً باتاً استخدام: nor، and، or، the، to، of، in، على الإطلاق.
+- استخدم: و، أو، ثم، لكن، بل، لأن.
+- لا تذكر أسماء حقول تقنية (attack_type، IP، timestamp) — استخدم الأسماء العربية فقط.
+═══════════════════════════════════════
+
+معلومات التحدي:
+- العنوان: {row.get("title", "")}
+- نوع السجل: {row.get("log_type", "")}
+- نوع الهجوم الصحيح: {expected_attack}
+- عنوان الـ IP الصحيح: {expected_ip}
+- الطابع الزمني الصحيح: {expected_ts}
+- مؤشر الاختراق الصحيح: {expected_ioc}
+
+إجابة المتدرب:
+- نوع الهجوم: {req.attackType or "(فارغ)"}
+- عنوان الـ IP: {req.attackerIp or "(فارغ)"}
+- الطابع الزمني: {req.timestamp or "(فارغ)"}
+- مؤشر الاختراق: {req.ioc or "(فارغ)"}
+- التحليل الحر: {req.explanation or "(لم يكتب شيئاً)"}
+
+نتيجة التقييم: {len(correct_fields)} من {total} حقول صحيحة.
+الحقول الصحيحة: {correct_str}
+الحقول الخاطئة أو الفارغة: {missed_str}
+
+═══════════════════════════════════════
+التعليمات:
+- اكتب فقرة واحدة إلى ثلاث فقرات قصيرة بالعربية فقط.
+- ابدأ بجملة افتتاحية تصف النتيجة (مثلاً: "أصبت في X من Y" أو "لم تتمكن من كشف أي حقل بشكل صحيح").
+- إذا كانت النتيجة 3 أو 4 من 4: امدح المتدرب وأضف سياقاً أمنياً مختصراً.
+- إذا كانت النتيجة أقل من 3: وضّح الحقول التي أخطأ فيها وقل كيف يكتشفها مستقبلاً، مع ربط بالإجابة الصحيحة.
+- لا تتجاوز 150 كلمة.
+═══════════════════════════════════════
+
+أرجع JSON فقط بدون أي شرح إضافي:
+{{"feedback": "النص هنا"}}"""
+
+    feedback_text = ""
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            fb_resp = await client.post(MISTRAL_API_URL, json={
+                "model": MISTRAL_MODEL,
+                "messages": [
+                    {"role": "system", "content": "أنت محلل خبير في مركز عمليات الأمن السيبراني (SOC). أرجع JSON فقط، اكتب بالعربية الفصحى حصراً، ولا تستخدم أي كلمات إنجليزية على الإطلاق."},
+                    {"role": "user", "content": feedback_prompt},
+                ],
+                "temperature": 0.3,
+                "max_tokens": 1024,
+                "response_format": {"type": "json_object"},
+            }, headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {MISTRAL_API_KEY}",
+            })
+        if fb_resp.status_code == 200:
+            fb_content = fb_resp.json()["choices"][0]["message"]["content"]
+            fb_data = parse_json_safe(fb_content)
+            feedback_text = fb_data.get("feedback", "")
+        else:
+            print(f"[log-analysis eval] Mistral HTTP {fb_resp.status_code}: {fb_resp.text[:200]}")
+    except Exception as e:
+        print(f"[log-analysis eval] AI feedback failed: {e}")
+
+    # Fallback feedback if AI failed
+    if not feedback_text:
+        if passed:
+            feedback_text = f"تحليل ممتاز! حددت {len(correct_fields)} من {total} حقول بشكل صحيح. {row.get('vulnerability_description', '')}"
+        else:
+            missed = [f for f in ["نوع الهجوم", "عنوان IP المهاجم", "الطابع الزمني", "مؤشر الاختراق (IOC)"] if f not in correct_fields]
+            feedback_text = f"تم تحديد {len(correct_fields)} من {total} حقول. الحقول التي تحتاج مراجعة: {', '.join(missed)}. راجع السجل مرة أخرى وابحث عن الأنماط المشبوهة."
+
+    if passed:
+        background_tasks.add_task(
+            handle_background_replacement,
+            challenge_id,
+            req.teamRole or "blue",
+            row.get("module", "forensics"),
+            "forensics",
+            row.get("difficulty", "متوسط"),
+            row.get("difficulty", "متوسط"),
+        )
+
+    xp_awarded = int((row.get("xp_reward") or 150) * score / 100)
+
+    return {
+        "evaluation": {
+            "passed": passed,
+            "score": score,
+            "correct_fields": correct_fields,
+            "feedback": feedback_text,
+            "xp_awarded": xp_awarded,
+        }
     }
 
 

@@ -17,9 +17,10 @@
 ## Stack
 - **Frontend**: React 19 + TypeScript + Vite
 - **Backend**: Python 3.14 (FastAPI, httpx, uvicorn, cryptography)
-- **Primary AI**: Groq API (default `llama-3.1-8b-instant` via `GROQ_MODEL`)
-- **Fallback AI**: NVIDIA integrate API (default `deepseek-ai/deepseek-v4-pro`
-  via `NVIDIA_MODEL`) — used only when Groq is unreachable, never on 429
+- **Primary AI**: Cloudflare Workers AI (default `@cf/qwen/qwen2.5-coder-32b-instruct`)
+- **Secondary AI**: Groq API (default `llama-3.1-8b-instant` via `GROQ_MODEL`)
+- **Tertiary AI**: NVIDIA integrate API (default `deepseek-ai/deepseek-v4-pro`
+  via `NVIDIA_MODEL`) — used only when Cloudflare and Groq are unreachable
 - **Database**: Supabase PostgreSQL
 - **Language**: Arabic (RTL)
 
@@ -28,9 +29,12 @@
 |---|---|
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_ANON_KEY` | Anon key (read) — used by backend for DB writes too |
-| `GROQ_API_KEY` | Primary AI |
+| `CLOUDFLARE_API_TOKEN` | Primary AI |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account id for Workers AI |
+| `CLOUDFLARE_MODEL` | Primary model (default `@cf/qwen/qwen2.5-coder-32b-instruct`) |
+| `GROQ_API_KEY` | Secondary AI |
 | `GROQ_MODEL` | Optional model override (default `llama-3.1-8b-instant`) |
-| `NVIDIA_API_KEY` | Fallback AI |
+| `NVIDIA_API_KEY` | Tertiary AI |
 | `NVIDIA_MODEL` | Optional model override (default `deepseek-ai/deepseek-v4-pro`) |
 | `VITE_API_URL` | Frontend → backend base URL (default `http://localhost:8090/api`) |
 
@@ -75,36 +79,105 @@ backend/
   itself for the teams it actually serves (e.g. crypto currently serves red
   only). Don't blindly add both teams.
 
-## AI Generation — Two-Tier Fallback (mandatory pattern)
+## AI Generation — Three-Tier Fallback (mandatory pattern)
 
 Every generator follows this exact flow per slot:
 
 ```
-1. Try PRIMARY AI (Groq)         → on success: build + insert
-                                 → on 429: per-team backoff 5 min, then seed
-                                 → on transient (timeout / network): goto 2
-                                 → on bad module/algo combo: goto 2
-2. Try FALLBACK AI (NVIDIA/DeepSeek) → on success: build + insert
-                                       → on any error: goto 3
-3. Use curated seed              → build + insert
+1. Try PRIMARY AI (Cloudflare Workers AI) → on success: parse + validate + insert
+                                           → on 429/timeout/4xx/exception: try next CF model
+                                           → all CF models exhausted: goto 2
+2. Try SECONDARY AI (Groq)                 → on success: parse + validate + insert
+                                           → on any error: goto 3
+3. Try TERTIARY AI (NVIDIA/DeepSeek)       → on success: parse + validate + insert
+                                           → on any error: goto 4
+4. Use curated seed                        → build + insert (safety net)
 ```
 
-**Why this exact order:**
+### Tier 1: Cloudflare Workers AI (PRIMARY) — Multi-Model Cycling
+
+Cloudflare is the primary AI. The code cycles through **7 model candidates**
+in order until one returns a successful response:
+
+```python
+CLOUDFLARE_MODEL_FALLBACKS = [
+    "@cf/qwen/qwen2.5-coder-32b-instruct",   # 32B, code-specialized, fast
+    "@cf/meta/llama-3.3-70b-instruct-fp8-fast",  # 70B, strong
+    "@cf/meta/llama-3.1-70b-instruct",       # 70B fallback
+    "@cf/mistralai/mistral-small-3.1-24b-instruct",  # 24B
+    "@cf/openai/gpt-oss-120b",               # 120B OpenAI-compatible
+    "@cf/openai/gpt-oss-20b",                # 20B OpenAI-compatible
+    "@cf/meta/llama-3.1-8b-instruct",        # 8B last resort (verified working but weak)
+]
+```
+
+For each model, the call uses `response_format: {"type": "json_object"}`
+when supported. If a model returns 400/404/422 (rejects the param), the
+helper `_post_with_json_fallback` retries the same model **without**
+`response_format` automatically.
+
+**Per-model timeout: 45 seconds.** A slow model will not block the pool
+refill for the full default 90s.
+
+**Cycle-on-failure rule:** on HTTP error (other than 429), timeout, or
+exception → try the next model in the list. Do **not** retry the same
+model.
+
+### Tier 2: Groq (SECONDARY)
+
+Used only when **all** Cloudflare models fail. Single model: default
+`llama-3.1-8b-instant`. Also uses `response_format: {"type": "json_object"}`
+with auto-fallback if rejected. 90s timeout.
+
+### Tier 3: NVIDIA integrate API / DeepSeek (TERTIARY)
+
+Used only when both Cloudflare and Groq fail. Single model: default
+`deepseek-ai/deepseek-v4-pro`. Same `response_format` strategy. 90s timeout.
+
+### Tier 4: Curated Seeds (Safety Net)
+
+When all three AI tiers fail, the generator falls back to hand-crafted
+seed challenges stored in code. Seeds must be:
+- Complete, runnable, 30-60 line programs
+- Have a clear, exploitable vulnerability
+- Have valid Arabic `title`, `story`, `task_outline`, `vulnerability_description`
+- Have exactly 3 hints
+
+### Per-Round Retry Inside One Provider Call
+
+For challenges that need multi-round parsing (e.g. `code_fixing_generator`),
+the orchestrator runs up to **3 rounds** per slot, each going through the
+full CF → Groq → NVIDIA chain:
+
+- **Round 1:** normal Arabic prompt
+- **Round 2:** stricter "raw JSON only" English prompt
+- **Round 3:** ultra-minimal English instruction
+
+If any round produces a parseable + valid challenge, return immediately.
+If all 3 rounds × all 3 providers fail, fall back to seed.
+
+### Why this exact order:
+
 - AI is the soul of the platform — every slot should attempt AI first.
-- A 429 is a hard per-minute quota. **Never** route a 429 to the fallback
-  AI (it likely shares backend infra and will 429 too). Set a per-team
-  backoff `_AI_BACKOFF_UNTIL[team_role] = now + 300`.
+- Cloudflare is primary because: (a) generous free tier, (b) lowest
+  per-token cost, (c) supports `response_format` on 70B+ models.
+- A 429 is a hard per-minute quota. **Never** route a 429 to the next
+  provider in the same tier (it likely shares backend infra and will 429
+  too). Set a per-team backoff `_AI_BACKOFF_UNTIL[team_role] = now + 300`.
 - Transient errors (timeout, read error, connect error) are network blips —
-  the fallback provider can plausibly help.
+  the next provider can plausibly help.
 - Curated seeds are the safety net, not the primary path.
 
-**Per-team backoff:** track `_AI_BACKOFF_UNTIL: dict[str, float]` keyed by
-`team_role`. One team's quota exhaustion must not lock the other team out.
+### Per-team backoff
 
-**Why Python executes the recipe, not the AI:** the LLM produces the
-*recipe* (plaintext, key, algorithm). Python runs the algorithm and computes
-the encrypted bytes + flag hash. This makes the output provably correct and
-immune to LLM hallucination.
+Track `_AI_BACKOFF_UNTIL: dict[str, float]` keyed by `team_role`. One
+team's quota exhaustion must not lock the other team out.
+
+### Why Python executes the recipe, not the AI
+
+The LLM produces the *recipe* (plaintext, key, algorithm). Python runs
+the algorithm and computes the encrypted bytes + flag hash. This makes
+the output provably correct and immune to LLM hallucination.
 
 ## Data & Backend Rules
 1. **Frontend** calls Python backend at `VITE_API_URL` (default:

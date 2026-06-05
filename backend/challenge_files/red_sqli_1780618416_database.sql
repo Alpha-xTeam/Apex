@@ -1,0 +1,1 @@
+CREATE TABLE employees (id INT PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), password VARCHAR(255), role VARCHAR(255)); INSERT INTO employees (id, name, email, password, role) VALUES (1, 'جون دو', 'johndoe@example.com', 'password123', 'admin');
