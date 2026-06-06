@@ -771,7 +771,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
           });
         }
 
-        if (training.id || training.scenarioId) {
+        if ((training.id || training.scenarioId) && !onChallengeSolved) {
           fetch(`${API_URL}/training/solved`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -855,7 +855,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         }
 
         // Mark as solved
-        if (training.id || training.scenarioId) {
+        if ((training.id || training.scenarioId) && !onChallengeSolved) {
           fetch(`${API_URL}/training/solved`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -963,7 +963,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         }
 
         // Mark as solved
-        if (training.id || training.scenarioId) {
+        if ((training.id || training.scenarioId) && !onChallengeSolved) {
           fetch(`${API_URL}/training/solved`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1051,7 +1051,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
           });
         }
 
-        if (training.id || training.scenarioId) {
+        if ((training.id || training.scenarioId) && !onChallengeSolved) {
           fetch(`${API_URL}/training/solved`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
