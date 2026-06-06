@@ -1,3 +1,0 @@
-domain: xyz.local
-users: admin, user1, user2
-groups: admins, users

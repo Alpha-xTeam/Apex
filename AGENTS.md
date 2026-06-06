@@ -221,11 +221,15 @@ the output provably correct and immune to LLM hallucination.
 
 ## Running the Backend
 ```bash
-cd backend
+cd CyberArena
 pip install -r requirements.txt
 python main.py
 ```
 Server runs on `http://localhost:8090`.
+
+> **Single-source-of-truth:** `Apex/CyberArena/` IS the backend. The old
+> `Apex/backend/` folder has been removed. All edits and HF pushes happen
+> from `Apex/CyberArena/`.
 
 ## Frontend
 - Runs on `http://localhost:5173` via `npm run dev`

@@ -1,7 +1,0 @@
-INSERT INTO public.encryption_challenges
-  (team_role, module, title, story, task_outline, files, file_metadata, command_outputs, hints, tools_whitelist, flag_hash, flag_preview, difficulty, xp_reward)
-VALUES
-  ('blue', 'hash-cracking', 'توقيع Webhook بـ HMAC-SHA256', 'خدمة الدفعات ترسل webhook إلى endpoint الشركة. كل طلب يجب أن يحوي HMAC-SHA256 في الـ header X-Signature. الـ secret مشترك مع الـ receiver. احسب التوقيع لـ payload.json بالـ key: Zapier_Webhook_2026_Secret.', 'استخدم openssl dgst -sha256 -hmac لتوقيع payload.json. الـ flag هو CyberArena{<hex_hmac>}',
-   '{"payload.json": "eyJldmVudCI6InBheW1lbnQuY29tcGxldGVkIiwiYW1vdW50IjoyNTAwLjAwLCJjdXJyZW5jeSI6IlVTRCIsInRpbWVzdGFtcCI6IjIwMjYtMDQtMTVUMTQ6MzA6MDBaIiwidHhuX2lkIjoidHhfYWJjMTIzIn0="}'::jsonb, '{}'::jsonb, '{"cat:payload.json": {"stdout": "{\"event\":\"payment.completed\",\"amount\":2500.00,\"currency\":\"US... [truncated, full output in sandbox]", "exit_code": 0}, "openssl:hmac": {"stdout": "HMAC-SHA256(payload.json)= a98eac9cc676f9d140b67bef045716e99... [truncated, full output in sandbox]", "stderr": "", "exit_code": 0}, "ls": {"stdout": "payload.json", "exit_code": 0}}'::jsonb,
-   '[]'::jsonb, '["cat", "openssl", "sha256sum", "ls", "base64"]'::jsonb,
-   '6a7b2c26343ef2b4dd43fdb3e56dfff8c1de0e8c51d7dc0999b3f5dd2a6982ed', 'CyberArena{a98eac9cc676f9d140b67bef045716e99464ec7d14e78755d31124ef8ec5917f}', 'متوسط', 150);

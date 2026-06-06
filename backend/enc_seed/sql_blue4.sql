@@ -1,7 +1,0 @@
-INSERT INTO public.encryption_challenges
-  (team_role, module, title, story, task_outline, files, file_metadata, command_outputs, hints, tools_whitelist, flag_hash, flag_preview, difficulty, xp_reward)
-VALUES
-  ('blue', 'hash-cracking', 'حساب SHA-256 لـ firmware قبل التوزيع', 'فريق QA رفع firmware.bin بحجم 4KB للنوافذ. قبل توزيعه على 10,000 جهاز، يجب أن يحسب SHA-256 ويُدرج في ملاحظات الإصدار. أداة sha256sum متوفرة في النظام.', 'احسب SHA-256 لـ firmware.bin. الـ flag هو CyberArena{<hex_hash>}',
-   '{"firmware.bin": "OQyMfXJHNCzYEA8vb3cNZdZw5Y4DUdiujk9urDQvwjG3sIcW6z/BKJa5YiMXdJQodzPCjui6U721a4gkV31T7MKKcKYcdRChzYkhbKFs/8rqSYdHfobbzLlwRvwuGDhOUdggxcPvgAU6iK45lt5Q6AGGWzaYZU6/UgCl+gk5uZ16HXsoK/gjQEHzVIfYbGafzL/g5z1+cyCtCnVwAyQedSIQqSR5jvhtQ/J88tBhMDHctdjS7xsyH86tN39iYeVH2F2O7H8m4jIZBy95VdD49m3NHlTCAceH6JLY+U9hl28dH6AdGfRQHSlfIyJ4zj1+FCnWoYVooHqHykOZ6qElBA=="}'::jsonb, '{}'::jsonb, '{"sha256sum:firmware.bin": {"stdout": "6d252e30cd8e999569e9291b18969a9ef7bc1a382477f2688be75f291a130e30  firmware.bin", "exit_code": 0}, "ls": {"stdout": "firmware.bin", "exit_code": 0}, "file:firmware.bin": {"stdout": "firmware.bin: data", "exit_code": 0}}'::jsonb,
-   '[]'::jsonb, '["cat", "openssl", "sha256sum", "ls", "base64"]'::jsonb,
-   'a3ee08ad07a622ee39073ea50571858dbe2baf68ed84010a5ec5ad832d894048', 'CyberArena{6d252e30cd8e999569e9291b18969a9ef7bc1a382477f2688be75f291a130e30}', 'مبتدئ', 100);

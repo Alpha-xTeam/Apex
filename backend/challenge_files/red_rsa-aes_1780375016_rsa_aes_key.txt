@@ -1,4 +1,0 @@
------BEGIN RSA PRIVATE KEY-----
-MIIEpAIBAAKCAQEAn...-----END RSA PRIVATE KEY-----
------BEGIN AES KEY-----
-base64:...-----END AES KEY-----
