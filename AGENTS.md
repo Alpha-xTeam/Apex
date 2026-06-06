@@ -16,15 +16,19 @@
 
 ## Stack
 - **Frontend**: React 19 + TypeScript + Vite
-- **Backend**: Python 3.14 (FastAPI, httpx, uvicorn, cryptography)
+- **Backend**: Python 3.11+ (FastAPI, httpx, uvicorn, cryptography) — Dockerfile pins `python:3.11-slim`
 - **Primary AI**: Cloudflare Workers AI (default `@cf/qwen/qwen2.5-coder-32b-instruct`)
 - **Secondary AI**: Groq API (default `llama-3.1-8b-instant` via `GROQ_MODEL`)
 - **Tertiary AI**: NVIDIA integrate API (default `deepseek-ai/deepseek-v4-pro`
   via `NVIDIA_MODEL`) — used only when Cloudflare and Groq are unreachable
+- **Quaternary AI** (log-analysis feedback only): Mistral API
+  (`mistral-large-latest` via `MISTRAL_MODEL`) — used by
+  `evaluate_log_analysis` to grade free-text explanations in Arabic
 - **Database**: Supabase PostgreSQL
-- **Language**: Arabic (RTL)
+- **Language**: Arabic (RTL) with English (LTR) toggle; site is Arabic-first,
+  every UI string lives in `src/i18n/translations.ts`
 
-## Environment Variables (all in `backend/.env`, never hardcoded)
+## Environment Variables (all in `CyberArena/.env`, never hardcoded)
 | Var | Purpose |
 |---|---|
 | `SUPABASE_URL` | Supabase project URL |
@@ -36,6 +40,9 @@
 | `GROQ_MODEL` | Optional model override (default `llama-3.1-8b-instant`) |
 | `NVIDIA_API_KEY` | Tertiary AI |
 | `NVIDIA_MODEL` | Optional model override (default `deepseek-ai/deepseek-v4-pro`) |
+| `MISTRAL_API_KEY` | Quaternary AI (log-analysis feedback only) |
+| `MISTRAL_MODEL` | Optional model override (default `mistral-large-latest`) |
+| `MISTRAL_API_URL` | Mistral endpoint (default `https://api.mistral.ai/v1/chat/completions`) |
 | `VITE_API_URL` | Frontend → backend base URL (default `http://localhost:8090/api`) |
 
 **Rule:** every secret MUST live in `.env`. Never hardcode keys, tokens, or
@@ -72,12 +79,13 @@ backend/
 
 **Pool model (per team, per type):**
 - `POOL_TARGET = 5` challenges cached
-- The watcher refills **exactly** the missing slots whenever the count
-  drops below `POOL_TARGET` (no threshold-based wait). One consumption
-  triggers a one-slot top-up.
-- Per-team registration in `populate_pool_background` — a generator registers
-  itself for the teams it actually serves (e.g. crypto currently serves red
-  only). Don't blindly add both teams.
+- `POOL_THRESHOLD = 2` — the watcher refills when the count drops to
+  this number (NOT on every consumption)
+- `POOL_BATCH = 3` — when a refill triggers, the generator creates
+  exactly this many in parallel via `asyncio.gather`
+- Per-team registration in `populate_pool_background` — a generator
+  registers itself for the teams it actually serves (e.g. crypto
+  currently serves red only). Don't blindly add both teams.
 
 ## AI Generation — Three-Tier Fallback (mandatory pattern)
 
@@ -218,6 +226,150 @@ the output provably correct and immune to LLM hallucination.
 | POST | `/api/training/terminal` | Run a command in the simulated terminal |
 | POST | `/api/training/terminal/write` | Write/edit a file in the student's workdir |
 | GET  | `/api/training/terminal/list` | List the student's workdir files |
+
+## 1v1 Mode (head-to-head match) — applies to **every** challenge type
+
+> **Read this section before adding ANY new challenge type.** Every
+> challenge type — current (`web`, `crypto`, `code-fixing`,
+> `log-analysis`) and future (`forensics`, `network`, `reverse`, …) —
+> MUST satisfy this contract or it cannot be played 1v1.
+
+### What 1v1 means in this app
+
+Two players enter the same room, race against the clock on the
+**same** challenge instance, and the first to submit a server-validated
+correct answer wins. The match is owned by a single PostgreSQL row in
+`onevone_matches`; the **win is claimed atomically** by a stored
+procedure (`onevone_claim_win`) and broadcast to both clients over
+Server-Sent Events.
+
+### The 1v1 contract (mandatory for every challenge type)
+
+#### Backend — every new challenge type must wire 3 things
+
+1. **Loader** in `CyberArena/onevone_router.py::get_match_challenge`
+   and `_load_challenge_row`. Map the new type to its table and to the
+   row-to-`TrainingData` mapper in `main.py`. Without this the 1v1
+   room can't hand the same challenge to both players.
+2. **Verifier branch** in
+   `CyberArena/onevone_router.py::_ai_check_blue_answer` (blue team)
+   **and** `_check_red_answer` (red team). The verifier returns
+   `bool`. The current dispatch is:
+   ```python
+   if challenge_type in ("web", "crypto"):
+       correct = _check_red_answer(...)        # string flag
+   elif challenge_type in ("code-fixing", "log-analysis"):
+       correct = await _ai_check_blue_answer(...)  # structured payload
+   ```
+   New blue types go into the second branch with their own payload
+   shape; new red types go into the first with a flag string. **Do
+   not** add a third top-level `if` — extend the existing dispatch.
+3. **Win claim** is automatic. `submit_answer` already calls
+   `onevone_claim_win` whenever the verifier returns `True`, so any
+   type wired above gets the atomic win / race-lost behaviour for
+   free. The DB function does the UPDATE … WHERE state IN
+   ('playing','overtime') RETURNING trick that serialises concurrent
+   calls.
+
+#### Frontend — every challenge-type editor must wire 3 things
+
+The single entry point that 1v1 uses is the `onChallengeSolved`
+callback passed from `<OneVOneArena>` to `<TrainingSession>`. Any
+challenge type that ships its own editor component must follow the
+same three rules the existing `CodeFixEditor` and `LogAnalysisEditor`
+follow:
+
+1. **Call `onChallengeSolved?.(payload)` exactly once per successful
+   solve.** `payload` is whatever the verifier expects:
+   - `crypto` / `web` (red team): the flag **string**
+   - `code-fixing` (blue team): `{ fixedCode: string }`
+   - `log-analysis` (blue team):
+     `{ attackType, attackerIp, timestamp, ioc, explanation? }`
+   - **future types**: add the new shape to the
+     `SubmissionPayload` union in `OneVOneArena.tsx` and to the
+     verifier dispatch above.
+2. **Accept and honour an `inOneVOne?: boolean` prop.** When `true`,
+   the editor MUST **suppress its own in-editor success celebration**
+   (the confetti + "Continue" button). The
+   `<OneVOneResultModal>` is the single source of truth for the
+   match outcome. The render guard is exactly:
+   ```tsx
+   {result && result.success && !inOneVOne && (
+     <SuccessCelebration ... />
+   )}
+   ```
+   `TrainingSession` already passes `inOneVOne={!!onChallengeSolved}`
+   to both existing editors. New editors must do the same.
+3. **Never call `onBack` as the success path in 1v1.** `onBack` is
+   wired to `handleTrainingBack`, which only navigates away when the
+   match has actually reached `state === 'finished'` in the SSE
+   stream. Calling it earlier just re-opens the result modal
+   (`setShowResultModal(true)`) and looks like a no-op to the user.
+   Success / failure UI in 1v1 mode is owned by the result modal,
+   not by the editor.
+
+#### Modal stacking — non-negotiable z-index rule
+
+The `<OneVOneResultModal>` overlay is `z-index: 10000`. **Every**
+in-editor success / failure / celebration overlay MUST stay at
+`z-index < 10000` so the 1v1 result is always the topmost layer.
+Current values: `.celebration-overlay` (CodeFixEditor /
+LogAnalysisEditor) is `z-index: 9999`. New editor overlays must use
+`≤ 9999` or be hidden via the `inOneVOne` prop.
+
+#### Win / loss data flow (no editor is allowed to skip any of these)
+
+```
+Student submits in editor
+        │
+        ▼
+Editor → /api/training/evaluate-{type}        (regular training eval)
+        │  secured/passed = true
+        ▼
+Editor → onChallengeSolved?.(payload)         (TrainingSession → OneVOneArena)
+        │
+        ▼
+OneVOneArena → POST /api/onevone/matches/{id}/submit
+        │
+        ▼
+Backend:  _ai_check_blue_answer / _check_red_answer
+        │  correct = True
+        ▼
+Backend:  onevone_claim_win (atomic DB function)
+        │  won = True
+        ▼
+Backend:  broadcast {type:"match_finished", winner, reason} via SSE
+        │  broadcast {type:"state", match:{state:"finished", ...}} via SSE
+        │
+        ├──► Winner client: OneVOneResultModal opens (isWinner=true)
+        │                  user clicks "Back to dashboard"
+        │                  → handleLeave → POST /leave → onBack()
+        │
+        └──► Loser  client: OneVOneResultModal opens (isWinner=false)
+                           user clicks "Back to dashboard"
+                           → handleLeave → POST /leave → onBack()
+```
+
+The win is **persisted at the `onevone_claim_win` step** — the modal
+button does not (and must not) re-trigger any write. The button is
+purely navigation.
+
+#### Add-a-new-type checklist (copy this when shipping a new type)
+
+- [ ] Table created in Supabase + mapped in `_load_challenge_row`
+- [ ] `get_match_challenge` returns the right `TrainingData` shape
+- [ ] `_ai_check_blue_answer` (blue) **or** `_check_red_answer` (red)
+      handles the new type's payload
+- [ ] `onevone_claim_win` doesn't need changes (already type-agnostic)
+- [ ] Editor component accepts `inOneVOne?: boolean` and hides its
+      celebration when `true`
+- [ ] Editor calls `onChallengeSolved?.(payload)` on success
+- [ ] Editor does **not** call `onBack` as the success path
+- [ ] Editor's overlay z-index ≤ 9999
+- [ ] `SubmissionPayload` union in `OneVOneArena.tsx` extended
+- [ ] Manual test: 2 browsers, solve the challenge, confirm
+      `onevone_matches.winner_user_id` is set and both clients see
+      the result modal.
 
 ## Running the Backend
 ```bash
