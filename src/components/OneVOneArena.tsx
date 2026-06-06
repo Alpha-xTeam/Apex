@@ -103,6 +103,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
   const [isStarting, setIsStarting] = useState(false);
   const [startError, setStartError] = useState('');
   const [isSubmitting1v1, setIsSubmitting1v1] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [localRoom, setLocalRoom] = useState<Room | null>(room);
 
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -351,11 +352,23 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
     if (match.state !== 'playing' && match.state !== 'overtime') return;
     if (isSubmitting1v1) return;
     setIsSubmitting1v1(true);
+    setSubmitError('');
     try {
+      // For blue team (code-fixing / log-analysis) the local TrainingSession
+      // AI eval is the source of truth. We send clientVerdict:true so the
+      // server doesn't re-evaluate (the AI verifier is non-deterministic and
+      // routinely disagreed with itself, causing "solved locally but room
+      // never ends"). The server still claims the win atomically via
+      // onevone_claim_win so two concurrent submitters don't double-claim.
+      const isBlueTeam = room?.team_role === 'blue';
       const res = await fetch(`${API_URL}/onevone/matches/${matchIdRef.current}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, submission: payload }),
+        body: JSON.stringify({
+          userId: user.id,
+          submission: payload,
+          clientVerdict: isBlueTeam ? true : undefined,
+        }),
       });
       const data: { won?: boolean; correct?: boolean; winner_id?: string } = await res.json();
       if (data.won) {
@@ -370,11 +383,11 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         setWinnerName(opponent?.display_name || t.oneVOne.genericOpponent);
         setDraw(false);
         setShowResultModal(true);
+      } else {
+        setSubmitError('خادم الـ 1v1 لم يقبل التسليم. حاول مرة أخرى.');
       }
-      // If !data.correct the server disagreed with the local eval; the user can
-      // keep trying. The 1v1 modal is NOT shown in that case.
     } catch {
-      /* network blip — the user can try submitting again via TrainingSession */
+      setSubmitError('تعذّر الاتصال بخادم الـ 1v1. أعد المحاولة.');
     } finally {
       setIsSubmitting1v1(false);
     }
@@ -474,6 +487,45 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
           players={players}
           currentUserId={user.id}
         />
+
+        {submitError && (
+          <div
+            role="alert"
+            style={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 50,
+              background: 'rgba(244, 63, 94, 0.12)',
+              border: '1px solid rgba(244, 63, 94, 0.35)',
+              color: '#fda4af',
+              padding: '10px 16px',
+              borderRadius: 8,
+              margin: '12px auto',
+              maxWidth: 720,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              fontSize: 14,
+            }}
+          >
+            <span style={{ flex: 1 }}>{submitError}</span>
+            <button
+              type="button"
+              onClick={() => setSubmitError('')}
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(244, 63, 94, 0.45)',
+                color: '#fda4af',
+                padding: '4px 10px',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: 12,
+              }}
+            >
+              إغلاق
+            </button>
+          </div>
+        )}
 
         {/* Reuse the existing TrainingSession as-is. We wrap its submit
             by passing a custom submit prop. Since TrainingSession doesn't

@@ -929,9 +929,12 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
       }
 
       const data = await res.json();
-      const evaluation = data.evaluation;
+      const evaluation = data?.evaluation;
+      if (!evaluation || typeof evaluation !== 'object') {
+        throw new Error('Invalid response from server: missing evaluation object.');
+      }
       setCodeFixResult({
-        success: evaluation.secured,
+        success: !!evaluation.secured,
         feedback: evaluation.feedback || (evaluation.secured ? 'تم تأمين الكود بنجاح!' : 'الثغرة لم تُصلح بعد.'),
       });
 
@@ -1013,7 +1016,10 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         throw new Error(`HTTP ${res.status}: ${t}`);
       }
 
-      const result = (await res.json()).evaluation;
+      const result = (await res.json())?.evaluation;
+      if (!result || typeof result !== 'object') {
+        throw new Error('Invalid response from server: missing evaluation object.');
+      }
       setLogAnalysisResult(result);
 
       if (result.passed) {
@@ -1102,7 +1108,10 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
 
       if (!res.ok) throw new Error('Failed to check the code from the server.');
       const data = await res.json();
-      const result = data.evaluation;
+      const result = data?.evaluation;
+      if (!result || typeof result !== 'object') {
+        throw new Error('Invalid response from server: missing evaluation object.');
+      }
       setEvalResult(result);
 
       if (result.secured) {
