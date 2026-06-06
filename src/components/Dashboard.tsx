@@ -10,30 +10,10 @@ import {
   Swords,
 } from 'lucide-react';
 import { BlueTeamIcon, RedTeamIcon } from './TeamIcons';
+import { useI18n } from '../i18n/I18nContext';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
-
-const LEVELS = [
-  { name: 'مبتدئ', minXp: 0, color: '#10b981' },
-  { name: 'متقدم', minXp: 200, color: '#f59e0b' },
-  { name: 'خبير', minXp: 600, color: '#ef4444' },
-  { name: 'سايبر ماستر', minXp: 1500, color: '#8b5cf6' },
-];
-
-function getLevel(xp: number) {
-  let level = LEVELS[0];
-  for (const l of LEVELS) {
-    if (xp >= l.minXp) level = l;
-  }
-  return level;
-}
-
-function getNextLevelXp(xp: number) {
-  for (const l of LEVELS) {
-    if (xp < l.minXp) return l.minXp;
-  }
-  return LEVELS[LEVELS.length - 1].minXp;
-}
 
 interface DBChallenge {
   id: string;
@@ -54,10 +34,31 @@ interface DashboardProps {
   onOpenOneVOne?: () => void;
 }
 
+function useLevels(t: ReturnType<typeof useI18n>['t']) {
+  return [
+    { name: t.levels.beginner, minXp: 0, color: '#10b981' },
+    { name: t.levels.advanced, minXp: 200, color: '#f59e0b' },
+    { name: t.levels.expert, minXp: 600, color: '#ef4444' },
+    { name: t.levels.master, minXp: 1500, color: '#8b5cf6' },
+  ];
+}
+
+function getLevel(xp: number, levels: { name: string; minXp: number; color: string }[]) {
+  let level = levels[0];
+  for (const l of levels) if (xp >= l.minXp) level = l;
+  return level;
+}
+
+function getNextLevelXp(xp: number, levels: { minXp: number }[]) {
+  for (const l of levels) if (xp < l.minXp) return l.minXp;
+  return levels[levels.length - 1].minXp;
+}
+
 export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, onViewProfile, onViewLeaderboard, onLogout, onOpenOneVOne }) => {
+  const { t, lang } = useI18n();
+  const LEVELS = useLevels(t);
   const [xp, setXp] = useState(0);
   const [completed, setCompleted] = useState(0);
-
   const [blueChallenges, setBlueChallenges] = useState<DBChallenge[]>([]);
   const [redChallenges, setRedChallenges] = useState<DBChallenge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,33 +86,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
         ]);
 
         if (!blueRes.ok || !redRes.ok) {
-          throw new Error(`Backend unavailable (${blueRes.status}/${redRes.status}). تأكد أن السيرفر يعمل على ${API_URL}`);
+          throw new Error(`Backend unavailable (${blueRes.status}/${redRes.status}). ${t.dashboard.fetchError}`);
         }
 
         const blueData = await blueRes.json();
         const redData = await redRes.json();
-
         setBlueChallenges(blueData.challenges || []);
         setRedChallenges(redData.challenges || []);
       } catch (err) {
         console.error('Error fetching dashboard data', err);
-        setFetchError(err instanceof Error ? err.message : 'تعذّر تحميل التحديات من الخادم');
+        setFetchError(err instanceof Error ? err.message : t.dashboard.fetchError);
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, [user.id]);
+  }, [user.id, t.dashboard.fetchError]);
 
   const initial = user.name?.charAt(0) || '?';
-  const level = getLevel(xp);
-  const nextLevelXp = getNextLevelXp(xp);
+  const level = getLevel(xp, LEVELS);
+  const nextLevelXp = getNextLevelXp(xp, LEVELS);
   const xpProgress = nextLevelXp > 0 ? Math.min((xp / nextLevelXp) * 100, 100) : 100;
 
   const groupByCategory = (challenges: DBChallenge[]) => {
     const groups: { [cat: string]: DBChallenge[] } = {};
     challenges.forEach(c => {
-      const cat = c.category || 'تحديات عامة';
+      const cat = c.category || (lang === 'ar' ? 'تحديات عامة' : 'General challenges');
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(c);
     });
@@ -122,35 +122,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
   const redGroups = groupByCategory(redChallenges);
 
   const teamsData = [
-    {
-      id: 'blue',
-      title: 'الفريق الأزرق',
-      subtitle: 'المدافع',
-      desc: 'اكتشف الثغرات وقم بتأمين الأنظمة',
-      accent: '#3b82f6',
-      accentSoft: 'rgba(59, 130, 246, 0.08)',
-      icon: <BlueTeamIcon size={56} />,
-      groups: blueGroups
-    },
-    {
-      id: 'red',
-      title: 'الفريق الأحمر',
-      subtitle: 'المهاجم',
-      desc: 'اكتشف واستغل الثغرات الأمنية',
-      accent: '#ef4444',
-      accentSoft: 'rgba(239, 68, 68, 0.08)',
-      icon: <RedTeamIcon size={56} />,
-      groups: redGroups
-    }
+    { id: 'blue', title: t.dashboard.blueTitle, subtitle: t.dashboard.blueSubtitle, desc: t.dashboard.blueDesc, accent: '#3b82f6', accentSoft: 'rgba(59, 130, 246, 0.08)', icon: <BlueTeamIcon size={56} />, groups: blueGroups },
+    { id: 'red', title: t.dashboard.redTitle, subtitle: t.dashboard.redSubtitle, desc: t.dashboard.redDesc, accent: '#ef4444', accentSoft: 'rgba(239, 68, 68, 0.08)', icon: <RedTeamIcon size={56} />, groups: redGroups }
   ];
-
-  const openSection = (teamId: string, category: string, challenges: DBChallenge[]) => {
-    setActiveSection({ teamId, category, challenges });
-  };
-
-  const closeSection = () => {
-    setActiveSection(null);
-  };
 
   return (
     <div className="dash-page">
@@ -158,9 +132,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
         <div className="dash-header-inner">
           <a href="/" className="dash-logo">CyberArena</a>
           <div className="dash-header-right">
+            <LanguageSwitcher />
             <button onClick={onViewLeaderboard} className="dash-leaderboard-btn">
               <Trophy size={14} />
-              <span>المتصدرين</span>
+              <span>{t.dashboard.leaderboard}</span>
             </button>
             <div className="dash-user-badge" onClick={onViewProfile} style={{ cursor: 'pointer' }}>
               <div className="dash-avatar">{initial}</div>
@@ -169,20 +144,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
                 <span className="dash-level" style={{ color: level.color }}>{level.name}</span>
               </div>
             </div>
-            <button onClick={onLogout} className="dash-logout">خروج</button>
+            <button onClick={onLogout} className="dash-logout">{t.dashboard.logout}</button>
           </div>
         </div>
       </header>
 
       <main className="dash-main">
         <div className="dash-container">
-          {/* Hero greeting */}
           <section className="dash-greeting">
-            <h1>أهلاً، {user.name} 👋</h1>
-            <p>اختر مسارك التدريبي وابدأ بتحديات الأمن السيبراني العملية المُولّدة بالذكاء الاصطناعي.</p>
+            <h1>{t.dashboard.greeting}، {user.name} 👋</h1>
+            <p>{t.dashboard.greetingSub}</p>
           </section>
 
-          {/* 3 Stat Cards Row */}
           <section className="dash-stats-grid">
             <div className="dash-stat-card">
               <div className="dash-stat-icon" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
@@ -190,7 +163,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
               </div>
               <div className="dash-stat-body">
                 <span className="dash-stat-value">{xp.toLocaleString()}</span>
-                <span className="dash-stat-label">نقاط الخبرة</span>
+                <span className="dash-stat-label">{t.dashboard.xpLabel}</span>
               </div>
             </div>
 
@@ -200,7 +173,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
               </div>
               <div className="dash-stat-body">
                 <span className="dash-stat-value">{level.name}</span>
-                <span className="dash-stat-label">المستوى الحالي</span>
+                <span className="dash-stat-label">{t.dashboard.levelLabel}</span>
                 <div className="dash-stat-progress">
                   <div className="dash-stat-progress-fill" style={{ width: `${xpProgress}%`, background: level.color }} />
                 </div>
@@ -214,15 +187,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
               </div>
               <div className="dash-stat-body">
                 <span className="dash-stat-value">{completed}</span>
-                <span className="dash-stat-label">تدريب مكتمل</span>
+                <span className="dash-stat-label">{t.dashboard.completedLabel}</span>
               </div>
             </div>
           </section>
 
-          {/* Section Title */}
           <section className="dash-section-header">
-            <h2>اختر فريقك</h2>
-            <p>كل فريق يحتوي على تحديات متخصصة بمجالات مختلفة</p>
+            <h2>{t.dashboard.chooseTeam}</h2>
+            <p>{t.dashboard.chooseTeamSub}</p>
           </section>
 
           {fetchError && (
@@ -232,7 +204,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
           )}
 
           {loading ? (
-            <div className="dash-loading">جاري تحميل التحديات...</div>
+            <div className="dash-loading">{t.dashboard.loading}</div>
           ) : (
             <>
               <div className="dash-teams-grid">
@@ -253,9 +225,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
 
                     {activeSection && activeSection.teamId === team.id ? (
                       <div className="dash-team-content">
-                        <button onClick={closeSection} className="dash-back-btn">
+                        <button onClick={() => setActiveSection(null)} className="dash-back-btn">
                           <ArrowLeft size={14} />
-                          <span>العودة للأقسام</span>
+                          <span>{t.dashboard.backToCategories}</span>
                         </button>
                         <h4 className="dash-content-title">{activeSection.category}</h4>
                         <div className="dash-challenges-list">
@@ -290,7 +262,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
                             <button
                               key={category}
                               className="dash-category-item"
-                              onClick={() => openSection(team.id, category, challenges)}
+                              onClick={() => setActiveSection({ teamId: team.id, category, challenges })}
                             >
                               <div className="dash-category-info">
                                 <Lock size={16} className="dash-category-icon-sm" />
@@ -301,7 +273,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
                           );
                         })}
                         {Object.keys(team.groups).length === 0 && (
-                          <div className="dash-empty-state">لا توجد تحديات متوفرة حالياً</div>
+                          <div className="dash-empty-state">{t.dashboard.noChallenges}</div>
                         )}
                       </div>
                     )}
@@ -320,34 +292,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
                       <Swords size={36} color="#10b981" />
                     </div>
                     <div>
-                      <h3 className="dash-team-title">وضع 1 ضد 1</h3>
-                      <span className="dash-team-subtitle">منافسة مباشرة</span>
+                      <h3 className="dash-team-title">{t.dashboard.oneVOneTitle}</h3>
+                      <span className="dash-team-subtitle">{t.dashboard.oneVOneSubtitle}</span>
                     </div>
                   </div>
-                  <p className="dash-team-desc">
-                    أنشئ غرفة وشارك الرمز مع خصمك. كلاكما يحصل على نفس التحدي — الأسرع يفوز.
-                  </p>
+                  <p className="dash-team-desc">{t.dashboard.oneVOneDesc}</p>
                   <div className="onevone-dash-meta">
-                    <span className="onevone-dash-pill">⚔️ تنافس في الوقت الفعلي</span>
-                    <span className="onevone-dash-pill">⏱️ مؤقت + وقت إضافي</span>
-                    <span className="onevone-dash-pill">🏆 أول فائز</span>
+                    <span className="onevone-dash-pill">{t.dashboard.oneVOnePill1}</span>
+                    <span className="onevone-dash-pill">{t.dashboard.oneVOnePill2}</span>
+                    <span className="onevone-dash-pill">{t.dashboard.oneVOnePill3}</span>
                   </div>
                   <div className="onevone-dash-cta">
-                    ابدأ الآن <ChevronLeft size={14} />
+                    {t.dashboard.oneVOneCta} <ChevronLeft size={14} />
                   </div>
                 </section>
               )}
             </>
           )}
 
-          {/* Tip Section */}
           <section className="dash-tips">
             <div className="dash-tips-icon">
               <Lightbulb size={18} />
             </div>
             <div className="dash-tips-body">
-              <h3>نصيحة اليوم</h3>
-              <p>التدريب العملي المتكرر يصنع الخبير. كل تحدٍ هنا يحاكي ثغرة حقيقية، استغلها للتعلم.</p>
+              <h3>{t.dashboard.tipTitle}</h3>
+              <p>{t.dashboard.tipBody}</p>
             </div>
           </section>
         </div>

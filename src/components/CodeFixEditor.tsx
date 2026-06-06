@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useI18n } from '../i18n/I18nContext';
 
 interface Hint {
   level: number;
@@ -27,6 +28,15 @@ interface CodeFixEditorProps {
   onBack: () => void;
   isVerifying: boolean;
   result: { success: boolean; feedback: string } | null;
+  /**
+   * When running inside a 1v1 match, the in-editor success celebration
+   * (confetti + "Continue" button) is suppressed so the OneVOneResultModal
+   * is the single source of truth for the match outcome. Without this, the
+   * celebration modal (z-index 9999) covers the 1v1 modal (z-index 1000) and
+   * the "Continue" button ends up navigating the user out of a match whose
+   * server-side win was already recorded.
+   */
+  inOneVOne?: boolean;
 }
 
 const VULN_TYPE_AR: Record<string, string> = {
@@ -64,9 +74,11 @@ export default function CodeFixEditor({
   challenge,
   onSubmit,
   onBack,
+  inOneVOne = false,
   isVerifying,
   result,
 }: CodeFixEditorProps) {
+  const { t } = useI18n();
   const initialCode = challenge?.vulnerable_code ?? '';
   const [fixedCode, setFixedCode] = useState<string>(initialCode);
   const [showHints, setShowHints] = useState(false);
@@ -104,7 +116,7 @@ export default function CodeFixEditor({
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="9 18 15 12 9 6" />
             </svg>
-            العودة
+            {t.codeFix.back}
           </button>
           <div className="code-fix-title-section">
             <h2 className="code-fix-title">{challenge.title}</h2>
@@ -149,7 +161,7 @@ export default function CodeFixEditor({
                 <path d="M12 20h9" />
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
               </svg>
-              عدّل الكود مباشرةً لإصلاح الثغرة
+              {t.codeFix.fixHint}
             </span>
           </div>
           <div className="code-fix-monaco-host">
@@ -164,7 +176,7 @@ export default function CodeFixEditor({
               onChange={(e) => setFixedCode(e.target.value)}
               spellCheck={false}
               dir="ltr"
-              placeholder="// الكود سيظهر هنا..."
+              placeholder={t.codeFix.placeholder}
             />
           </div>
         </div>
@@ -210,7 +222,7 @@ export default function CodeFixEditor({
               <svg className="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 12a9 9 0 11-6.219-8.56" />
               </svg>
-              جارٍ التحقق...
+              {t.codeFix.submitting}
             </>
           ) : (
             <>
@@ -218,7 +230,7 @@ export default function CodeFixEditor({
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
-              تحقق من الحل
+              {t.codeFix.submit}
             </>
           )}
         </button>
@@ -241,13 +253,13 @@ export default function CodeFixEditor({
             )}
           </div>
           <div className="code-fix-result-content">
-            <h4>{result.success ? 'تم تأمين الكود بنجاح!' : 'الثغرة لم تُصلح بعد'}</h4>
+            <h4>{result.success ? (t.codeFix.successTitle) : (t.codeFix.failureTitle)}</h4>
             <p>{result.feedback}</p>
           </div>
         </div>
       )}
 
-      {result && result.success && (
+      {result && result.success && !inOneVOne && (
         <SuccessCelebration
           xpReward={challenge.xp_reward}
           feedback={result.feedback}
@@ -260,6 +272,7 @@ export default function CodeFixEditor({
 
 
 function SuccessCelebration({ xpReward, feedback, onContinue }: { xpReward: number; feedback: string; onContinue: () => void }) {
+  const { t } = useI18n();
   const [count, setCount] = useState(0);
   const [confettiPieces] = useState(() =>
     Array.from({ length: 80 }, (_, i) => ({
@@ -312,8 +325,8 @@ function SuccessCelebration({ xpReward, feedback, onContinue }: { xpReward: numb
           </svg>
         </div>
 
-        <h2 className="celebration-title">🛡️ أحسنت!</h2>
-        <p className="celebration-subtitle">تم تأمين الكود بنجاح</p>
+        <h2 className="celebration-title">{t.codeFix.celebrateTitle}</h2>
+        <p className="celebration-subtitle">{t.codeFix.celebrateSub}</p>
 
         <div className="celebration-xp">
           <span className="celebration-xp-plus">+</span>
@@ -324,7 +337,7 @@ function SuccessCelebration({ xpReward, feedback, onContinue }: { xpReward: numb
         <p className="celebration-feedback">{feedback}</p>
 
         <button className="celebration-btn" onClick={onContinue}>
-          متابعة ←
+          {t.codeFix.continue}
         </button>
       </div>
     </div>

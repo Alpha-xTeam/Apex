@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
   --color-bg: #f9f9f7; /* Vintage textured cream background */
@@ -30,6 +30,48 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   scroll-behavior: smooth;
+}
+
+/* English / LTR mode — flips body direction globally */
+html[dir="ltr"] body {
+  direction: ltr;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Global LTR override — forces left-to-right layout for every element
+   in English mode. The universal-selector with !important is needed
+   because inner `direction: rtl` declarations (on RTL-only widgets
+   like the Arabic login form or Arabic select dropdowns) would
+   otherwise stick and produce mixed directions. */
+html[dir="ltr"] * {
+  direction: ltr !important;
+}
+/* The few elements that must stay LTR even in Arabic mode (code
+   blocks, monospace file contents, terminal output) are unaffected —
+   they were already LTR and we keep them LTR. */
+
+/* English font: Latin sans-serif for readability */
+html[dir="ltr"],
+html[dir="ltr"] body,
+html[dir="ltr"] button,
+html[dir="ltr"] input,
+html[dir="ltr"] textarea,
+html[dir="ltr"] select,
+html[dir="ltr"] label,
+html[dir="ltr"] h1,
+html[dir="ltr"] h2,
+html[dir="ltr"] h3,
+html[dir="ltr"] h4,
+html[dir="ltr"] h5,
+html[dir="ltr"] h6,
+html[dir="ltr"] p,
+html[dir="ltr"] span,
+html[dir="ltr"] a,
+html[dir="ltr"] div,
+html[dir="ltr"] li,
+html[dir="ltr"] td,
+html[dir="ltr"] th {
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif !important;
 }
 
 /* ==========================================================================
@@ -7003,6 +7045,120 @@ body {
   transform: translateY(-1px);
 }
 
+/* ---------- Language Switcher ---------- */
+.lang-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.55);
+  border-radius: 999px;
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  font-family: inherit;
+  text-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+.lang-switcher:hover {
+  background: rgba(16, 185, 129, 0.32);
+  border-color: #10b981;
+  color: #34d399;
+  transform: translateY(-1px);
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.45);
+}
+.lang-switcher svg {
+  opacity: 1;
+  color: #10b981;
+}
+
+/* On light backgrounds (AuthPage, Footer, etc.) the green-on-green blend
+   would be invisible. Swap to dark text on light pill. */
+.auth-page .lang-switcher,
+.footer .lang-switcher,
+.auth-shell .lang-switcher,
+[style*="background: #fff"] .lang-switcher,
+[style*="background:#fff"] .lang-switcher {
+  background: rgba(10, 10, 10, 0.04);
+  border-color: rgba(10, 10, 10, 0.18);
+  color: #0a0a0a;
+  text-shadow: none;
+}
+.auth-page .lang-switcher:hover,
+.footer .lang-switcher:hover,
+.auth-shell .lang-switcher:hover {
+  background: rgba(10, 10, 10, 0.08);
+  border-color: #0a0a0a;
+  color: #0a0a0a;
+  box-shadow: 0 0 0 4px rgba(10, 10, 10, 0.06);
+}
+
+/* When site is in LTR (English), some Arabic-styled elements need rebalancing */
+[dir="ltr"] .z-nav-status {
+  flex-direction: row-reverse;
+}
+[dir="ltr"] body {
+  letter-spacing: 0.01em;
+}
+
+/* ==========================================================================
+   LTR / English Mode — Layout Re-balancing
+   The site is designed RTL-first, so many components hardcode `right:`,
+   `margin-right`, `padding-right`, `text-align: right`, etc. In English
+   mode we mirror those physical properties so the layout looks native LTR.
+   ========================================================================== */
+html[dir="ltr"] body,
+html[dir="ltr"] p,
+html[dir="ltr"] h1,
+html[dir="ltr"] h2,
+html[dir="ltr"] h3,
+html[dir="ltr"] h4,
+html[dir="ltr"] h5,
+html[dir="ltr"] h6,
+html[dir="ltr"] li,
+html[dir="ltr"] label,
+html[dir="ltr"] td,
+html[dir="ltr"] th,
+html[dir="ltr"] dd,
+html[dir="ltr"] blockquote,
+html[dir="ltr"] figcaption,
+html[dir="ltr"] input,
+html[dir="ltr"] textarea,
+html[dir="ltr"] select,
+html[dir="ltr"] button,
+html[dir="ltr"] span,
+html[dir="ltr"] a,
+html[dir="ltr"] div,
+html[dir="ltr"] article,
+html[dir="ltr"] section,
+html[dir="ltr"] main,
+html[dir="ltr"] aside,
+html[dir="ltr"] header,
+html[dir="ltr"] footer,
+html[dir="ltr"] nav,
+html[dir="ltr"] address {
+  text-align: left;
+}
+html[dir="ltr"] .center,
+html[dir="ltr"] [class*="-center"],
+html[dir="ltr"] [style*="text-align: center"] {
+  text-align: center !important;
+}
+/* Number badges, badges, counters — keep centered */
+html[dir="ltr"] .badge,
+html[dir="ltr"] .tag,
+html[dir="ltr"] .pill,
+html[dir="ltr"] .chip,
+html[dir="ltr"] .stat-pill,
+html[dir="ltr"] .tier-badge,
+html[dir="ltr"] .phase-pill,
+html[dir="ltr"] .status-dot {
+  text-align: center;
+}
+
 /* Desktop user + logout (when logged in) */
 .z-nav-user-desktop {
   display: flex;
@@ -12154,7 +12310,9 @@ body {
   position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.75);
   display: flex; align-items: center; justify-content: center;
-  z-index: 1000; backdrop-filter: blur(4px);
+  /* Must beat the CodeFixEditor / LogAnalysisEditor celebration overlays (z-index 9999)
+     and any 1v1 hud elements. Bump to 10000. */
+  z-index: 10000; backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
 .onevone-modal {

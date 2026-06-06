@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { navigateTo } from '../App';
 import { ShieldMark } from './ShieldMark';
+import { useI18n } from '../i18n/I18nContext';
 
 export const Hero: React.FC = () => {
+  const { t, lang } = useI18n();
   const [now] = useState(() => {
     const d = new Date();
-    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    const time = d.toLocaleTimeString(lang === 'ar' ? 'en-US' : 'en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     const day = d.getDate();
     const month = d.toLocaleString('en-US', { month: 'long' });
     return `${time} — ${day} ${month}, ${d.getFullYear()}`;
@@ -13,33 +15,29 @@ export const Hero: React.FC = () => {
 
   return (
     <section className="z-hero">
-      {/* Top row: tag (left) + status (right) */}
       <div className="z-hero-top">
         <div className="z-hero-tag">
           <span>◆</span>
-          <span>منصة تدريب الأمن السيبراني</span>
+          <span>{t.hero.tag}</span>
         </div>
         <div className="z-hero-status">
           <span className="z-status-dot" />
-          <span>متاح الآن</span>
+          <span>{t.hero.available}</span>
           <span className="z-status-sep">•</span>
           <span>{now}</span>
         </div>
       </div>
 
-      {/* Main stage: text on left + shield visual centered + side card on right */}
       <div className="z-hero-stage">
-        {/* Central cybersecurity visual */}
         <div className="z-hero-visual" aria-hidden="true">
           <ShieldMark size="xxl" />
         </div>
 
-        {/* Text content — on the left, extends behind the shield */}
         <div className="z-hero-content">
           <h1 className="z-hero-title">
-            <span className="z-title-line">نبدأ من الصفر،</span>
-            <span className="z-title-line z-title-stroke">لنصنع خبراء</span>
-            <span className="z-title-line z-title-accent">الأمن السيبراني.</span>
+            <span className="z-title-line">{t.hero.title1}</span>
+            <span className="z-title-line z-title-stroke">{t.hero.title2}</span>
+            <span className="z-title-line z-title-accent">{t.hero.title3}</span>
           </h1>
 
           <div className="z-hero-rating">
@@ -50,22 +48,21 @@ export const Hero: React.FC = () => {
                 </svg>
               ))}
             </div>
-            <span className="z-rating-text">+٣٠٠٠ متدرب يثق بنا</span>
+            <span className="z-rating-text">{t.hero.rating}</span>
           </div>
 
           <div className="z-hero-ctas">
             <button onClick={() => navigateTo('auth')} className="z-btn z-btn-dark">
-              <span>ابدأ التدريب المجاني</span>
+              <span>{t.hero.ctaPrimary}</span>
               <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="7" y1="17" x2="17" y2="7"></line>
                 <polyline points="7 7 17 7 17 17"></polyline>
               </svg>
             </button>
-            <button onClick={() => navigateTo('auth')} className="z-btn z-btn-light">استكشف التحديات</button>
+            <button onClick={() => navigateTo('auth')} className="z-btn z-btn-light">{t.hero.ctaSecondary}</button>
           </div>
         </div>
 
-        {/* Floating side card (top right) */}
         <div className="z-float-card">
           <div className="z-float-card-head">
             <div className="z-float-avatar">
@@ -74,37 +71,33 @@ export const Hero: React.FC = () => {
               </svg>
             </div>
             <div>
-              <div className="z-float-title">تدرّب لحماية البنية التحتية</div>
-              <div className="z-float-sub">سيناريو مباشر • محاكاة كاملة</div>
+              <div className="z-float-title">{t.hero.cardTitle}</div>
+              <div className="z-float-sub">{t.hero.cardSub}</div>
             </div>
           </div>
           <div className="z-float-wave">
             <span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span />
           </div>
           <div className="z-float-meta">
-            <span>00:00</span>
-            <span>ساري الآن</span>
+            <span>{t.hero.cardTime}</span>
+            <span>{t.hero.cardLive}</span>
           </div>
         </div>
       </div>
 
-      {/* Giant brand text overlay */}
-      <div className="z-hero-giant" aria-hidden="true">
-        CYBERARENA
-      </div>
+      <div className="z-hero-giant" aria-hidden="true">CYBERARENA</div>
 
-      {/* Bottom bar */}
       <div className="z-hero-bottom">
         <div className="z-bottom-item">
           <span className="z-bottom-label">+٥</span>
-          <span>سنوات خبرة</span>
+          <span>{t.hero.years}</span>
         </div>
         <div className="z-bottom-item">
-          <span className="z-bottom-label">بابل</span>
-          <span>العراق</span>
+          <span className="z-bottom-label">{t.hero.city}</span>
+          <span>{t.hero.country}</span>
         </div>
         <a href="#about" className="z-bottom-item z-bottom-cta">
-          <span>مرر للأسفل</span>
+          <span>{t.hero.scroll}</span>
           <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <polyline points="19 12 12 19 5 12"></polyline>

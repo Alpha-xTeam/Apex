@@ -1,33 +1,11 @@
 import React, { useRef, useEffect, useState } from 'react';
+import { useI18n } from '../i18n/I18nContext';
 
-const STAGES = [
-  {
-    number: '٠١',
-    title: 'التحدي',
-    desc: 'تواجه سيناريو تقني غير متوقع — خادم ينهار، ثغرة أمنية، أو نظام يتعطل في أكثر اللحظات حرجاً.',
-    icon: '⬡',
-  },
-  {
-    number: '٠٢',
-    title: 'الغمر',
-    desc: 'تُغمر في قلب الحدث. اتصالات وهمية، ضغط زمني حقيقي، وقرارات مصيرية تتطلب تدخلك الفوري.',
-    icon: '⟡',
-  },
-  {
-    number: '٠٣',
-    title: 'التكيف',
-    desc: 'تتعلم قراءة الموقف بسرعة، تعيد ترتيب أولوياتك، وتتكيف مع المتغيرات لحظة بلحظة.',
-    icon: '⟠',
-  },
-  {
-    number: '٠٤',
-    title: 'التمكن',
-    desc: 'تخرج من المحاكاة أقوى. قراراتك تحللت، مهاراتك قيست، وأنت الآن جاهز لسوق العمل الحقيقي.',
-    icon: '◆',
-  },
-];
+const ICONS = ['⬡', '⟡', '⟠', '◆'];
 
 export const ScrollStory: React.FC = () => {
+  const { t } = useI18n();
+  const STAGES = t.scrollStory.stages.map((s, i) => ({ ...s, number: `0${i + 1}`, icon: ICONS[i] }));
   const sectionRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState(0);
   const progressRef = useRef<HTMLDivElement>(null);
@@ -56,11 +34,7 @@ export const ScrollStory: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const currentIndex = Math.min(
-    STAGES.length - 1,
-    Math.floor(progress * STAGES.length)
-  );
-
+  const currentIndex = Math.min(STAGES.length - 1, Math.floor(progress * STAGES.length));
   const stage = STAGES[currentIndex];
 
   return (
@@ -71,7 +45,7 @@ export const ScrollStory: React.FC = () => {
 
         <div className="scroll-story-label">
           <span className="scroll-story-label-line" />
-          <span>رحلة التطور</span>
+          <span>{t.scrollStory.label}</span>
           <span className="scroll-story-label-line" />
         </div>
 
@@ -86,18 +60,12 @@ export const ScrollStory: React.FC = () => {
 
         <div className="scroll-story-dots">
           {STAGES.map((_, i) => (
-            <div
-              key={i}
-              className={`scroll-story-dot ${i === currentIndex ? 'active' : ''} ${i < currentIndex ? 'done' : ''}`}
-            />
+            <div key={i} className={`scroll-story-dot ${i === currentIndex ? 'active' : ''} ${i < currentIndex ? 'done' : ''}`} />
           ))}
         </div>
 
         <div className="scroll-story-progress">
-          <div
-            className="scroll-story-progress-bar"
-            ref={progressRef}
-          />
+          <div className="scroll-story-progress-bar" ref={progressRef} />
         </div>
       </div>
     </section>

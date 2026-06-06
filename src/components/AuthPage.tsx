@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { navigateTo } from '../App';
+import { useI18n } from '../i18n/I18nContext';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 type AuthMode = 'login' | 'signup';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
 
 export const AuthPage: React.FC<{ onBack: () => void; onAuth: () => void }> = ({ onBack, onAuth }) => {
+  const { t, lang } = useI18n();
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,7 +38,7 @@ export const AuthPage: React.FC<{ onBack: () => void; onAuth: () => void }> = ({
       localStorage.setItem('cyberarena_session', JSON.stringify(data));
       onAuth();
     } catch {
-      setError('تعذر الاتصال بالخادم');
+      setError(t.auth.networkError);
     } finally {
       setLoading(false);
     }
@@ -55,11 +58,14 @@ export const AuthPage: React.FC<{ onBack: () => void; onAuth: () => void }> = ({
             <line x1="19" y1="12" x2="5" y2="12"></line>
             <polyline points="12 19 5 12 12 5"></polyline>
           </svg>
-          <span>الرجوع للرئيسية</span>
+          <span>{t.auth.back}</span>
         </a>
-        <a href="/" className="auth-logo" onClick={(e) => { e.preventDefault(); navigateTo('home'); onBack(); }}>
-          CyberArena<sup>®</sup>
-        </a>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <LanguageSwitcher />
+          <a href="/" className="auth-logo" onClick={(e) => { e.preventDefault(); navigateTo('home'); onBack(); }}>
+            CyberArena<sup>®</sup>
+          </a>
+        </div>
       </nav>
 
       <div className="auth-shell">
@@ -98,80 +104,80 @@ export const AuthPage: React.FC<{ onBack: () => void; onAuth: () => void }> = ({
           <div className="auth-orbit-node auth-orbit-node-2" />
           <div className="auth-orbit-node auth-orbit-node-3" />
           <div className="auth-orbit-node auth-orbit-node-4" />
-          <h2 className="auth-visual-title">منصتك للتدريب الأمني</h2>
-          <p className="auth-visual-desc">سيناريوهات واقعية يُولّدها الذكاء الاصطناعي ويُتولاها خبراء بشريون.</p>
-        </div>
-
-        <div className="auth-card">
-          <div className="auth-header">
-            <h1 className="auth-title">{mode === 'login' ? 'تسجيل الدخول' : 'إنشاء حساب'}</h1>
-            <p className="auth-subtitle">
-              {mode === 'login'
-                ? 'مرحباً بعودتك! سجّل دخولك لمواصلة رحلتك التدريبية.'
-                : 'ابدأ رحلتك التدريبية في الأمن السيبراني اليوم.'}
-            </p>
+            <h2 className="auth-visual-title">{t.auth.taglineTitle}</h2>
+            <p className="auth-visual-desc">{t.auth.taglineDesc}</p>
           </div>
 
-          <form className="auth-form" onSubmit={handleSubmit}>
-            {mode === 'signup' && (
+          <div className="auth-card">
+            <div className="auth-header">
+              <h1 className="auth-title">{mode === 'login' ? t.auth.loginTitle : t.auth.signupTitle}</h1>
+              <p className="auth-subtitle">
+                {mode === 'login' ? t.auth.welcomeBack : t.auth.signupDesc}
+              </p>
+            </div>
+
+            <form className="auth-form" onSubmit={handleSubmit}>
+              {mode === 'signup' && (
+                <div className="auth-field">
+                  <label htmlFor="name">{t.auth.fullName}</label>
+                  <input
+                    id="name"
+                    type="text"
+                    placeholder={t.auth.fullNamePh}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
+
               <div className="auth-field">
-                <label htmlFor="name">الاسم الكامل</label>
+                <label htmlFor="email">{t.auth.email}</label>
                 <input
-                  id="name"
-                  type="text"
-                  placeholder="محمد أحمد"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
+                  dir={lang === 'ar' ? 'rtl' : 'ltr'}
                 />
               </div>
-            )}
 
-            <div className="auth-field">
-              <label htmlFor="email">البريد الإلكتروني</label>
-              <input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <div className="auth-field">
+                <label htmlFor="password">{t.auth.password}</label>
+                <input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  dir="ltr"
+                />
+              </div>
+
+              {mode === 'login' && (
+                <a href="#" className="auth-forgot" onClick={(e) => e.preventDefault()}>
+                  {t.auth.forgot}
+                </a>
+              )}
+
+              {error && <p className="auth-error">{error}</p>}
+
+              <button type="submit" className="auth-submit" disabled={loading}>
+                <span>{loading ? t.auth.loading : mode === 'login' ? t.auth.submitLogin : t.auth.submitSignup}</span>
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </button>
+            </form>
+
+            <div className="auth-divider">
+              <span>{t.auth.or}</span>
             </div>
-
-            <div className="auth-field">
-              <label htmlFor="password">كلمة المرور</label>
-              <input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
-
-            {mode === 'login' && (
-              <a href="#" className="auth-forgot" onClick={(e) => e.preventDefault()}>
-                نسيت كلمة المرور؟
-              </a>
-            )}
-
-            {error && <p className="auth-error">{error}</p>}
-
-            <button type="submit" className="auth-submit" disabled={loading}>
-              <span>{loading ? 'جاري التحميل...' : mode === 'login' ? 'تسجيل الدخول' : 'إنشاء حساب'}</span>
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="7" y1="17" x2="17" y2="7"></line>
-                <polyline points="7 7 17 7 17 17"></polyline>
-              </svg>
-            </button>
-          </form>
-
-          <div className="auth-divider">
-            <span>أو تابع باستخدام</span>
-          </div>
 
           <div className="auth-social">
             <button className="auth-social-btn" type="button">
@@ -193,9 +199,9 @@ export const AuthPage: React.FC<{ onBack: () => void; onAuth: () => void }> = ({
 
           <p className="auth-switch">
             {mode === 'login' ? (
-              <>ليس لديك حساب؟ <button type="button" onClick={() => setMode('signup')}>إنشاء حساب</button></>
+              <>{t.auth.switchToSignup.split('?')[0]}? <button type="button" onClick={() => setMode('signup')}>{t.auth.switchToSignup.split('?')[1]?.trim()}</button></>
             ) : (
-              <>لديك حساب بالفعل؟ <button type="button" onClick={() => setMode('login')}>تسجيل الدخول</button></>
+              <>{t.auth.switchToLogin.split('?')[0]}? <button type="button" onClick={() => setMode('login')}>{t.auth.switchToLogin.split('?')[1]?.trim()}</button></>
             )}
           </p>
         </div>

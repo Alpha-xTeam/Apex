@@ -79,7 +79,7 @@ function App() {
   const [onevone, setOnevone] = useState<{ code: string; room: any } | null>(null);
 
   const handleAuth = () => {
-    const raw = localStorage.getItem('apex_session');
+    const raw = localStorage.getItem('cyberarena_session');
     if (raw) {
       try {
         const parsed = JSON.parse(raw);

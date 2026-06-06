@@ -3,6 +3,7 @@ import { Clock, Trophy, Swords, Loader2, ChevronLeft, X } from 'lucide-react';
 import { TrainingSession } from './TrainingSession';
 import { OneVOneRoomCard } from './OneVOneRoomCard';
 import { BlueTeamIcon, RedTeamIcon } from './TeamIcons';
+import { useI18n } from '../i18n/I18nContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
 
@@ -85,6 +86,7 @@ interface OneVOneArenaProps {
 }
 
 export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, onBack }) => {
+  const { t } = useI18n();
   const [match, setMatch] = useState<Match | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [training, setTraining] = useState<TrainingData | null>(null);
@@ -94,7 +96,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
   const [winnerName, setWinnerName] = useState<string | null>(null);
   const [draw, setDraw] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
-  const [phaseLabel, setPhaseLabel] = useState<string>('الوقت المتبقي');
+  const [phaseLabel, setPhaseLabel] = useState<string>('');
   const [showResultModal, setShowResultModal] = useState(false);
   const [readyPlayerIds, setReadyPlayerIds] = useState<Set<string>>(new Set());
   const [hasSignaledReady, setHasSignaledReady] = useState(false);
@@ -120,7 +122,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
     const init = async () => {
       try {
         const res = await fetch(`${API_URL}/onevone/rooms/${code}`);
-        if (!res.ok) throw new Error('فشل تحميل بيانات الغرفة');
+        if (!res.ok) throw new Error(t.oneVOne.loadRoomErr);
         const data = await res.json();
         if (cancelled) return;
         if (data.room) setLocalRoom(data.room as Room);
@@ -132,7 +134,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         }
       } catch (e) {
         const err = e as { message?: string };
-        setError(err?.message || 'تعذّر الاتصال');
+        setError(err?.message || t.oneVOne.connErr);
       }
     };
     init();
@@ -181,7 +183,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
           let resolvedWinnerName: string | null = null;
           if (evt.winner) {
             const w = playersRef.current.find((p) => p.user_id === evt.winner);
-            resolvedWinnerName = w?.display_name || 'الفائز';
+            resolvedWinnerName = w?.display_name || t.oneVOne.genericWinner;
           }
           setWinnerName(resolvedWinnerName);
           setDraw(!evt.winner);
@@ -240,14 +242,12 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
       if (match.state === 'playing' && match.ends_at) {
         const ms = new Date(match.ends_at).getTime() - now;
         setSecondsLeft(Math.max(0, Math.floor(ms / 1000)));
-        // Surface the chosen main duration next to the label so players can
-        // see exactly how long the round lasts (5/10/15/20/25/30 min).
         const mins = match.main_duration_s ? Math.round(match.main_duration_s / 60) : 10;
-        setPhaseLabel(`الوقت الأساسي • ${mins} دقيقة`);
+        setPhaseLabel(t.oneVOne.phaseMain(mins));
       } else if (match.state === 'overtime' && match.overtime_ends_at) {
         const ms = new Date(match.overtime_ends_at).getTime() - now;
         setSecondsLeft(Math.max(0, Math.floor(ms / 1000)));
-        setPhaseLabel('الوقت الإضافي');
+        setPhaseLabel(t.oneVOne.phaseOvertime);
       }
     };
     compute();
@@ -265,12 +265,12 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
     (async () => {
       try {
         const res = await fetch(`${API_URL}/onevone/matches/${match.id}/challenge?userId=${user.id}`);
-        if (!res.ok) throw new Error('فشل تحميل التحدي');
+        if (!res.ok) throw new Error(t.oneVOne.loadChallengeErr);
         const data = await res.json();
         setTraining(data.training);
       } catch (e) {
         const err = e as { message?: string };
-        setError(err?.message || 'تعذّر تحميل التحدي');
+        setError(err?.message || t.oneVOne.loadChallengeErr);
       } finally {
         setLoadingTraining(false);
       }
@@ -320,7 +320,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'فشل بدء المباراة');
+        throw new Error(err.detail || t.oneVOne.startErr);
       }
       const data = await res.json();
       if (data.match) {
@@ -329,7 +329,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
       }
     } catch (e) {
       const err = e as { message?: string };
-      setStartError(err?.message || 'حدث خطأ غير متوقع');
+      setStartError(err?.message || t.oneVOne.genericErr);
     } finally {
       setIsStarting(false);
     }
@@ -367,7 +367,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         // raced and lost — the other player already claimed the win
         const opponentId = data.winner_id || players.find((p) => p.user_id !== user.id)?.user_id;
         const opponent = players.find((p) => p.user_id === opponentId);
-        setWinnerName(opponent?.display_name || 'الخصم');
+        setWinnerName(opponent?.display_name || t.oneVOne.genericOpponent);
         setDraw(false);
         setShowResultModal(true);
       }
@@ -398,7 +398,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
       <div className="onevone-page">
         <div className="dash-container" style={{ paddingTop: 80 }}>
           <div className="onevone-error">{error}</div>
-          <button className="dash-back-pill" onClick={onBack}><ChevronLeft size={14} /> العودة</button>
+          <button className="dash-back-pill" onClick={onBack}><ChevronLeft size={14} /> {t.oneVOne.back}</button>
         </div>
       </div>
     );
@@ -454,7 +454,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
           <main className="dash-main">
             <div className="dash-container" style={{ maxWidth: 720, textAlign: 'center' }}>
               <Loader2 size={36} className="onevone-spin" style={{ color: teamColor, marginTop: 80 }} />
-              <p style={{ marginTop: 16, color: 'rgba(243,241,236,0.55)' }}>جاري تجهيز بيئة التحدي...</p>
+              <p style={{ marginTop: 16, color: 'rgba(243,241,236,0.55)' }}>{t.oneVOne.challengeLoad}</p>
             </div>
           </main>
         </div>
@@ -491,7 +491,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
             the README; the key requirement — same challenge, same data,
             server-validated winner — is already satisfied. */}
         <TrainingSession
-          moduleTitle={training.title || 'تحدي 1v1'}
+          moduleTitle={training.title || t.oneVOne.moduleTitle}
           categoryId={training.type || ''}
           pathId={training.path || 'cryptography'}
           moduleId={training.type || ''}
@@ -521,7 +521,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
   let resolvedWinnerName = winnerName;
   if (!resolvedWinnerName && match.winner_user_id) {
     const w = playersRef.current.find((p) => p.user_id === match.winner_user_id);
-    resolvedWinnerName = w?.display_name || 'الخصم';
+    resolvedWinnerName = w?.display_name || t.oneVOne.genericOpponent;
   } else if (!resolvedWinnerName && match.win_reason === 'overtime_draw') {
     resolvedWinnerName = null;
   }
@@ -560,6 +560,7 @@ interface OneVOneHeaderProps {
 const OneVOneHeader: React.FC<OneVOneHeaderProps> = ({
   teamColor, user, onLeave, state, secondsLeft, phaseLabel, isOvertime, players = [], currentUserId,
 }) => {
+  const { t } = useI18n();
   const m = Math.floor((secondsLeft || 0) / 60);
   const s = (secondsLeft || 0) % 60;
   const timerColor = isOvertime ? '#f59e0b' : teamColor;
@@ -569,10 +570,10 @@ const OneVOneHeader: React.FC<OneVOneHeaderProps> = ({
         <a href="#" className="dash-logo">CyberArena</a>
         <div className="dash-header-right">
           <span className="onevone-mode-pill" style={{ borderColor: `${teamColor}55`, color: teamColor }}>
-            {teamColor === '#ef4444' ? <><RedTeamIcon size={14} /> الفريق الأحمر</> : <><BlueTeamIcon size={14} /> الفريق الأزرق</>}
+            {teamColor === '#ef4444' ? <><RedTeamIcon size={14} /> {t.oneVOne.teamRedFull}</> : <><BlueTeamIcon size={14} /> {t.oneVOne.teamBlueFull}</>}
           </span>
           <span className="onevone-mode-pill" style={{ borderColor: 'rgba(255,255,255,0.18)', color: '#f3f1ec' }}>
-            <Swords size={13} /> 1v1
+            <Swords size={13} /> {t.oneVOne.home}
           </span>
           {state === 'playing' && (
             <div className="onevone-timer" style={{ color: timerColor, borderColor: `${timerColor}55` }}>
@@ -583,19 +584,19 @@ const OneVOneHeader: React.FC<OneVOneHeaderProps> = ({
           )}
           {state === 'countdown' && (
             <div className="onevone-timer" style={{ color: '#10b981', borderColor: '#10b98155' }}>
-              <span>استعد...</span>
+              <span>{t.oneVOne.prep}</span>
             </div>
           )}
           {state === 'loading' && (
             <div className="onevone-timer" style={{ color: '#10b981', borderColor: '#10b98155' }}>
               <Loader2 size={14} className="onevone-spin" />
-              <span>جاري التحميل</span>
+              <span>{t.oneVOne.loading}</span>
             </div>
           )}
           {state === 'ready' && (
             <div className="onevone-timer" style={{ color: '#f59e0b', borderColor: '#f59e0b55' }}>
               <Loader2 size={14} className="onevone-spin" />
-              <span>بانتظار تحميل الخصم</span>
+              <span>{t.oneVOne.waitingForOppLoad}</span>
             </div>
           )}
           <div className="dash-user-badge">
@@ -604,19 +605,19 @@ const OneVOneHeader: React.FC<OneVOneHeaderProps> = ({
               <span className="dash-name">{user.name || user.email}</span>
             </div>
           </div>
-          <button onClick={onLeave} className="dash-logout">مغادرة</button>
+          <button onClick={onLeave} className="dash-logout">{t.oneVOne.leave}</button>
         </div>
       </div>
       {state === 'playing' && players.length >= 2 && (
         <div className="onevone-hud">
           <div className="onevone-hud-player">
             <div className="onevone-hud-dot is-self" />
-            <span>{players.find((p) => p.user_id === currentUserId)?.display_name || 'أنت'}</span>
+            <span>{players.find((p) => p.user_id === currentUserId)?.display_name || t.oneVOne.you}</span>
           </div>
-          <div className="onevone-hud-vs">ضد</div>
+          <div className="onevone-hud-vs">{t.oneVOne.vs}</div>
           <div className="onevone-hud-player">
             <div className="onevone-hud-dot" />
-            <span>{players.find((p) => p.user_id !== currentUserId)?.display_name || 'الخصم'}</span>
+            <span>{players.find((p) => p.user_id !== currentUserId)?.display_name || t.oneVOne.genericOpponent}</span>
           </div>
         </div>
       )}
@@ -633,17 +634,18 @@ const OneVOneResultModal: React.FC<{
   onClose: () => void;
   onLeave: () => void;
 }> = ({ open, winnerName, draw, isWinner, reason, onClose, onLeave }) => {
+  const { t } = useI18n();
   if (!open) return null;
   const title = draw
-    ? 'انتهت المباراة بالتعادل'
+    ? t.oneVOne.drawTitle
     : isWinner
-      ? 'مبروك! فزت 🏆'
-      : `${winnerName || 'الخصم'} فاز هذه المرة`;
+      ? t.oneVOne.winTitle
+      : t.oneVOne.loseTitle(winnerName || '');
   const sub = draw
-    ? 'انتهى الوقت الإضافي دون فائز.'
+    ? t.oneVOne.drawSub
     : isWinner
-      ? 'كنت الأسرع في إنهاء التحدي.'
-      : 'لا تستسلم — حاول مرة أخرى!';
+      ? t.oneVOne.winSub
+      : t.oneVOne.loseSub;
   return (
     <div className="onevone-modal-overlay" onClick={onClose}>
       <div className="onevone-modal" onClick={(e) => e.stopPropagation()}>
@@ -652,10 +654,10 @@ const OneVOneResultModal: React.FC<{
         </div>
         <h2>{title}</h2>
         <p>{sub}</p>
-        <small className="mono" style={{ color: 'rgba(243,241,236,0.45)' }}>السبب: {reason}</small>
+        <small className="mono" style={{ color: 'rgba(243,241,236,0.45)' }}>{t.oneVOne.reason} {reason}</small>
         <div className="onevone-modal-actions">
           <button className="onevone-primary-btn" onClick={onLeave} style={{ '--btn-accent': '#10b981' } as React.CSSProperties}>
-            العودة للوحة
+            {t.oneVOne.backToDashboard}
           </button>
         </div>
       </div>

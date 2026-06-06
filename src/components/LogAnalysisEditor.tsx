@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useI18n } from '../i18n/I18nContext';
 
 interface Hint {
   level: number;
@@ -43,6 +44,9 @@ interface LogAnalysisEditorProps {
   onBack: () => void;
   isVerifying: boolean;
   result: LogAnalysisResult | null;
+  /** Suppress the in-editor success celebration when wrapped by a 1v1 match
+   *  (the OneVOneResultModal is the single source of truth for the result). */
+  inOneVOne?: boolean;
 }
 
 const ATTACK_TYPES_AR: Record<string, { label: string; icon: string }> = {
@@ -62,6 +66,23 @@ const ATTACK_TYPES_AR: Record<string, { label: string; icon: string }> = {
   'insider-threat':      { label: 'تهديد داخلي (Insider Threat)',              icon: '👤' },
 };
 
+const ATTACK_TYPES_EN: Record<string, { label: string; icon: string }> = {
+  'brute-force':         { label: 'Brute Force',                  icon: '🔓' },
+  'sqli':                { label: 'SQL Injection',                icon: '💉' },
+  'webshell':            { label: 'WebShell Upload',              icon: '🐚' },
+  'c2':                  { label: 'C2 Communication',             icon: '📡' },
+  'exfiltration':        { label: 'Data Exfiltration',            icon: '📤' },
+  'xss':                 { label: 'XSS (Cross-Site Scripting)',   icon: '⚡' },
+  'ransomware':          { label: 'Ransomware',                   icon: '🔒' },
+  'phishing':            { label: 'Phishing',                     icon: '🎣' },
+  'lateral-movement':    { label: 'Lateral Movement',             icon: '↔️' },
+  'privilege-escalation':{ label: 'Privilege Escalation',         icon: '⬆️' },
+  'dos':                 { label: 'DoS / DDoS',                   icon: '🌊' },
+  'malware':             { label: 'Malware',                      icon: '🦠' },
+  'reconnaissance':      { label: 'Reconnaissance',               icon: '🔍' },
+  'insider-threat':      { label: 'Insider Threat',               icon: '👤' },
+};
+
 const LOG_TYPE_META: Record<string, { label: string; icon: string; gradient: string }> = {
   'apache':   { label: 'سجل Apache',         icon: '🪶', gradient: 'linear-gradient(135deg, #d62828, #ad1f1f)' },
   'nginx':    { label: 'سجل Nginx',          icon: '🟢', gradient: 'linear-gradient(135deg, #009639, #007a2e)' },
@@ -70,6 +91,16 @@ const LOG_TYPE_META: Record<string, { label: string; icon: string; gradient: str
   'firewall': { label: 'سجل الجدار الناري',   icon: '🧱', gradient: 'linear-gradient(135deg, #ea580c, #c2410c)' },
   'waf':      { label: 'سجل WAF',             icon: '🛡️', gradient: 'linear-gradient(135deg, #0ea5e9, #0369a1)' },
   'iis':      { label: 'سجل IIS',             icon: '🪟', gradient: 'linear-gradient(135deg, #0078d4, #005a9e)' },
+};
+
+const LOG_TYPE_META_EN: Record<string, { label: string; icon: string; gradient: string }> = {
+  'apache':   { label: 'Apache Log',   icon: '🪶', gradient: 'linear-gradient(135deg, #d62828, #ad1f1f)' },
+  'nginx':    { label: 'Nginx Log',    icon: '🟢', gradient: 'linear-gradient(135deg, #009639, #007a2e)' },
+  'syslog':   { label: 'Syslog',       icon: '🖥️', gradient: 'linear-gradient(135deg, #4b5563, #1f2937)' },
+  'auth':     { label: 'Auth Log',     icon: '🔐', gradient: 'linear-gradient(135deg, #2563eb, #1d4ed8)' },
+  'firewall': { label: 'Firewall Log', icon: '🧱', gradient: 'linear-gradient(135deg, #ea580c, #c2410c)' },
+  'waf':      { label: 'WAF Log',      icon: '🛡️', gradient: 'linear-gradient(135deg, #0ea5e9, #0369a1)' },
+  'iis':      { label: 'IIS Log',      icon: '🪟', gradient: 'linear-gradient(135deg, #0078d4, #005a9e)' },
 };
 
 function formatBytes(bytes: number): string {
@@ -90,7 +121,9 @@ export default function LogAnalysisEditor({
   onBack,
   isVerifying,
   result,
+  inOneVOne = false,
 }: LogAnalysisEditorProps) {
+  const { t, lang } = useI18n();
   const [attackType, setAttackType] = useState('');
   const [attackerIp, setAttackerIp] = useState('');
   const [timestamp, setTimestamp] = useState('');
@@ -119,7 +152,7 @@ export default function LogAnalysisEditor({
 
   const handleDownload = async () => {
     if (!challenge.log_url) {
-      setDownloadError('رابط الملف غير متوفر');
+      setDownloadError(t.logAnalysis.downloadNoUrl);
       setDownloadStatus('error');
       return;
     }
@@ -163,7 +196,7 @@ export default function LogAnalysisEditor({
       setDownloadStatus('downloaded');
       setDownloadProgress(100);
     } catch (e) {
-      setDownloadError('فشل تنزيل الملف');
+      setDownloadError(t.logAnalysis.downloadError);
       setDownloadStatus('error');
     }
   };
@@ -187,7 +220,7 @@ export default function LogAnalysisEditor({
     await onSubmit({ attackType, attackerIp, timestamp, ioc, explanation });
   };
 
-  const logTypeMeta = LOG_TYPE_META[challenge.log_type] || {
+  const logTypeMeta = (lang === 'en' ? LOG_TYPE_META_EN : LOG_TYPE_META)[challenge.log_type] || {
     label: challenge.log_type,
     icon: '📄',
     gradient: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
@@ -196,10 +229,10 @@ export default function LogAnalysisEditor({
   const fileName = challenge.storage_path?.split('/').pop() || `log-${challenge.scenarioId?.slice(0, 8)}.log`;
 
   const fields = [
-    { id: 'attackType', num: 1, label: 'نوع الهجوم', value: attackType, set: setAttackType, type: 'select' },
-    { id: 'attackerIp', num: 2, label: 'عنوان IP المهاجم', value: attackerIp, set: setAttackerIp, type: 'input', placeholder: 'مثال: 185.220.101.45' },
-    { id: 'timestamp', num: 3, label: 'الطابع الزمني للحادثة', value: timestamp, set: setTimestamp, type: 'input', placeholder: 'مثال: 15/Dec/2024:14:32:18' },
-    { id: 'ioc', num: 4, label: 'مؤشر الاختراق (IOC)', value: ioc, set: setIoc, type: 'input', placeholder: 'URL, hash, UA, payload...' },
+    { id: 'attackType', num: 1, label: t.logAnalysis.attackTypeLabel, value: attackType, set: setAttackType, type: 'select' },
+    { id: 'attackerIp', num: 2, label: t.logAnalysis.attackerIpLabel, value: attackerIp, set: setAttackerIp, type: 'input', placeholder: t.logAnalysis.attackerIpPh },
+    { id: 'timestamp', num: 3, label: t.logAnalysis.timestampLabel, value: timestamp, set: setTimestamp, type: 'input', placeholder: t.logAnalysis.timestampPh },
+    { id: 'ioc', num: 4, label: t.logAnalysis.iocLabel, value: ioc, set: setIoc, type: 'input', placeholder: t.logAnalysis.iocPh },
   ];
 
   return (
@@ -235,7 +268,7 @@ export default function LogAnalysisEditor({
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="9 18 15 12 9 6" />
           </svg>
-          <span>العودة</span>
+          <span>{t.logAnalysis.back}</span>
         </button>
       </div>
 
@@ -281,7 +314,7 @@ export default function LogAnalysisEditor({
         <div className="la-info-card la-info-card-story">
           <div className="la-info-card-header">
             <span className="la-info-icon la-info-icon-story">📖</span>
-            <h3>القصة</h3>
+            <h3>{t.logAnalysis.storyTitle}</h3>
             <span className="la-info-card-tag">CONTEXT</span>
           </div>
           <p>{challenge.story}</p>
@@ -289,10 +322,10 @@ export default function LogAnalysisEditor({
         <div className="la-info-card la-info-card-task">
           <div className="la-info-card-header">
             <span className="la-info-icon la-info-icon-task">🎯</span>
-            <h3>المهمة</h3>
+            <h3>{t.logAnalysis.taskTitle}</h3>
             <span className="la-info-card-tag">OBJECTIVE</span>
           </div>
-          <p>{challenge.task_outline || 'قم بتنزيل السجل وتحليله، ثم حدد نوع الهجوم وعنوان IP المهاجم والطابع الزمني ومؤشر الاختراق.'}</p>
+          <p>{challenge.task_outline || t.logAnalysis.taskDefault}</p>
         </div>
       </section>
 
@@ -304,10 +337,10 @@ export default function LogAnalysisEditor({
           <section className="la-pane la-form-section">
             <div className="la-pane-header">
               <span className="la-pane-header-icon">✏️</span>
-              <h2 className="la-pane-header-title">تحليلك</h2>
+              <h2 className="la-pane-header-title">{t.logAnalysis.analysisTitle}</h2>
               <span className="la-pane-header-tag">STEP 02</span>
             </div>
-            <p className="la-form-subtitle">حدّد الحقول أدناه بدقة — كل حقل صحيح يمنحك 25% من النتيجة</p>
+            <p className="la-form-subtitle">{t.logAnalysis.analysisSub}</p>
 
             <div className="la-fields-grid">
               {fields.map((field) => (
@@ -331,8 +364,8 @@ export default function LogAnalysisEditor({
                         disabled={isVerifying}
                         dir="rtl"
                       >
-                        <option value="">— اختر نوع الهجوم —</option>
-                        {Object.entries(ATTACK_TYPES_AR).map(([key, { label, icon }]) => (
+                        <option value="">{t.logAnalysis.attackTypePh}</option>
+                        {Object.entries(lang === 'en' ? ATTACK_TYPES_EN : ATTACK_TYPES_AR).map(([key, { label, icon }]) => (
                           <option key={key} value={key}>{icon}  {label}</option>
                         ))}
                       </select>
@@ -351,16 +384,15 @@ export default function LogAnalysisEditor({
                     />
                   )}
                   {field.id === 'ioc' && (
-                    <span className="la-field-helper">أي قيمة مميزة في السجل (URL, hash, UA, payload...)</span>
+                    <span className="la-field-helper">{t.logAnalysis.iocHelper}</span>
                   )}
                 </div>
               ))}
 
-              {/* Explanation */}
               <div className={`la-field la-field-full ${focusedField === 'explanation' ? 'focused' : ''}`}>
                 <label className="la-field-label">
                   <span className="la-field-num la-field-num-optional">5</span>
-                  <span>تحليل حر (اختياري)</span>
+                  <span>{t.logAnalysis.explanationLabel}</span>
                 </label>
                 <textarea
                   className="la-field-textarea"
@@ -368,7 +400,7 @@ export default function LogAnalysisEditor({
                   onChange={(e) => setExplanation(e.target.value)}
                   onFocus={() => setFocusedField('explanation')}
                   onBlur={() => setFocusedField(null)}
-                  placeholder="اشرح كيف وصلت إلى استنتاجاتك، ما السطور في السجل التي أوقعت في الشبهة، وما رأيك في حجم الهجوم وأثره..."
+                  placeholder={t.logAnalysis.explanationPh}
                   dir="rtl"
                   rows={4}
                   disabled={isVerifying}
@@ -390,11 +422,11 @@ export default function LogAnalysisEditor({
                   <svg className="la-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M21 12a9 9 0 11-6.219-8.56" />
                   </svg>
-                  <span>جارٍ التقييم...</span>
+                  <span>{t.logAnalysis.submitting}</span>
                 </>
               ) : (
                 <>
-                  <span>أرسل التحليل</span>
+                  <span>{t.logAnalysis.submit}</span>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="5" y1="12" x2="19" y2="12" />
                     <polyline points="12 5 19 12 12 19" />
@@ -409,7 +441,7 @@ export default function LogAnalysisEditor({
             <section className={`la-pane la-result ${result.passed ? 'passed' : 'failed'}`}>
               <div className="la-pane-header">
                 <span className="la-pane-header-icon">{result.passed ? '✅' : '⚠️'}</span>
-                <h2 className="la-pane-header-title">نتيجة التحليل</h2>
+                <h2 className="la-pane-header-title">{t.logAnalysis.resultTitle}</h2>
                 <span className="la-pane-header-tag">{result.passed ? 'PASSED' : 'INCOMPLETE'}</span>
               </div>
 
@@ -427,12 +459,12 @@ export default function LogAnalysisEditor({
                   )}
                 </div>
                 <div className="la-result-title-wrap">
-                  <h2>{result.passed ? 'تحليل ممتاز!' : 'التحليل غير مكتمل'}</h2>
-                  <p>{result.passed ? 'تم اجتياز التحدي بنجاح' : 'تحتاج لمراجعة بعض الحقول'}</p>
+                  <h2>{result.passed ? t.logAnalysis.resultPassed : t.logAnalysis.resultFailed}</h2>
+                  <p>{result.passed ? t.logAnalysis.resultPassedSub : t.logAnalysis.resultFailedSub}</p>
                 </div>
                 <div className="la-result-score">
                   <div className="la-result-score-num">{result.score}<span>%</span></div>
-                  <div className="la-result-score-label">{result.correct_fields.length}/4 حقول صحيحة</div>
+                  <div className="la-result-score-label">{t.logAnalysis.correctFields(result.correct_fields.length)}</div>
                 </div>
               </div>
 
@@ -442,10 +474,10 @@ export default function LogAnalysisEditor({
 
               <div className="la-result-fields">
                 {[
-                  { key: 'نوع الهجوم', id: 'sqli' },
-                  { key: 'عنوان IP المهاجم', id: 'attackerIp' },
-                  { key: 'الطابع الزمني', id: 'timestamp' },
-                  { key: 'مؤشر الاختراق (IOC)', id: 'ioc' },
+                  { key: t.logAnalysis.attackTypeLabel, id: 'attackType' },
+                  { key: t.logAnalysis.attackerIpLabel, id: 'attackerIp' },
+                  { key: t.logAnalysis.timestampLabel, id: 'timestamp' },
+                  { key: t.logAnalysis.iocLabel, id: 'ioc' },
                 ].map((f) => {
                   const correct = result.correct_fields.includes(f.key);
                   return (
@@ -464,7 +496,7 @@ export default function LogAnalysisEditor({
               </div>
 
               <div className="la-result-feedback">
-                <h4>التغذية الراجعة</h4>
+                <h4>{t.logAnalysis.feedbackTitle}</h4>
                 <p>{result.feedback}</p>
               </div>
             </section>
@@ -477,7 +509,7 @@ export default function LogAnalysisEditor({
           <section className={`la-pane la-download ${downloadStatus}`}>
             <div className="la-pane-header">
               <span className="la-pane-header-icon">⬇</span>
-              <h2 className="la-pane-header-title">الدليل</h2>
+              <h2 className="la-pane-header-title">{t.logAnalysis.evidence}</h2>
               <span className="la-pane-header-tag">EVIDENCE</span>
             </div>
             <div className="la-download-content">
@@ -495,10 +527,10 @@ export default function LogAnalysisEditor({
                   </div>
                 )}
                 {downloadStatus === 'error' && (
-                  <div className="la-download-error">{downloadError || 'فشل تنزيل الملف'}</div>
+                  <div className="la-download-error">{downloadError || t.logAnalysis.downloadError}</div>
                 )}
                 {downloadStatus === 'idle' && (
-                  <div className="la-download-hint">⬆️ حمّل الملف أولاً للبدء بالتحليل</div>
+                  <div className="la-download-hint">{t.logAnalysis.downloadIdle}</div>
                 )}
               </div>
               <button
@@ -515,7 +547,7 @@ export default function LogAnalysisEditor({
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
-                    <span>تم التنزيل</span>
+                    <span>{t.logAnalysis.downloadDone}</span>
                   </>
                 ) : (
                   <>
@@ -524,44 +556,42 @@ export default function LogAnalysisEditor({
                       <polyline points="7 10 12 15 17 10" />
                       <line x1="12" y1="15" x2="12" y2="3" />
                     </svg>
-                    <span>تنزيل</span>
+                    <span>{t.logAnalysis.downloadCta}</span>
                   </>
                 )}
               </button>
             </div>
           </section>
 
-          {/* Stats card */}
           <section className="la-pane">
             <div className="la-pane-header">
               <span className="la-pane-header-icon">📊</span>
-              <h2 className="la-pane-header-title">معلومات التحدي</h2>
+              <h2 className="la-pane-header-title">{t.logAnalysis.intel}</h2>
               <span className="la-pane-header-tag">INTEL</span>
             </div>
             <div className="la-stats-grid">
               <div className="la-stat">
-                <div className="la-stat-label">نوع السجل</div>
+                <div className="la-stat-label">{t.logAnalysis.logType}</div>
                 <div className="la-stat-value">
                   <span className="la-stat-dot" style={{ background: logTypeMeta.gradient }} />
                   <span style={{ fontSize: '12px' }}>{logTypeMeta.label}</span>
                 </div>
               </div>
               <div className="la-stat">
-                <div className="la-stat-label">المستوى</div>
+                <div className="la-stat-label">{t.logAnalysis.level}</div>
                 <div className="la-stat-value" style={{ color: diffMeta.color, fontSize: '13px' }}>{challenge.difficulty}</div>
               </div>
               <div className="la-stat">
-                <div className="la-stat-label">حجم الملف</div>
+                <div className="la-stat-label">{t.logAnalysis.fileSize}</div>
                 <div className="la-stat-value" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}>{formatBytes(challenge.file_size_bytes || 0)}</div>
               </div>
               <div className="la-stat">
-                <div className="la-stat-label">المكافأة</div>
+                <div className="la-stat-label">{t.logAnalysis.reward}</div>
                 <div className="la-stat-value la-stat-xp" style={{ fontSize: '12px' }}>⚡ +{challenge.xp_reward} XP</div>
               </div>
             </div>
           </section>
 
-          {/* Hints card */}
           <section className="la-pane">
             <button
               className={`la-pane-header la-hints-sidebar-btn ${showHints ? 'active' : ''}`}
@@ -569,7 +599,7 @@ export default function LogAnalysisEditor({
               type="button"
             >
               <span className="la-pane-header-icon">💡</span>
-              <h2 className="la-pane-header-title">التلميحات</h2>
+              <h2 className="la-pane-header-title">{t.logAnalysis.hintsTitle}</h2>
               <span className="la-hints-count">{usedHints.length}/{challenge.hints?.length || 0}</span>
               <span className="la-pane-header-tag" style={{ marginRight: 'auto' }}>HINTS</span>
             </button>
@@ -590,7 +620,7 @@ export default function LogAnalysisEditor({
         </aside>
       </div>
 
-      {result && result.passed && (
+      {result && result.passed && !inOneVOne && (
         <SuccessCelebration
           xpReward={result.xp_awarded}
           feedback={result.feedback}
@@ -603,6 +633,7 @@ export default function LogAnalysisEditor({
 
 
 function SuccessCelebration({ xpReward, feedback, onContinue }: { xpReward: number; feedback: string; onContinue: () => void }) {
+  const { t } = useI18n();
   const [count, setCount] = useState(0);
   const [confettiPieces] = useState(() =>
     Array.from({ length: 100 }, (_, i) => ({
@@ -654,8 +685,8 @@ function SuccessCelebration({ xpReward, feedback, onContinue }: { xpReward: numb
             <path className="la-celebrate-check-path" d="M14 27l7 7 16-16" />
           </svg>
         </div>
-        <h2 className="la-celebrate-title">🔍 تحقيق ناجح!</h2>
-        <p className="la-celebrate-subtitle">تم تحليل السجل بنجاح</p>
+        <h2 className="la-celebrate-title">{t.logAnalysis.celebrateTitle}</h2>
+        <p className="la-celebrate-subtitle">{t.logAnalysis.celebrateSub}</p>
 
         <div className="la-celebrate-xp">
           <span className="la-celebrate-xp-plus">+</span>
@@ -666,7 +697,7 @@ function SuccessCelebration({ xpReward, feedback, onContinue }: { xpReward: numb
         <p className="la-celebrate-feedback">{feedback}</p>
 
         <button className="la-celebrate-btn" onClick={onContinue}>
-          <span>متابعة</span>
+          <span>{t.logAnalysis.continue}</span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="9 18 15 12 9 6" />
           </svg>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Copy, Check, Swords, Users, Loader2 } from 'lucide-react';
+import { useI18n } from '../i18n/I18nContext';
 
 interface Room {
   id: string;
@@ -37,6 +38,7 @@ export const OneVOneRoomCard: React.FC<OneVOneRoomCardProps> = ({
   startLoading, startError, showStartButton = true,
   waitingForOpponentToLoad, showReadyIndicators,
 }) => {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const teamColor = room.team_role === 'red' ? '#ef4444' : '#3b82f6';
   const opponentJoined = players.length >= 2;
@@ -54,34 +56,32 @@ export const OneVOneRoomCard: React.FC<OneVOneRoomCardProps> = ({
       <div className="onevone-room-head">
         <Swords size={28} style={{ color: teamColor }} />
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, color: '#f3f1ec' }}>غرفة 1 ضد 1</h1>
+          <h1 style={{ margin: 0, fontSize: 22, color: '#f3f1ec' }}>{t.oneVOne.leaveTitle}</h1>
           <p style={{ margin: 0, fontSize: 13, color: 'rgba(243,241,236,0.55)' }}>
-            {isOwner
-              ? 'شارك الرمز مع خصمكِ ليدخل نفس التحدي'
-              : 'انضممت للغرفة — في انتظار البدء'}
+            {isOwner ? t.oneVOne.shareCodeHint : t.oneVOne.joinedHint}
           </p>
         </div>
       </div>
 
       <div className="onevone-code-block">
-        <span className="onevone-code-label">رمز الغرفة</span>
+        <span className="onevone-code-label">{t.oneVOne.roomCode}</span>
         <div className="onevone-code-row">
           <code className="onevone-code">{room.code}</code>
           <button className="onevone-copy-btn" onClick={handleCopy}>
-            {copied ? <><Check size={14} /> تم النسخ</> : <><Copy size={14} /> نسخ</>}
+            {copied ? <><Check size={14} /> {t.oneVOne.copied}</> : <><Copy size={14} /> {t.oneVOne.copy}</>}
           </button>
         </div>
         <span className="onevone-code-hint">
           {room.challenge_source === 'random'
-            ? 'سيتم اختيار التحدي بشكل عشوائي عند البدء'
-            : `تحدي يدوي: ${room.challenge_source.split(':')[1] || '—'}`}
+            ? t.oneVOne.randomHint
+            : `${t.oneVOne.manualHint} ${room.challenge_source.split(':')[1] || '—'}`}
         </span>
       </div>
 
       <div className="onevone-players">
         <div className="onevone-players-head">
           <Users size={16} />
-          <span>اللاعبون ({players.length}/2)</span>
+          <span>{t.oneVOne.players(players.length)}</span>
         </div>
         <div className="onevone-player-row">
           {[0, 1].map((idx) => {
@@ -95,11 +95,11 @@ export const OneVOneRoomCard: React.FC<OneVOneRoomCardProps> = ({
                 <div className="onevone-player-dot" />
                 <div>
                   <strong>
-                    {p?.display_name || (idx === 0 ? 'في انتظار المالك...' : 'في انتظار خصم...')}
+                    {p?.display_name || (idx === 0 ? t.oneVOne.waitingOwner : t.oneVOne.waitingOpponent)}
                   </strong>
                   <span>
-                    {idx === 0 ? 'مالك الغرفة' : 'الخصم'} • {room.team_role === 'red' ? 'أحمر' : 'أزرق'}
-                    {showReadyIndicators && p && pReady && ' • ✓ جاهز'}
+                    {idx === 0 ? t.oneVOne.ownerTag : t.oneVOne.opponentTag} • {room.team_role === 'red' ? t.oneVOne.teamRed : t.oneVOne.teamBlue}
+                    {showReadyIndicators && p && pReady && ` • ✓ ${t.oneVOne.ready}`}
                   </span>
                 </div>
               </div>
@@ -116,10 +116,10 @@ export const OneVOneRoomCard: React.FC<OneVOneRoomCardProps> = ({
           style={{ '--btn-accent': teamColor } as React.CSSProperties}
         >
           {startLoading
-            ? <><Loader2 size={16} className="onevone-spin" /> جاري البدء...</>
+            ? <><Loader2 size={16} className="onevone-spin" /> {t.oneVOne.startBtnLoading}</>
             : opponentJoined
-              ? <><Swords size={16} /> ابدأ المباراة</>
-              : <span>في انتظار انضمام الخصم...</span>}
+              ? <><Swords size={16} /> {t.oneVOne.startBtn}</>
+              : <span>{t.oneVOne.waitingForOpponent}</span>}
         </button>
       )}
 
@@ -127,7 +127,7 @@ export const OneVOneRoomCard: React.FC<OneVOneRoomCardProps> = ({
 
       {!isOwner && showStartButton && (
         <div className="onevone-waiting-note">
-          في انتظار مالك الغرفة لبدء المباراة...
+          {t.oneVOne.waitingForOwnerToStart}
         </div>
       )}
 
@@ -138,7 +138,7 @@ export const OneVOneRoomCard: React.FC<OneVOneRoomCardProps> = ({
             className="onevone-spin"
             style={{ marginLeft: 6, verticalAlign: 'middle' }}
           />
-          في انتظار تحميل الخصم للتحدي...
+          {t.oneVOne.waitingForOpponentLoad}
         </div>
       )}
     </section>

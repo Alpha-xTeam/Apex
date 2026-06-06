@@ -21,6 +21,8 @@ import {
   Crosshair,
 } from 'lucide-react';
 import { ShieldMark } from './ShieldMark';
+import { useI18n } from '../i18n/I18nContext';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
 
@@ -38,22 +40,15 @@ interface ProfileProps {
   onLogout: () => void;
 }
 
-const LEVELS = [
-  { name: 'مبتدئ', minXp: 0, color: '#10b981', rank: 'L1' },
-  { name: 'متقدم', minXp: 200, color: '#f59e0b', rank: 'L2' },
-  { name: 'خبير', minXp: 600, color: '#ef4444', rank: 'L3' },
-  { name: 'سايبر ماستر', minXp: 1500, color: '#8b5cf6', rank: 'L4' },
-];
-
-function getLevel(xp: number) {
-  let level = LEVELS[0];
-  for (const l of LEVELS) if (xp >= l.minXp) level = l;
+function getLevel(xp: number, levels: { minXp: number; name: string; color: string; rank: string }[]) {
+  let level = levels[0];
+  for (const l of levels) if (xp >= l.minXp) level = l;
   return level;
 }
 
-function getNextLevelXp(xp: number) {
-  for (const l of LEVELS) if (xp < l.minXp) return l.minXp;
-  return LEVELS[LEVELS.length - 1].minXp;
+function getNextLevelXp(xp: number, levels: { minXp: number }[]) {
+  for (const l of levels) if (xp < l.minXp) return l.minXp;
+  return levels[levels.length - 1].minXp;
 }
 
 // Stable pseudo hash from user id (for display only)
@@ -65,6 +60,13 @@ function makeHash(id: string) {
 }
 
 export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
+  const { t, lang } = useI18n();
+  const LEVELS = [
+    { name: t.levels.beginner, minXp: 0, color: '#10b981', rank: 'L1' },
+    { name: t.levels.advanced, minXp: 200, color: '#f59e0b', rank: 'L2' },
+    { name: t.levels.expert, minXp: 600, color: '#ef4444', rank: 'L3' },
+    { name: t.levels.master, minXp: 1500, color: '#8b5cf6', rank: 'L4' },
+  ];
   const [xp, setXp] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
@@ -106,8 +108,8 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
     fetchUserData();
   }, [user.id]);
 
-  const level = getLevel(xp);
-  const nextLevelXp = getNextLevelXp(xp);
+  const level = getLevel(xp, LEVELS);
+  const nextLevelXp = getNextLevelXp(xp, LEVELS);
   const xpProgress = nextLevelXp > 0 ? Math.min((xp / nextLevelXp) * 100, 100) : 100;
   const isMaxLevel = xp >= LEVELS[LEVELS.length - 1].minXp;
   const userHash = makeHash(user.id || user.email);
@@ -117,7 +119,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
   const handleDownloadCert = async (_cert: Certificate) => {
     if (!certRef.current) return;
     if (!(window as any).html2canvas || !(window as any).jspdf) {
-      alert('جاري تحميل أدوات تحويل PDF... يرجى الانتظار ثانية واحدة.');
+      alert(t.profile.certDownloadLoading);
       return;
     }
     try {
@@ -137,7 +139,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
       pdf.save(`Certificate-${_cert.category}.pdf`);
     } catch (error) {
       console.error('PDF Export error:', error);
-      alert('حدث خطأ أثناء تحميل الملف، سنقوم بفتح نافذة الطباعة كبديل.');
+      alert(t.profile.certDownloadError);
       window.print();
     }
   };
@@ -150,8 +152,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
   };
 
   return (
-    <div className="profile-page" dir="rtl">
-      {/* Decorative background */}
+    <div className="profile-page" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <div className="profile-grid-bg" aria-hidden="true" />
       <div className="profile-glow profile-glow-1" aria-hidden="true" />
       <div className="profile-glow profile-glow-2" aria-hidden="true" />
@@ -161,17 +162,18 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
         <div className="dash-header-inner">
           <a href="/" className="dash-logo">CyberArena</a>
           <div className="dash-header-right">
+            <LanguageSwitcher />
             <div className="profile-status-pill">
               <span className="profile-status-dot" />
-              <span>اتصال آمن</span>
+              <span>{t.profile.secureConn}</span>
             </div>
             <button onClick={onBack} className="dash-back-pill">
               <ChevronLeft size={16} />
-              <span>العودة للوحة التحكم</span>
+              <span>{t.profile.backToDashboard}</span>
             </button>
             <button onClick={onLogout} className="dash-logout">
               <LogOut size={14} />
-              <span>خروج</span>
+              <span>{t.profile.logout}</span>
             </button>
           </div>
         </div>
@@ -179,50 +181,42 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
 
       <main className="profile-main">
         <div className="profile-container">
-          {/* HERO: identity + shield visual */}
           <section className="profile-hero">
             <div className="profile-hero-card">
               <div className="profile-hero-left">
                 <div className="profile-hero-eyebrow">
                   <Fingerprint size={14} />
-                  <span>هوية المتدرب</span>
+                  <span>{t.profile.identityTag}</span>
                 </div>
-                <h1 className="profile-hero-title">مرحباً بعودتك، {customName?.split(' ')[0] || 'متدرب'}</h1>
-                <p className="profile-hero-sub">
-                  أنت متصل الآن بمنصة CyberArena التدريبية. رحلتك في عالم الأمن السيبراني مستمرة.
-                </p>
+                <h1 className="profile-hero-title">{t.profile.welcomeBack}، {customName?.split(' ')[0] || t.profile.traineeFallback}</h1>
+                <p className="profile-hero-sub">{t.profile.welcomeSub}</p>
 
                 <div className="profile-hero-stats">
                   <div className="profile-hero-stat">
-                    <span className="profile-hero-stat-label">المستوى</span>
-                    <span className="profile-hero-stat-value" style={{ color: level.color }}>
-                      {level.name}
-                    </span>
+                    <span className="profile-hero-stat-label">{t.profile.levelLabel}</span>
+                    <span className="profile-hero-stat-value" style={{ color: level.color }}>{level.name}</span>
                   </div>
                   <div className="profile-hero-stat-divider" />
                   <div className="profile-hero-stat">
-                    <span className="profile-hero-stat-label">الرتبة</span>
+                    <span className="profile-hero-stat-label">{t.profile.rankLabel}</span>
                     <span className="profile-hero-stat-value mono">{level.rank}</span>
                   </div>
                   <div className="profile-hero-stat-divider" />
                   <div className="profile-hero-stat">
-                    <span className="profile-hero-stat-label">النقاط</span>
+                    <span className="profile-hero-stat-label">{t.profile.xpLabel}</span>
                     <span className="profile-hero-stat-value mono">{xp.toLocaleString()}</span>
                   </div>
                 </div>
 
                 <div className="profile-progress">
                   <div className="profile-progress-info">
-                    <span>التقدم للمستوى التالي</span>
+                    <span>{t.profile.progressLabel}</span>
                     <span className="mono" style={{ color: level.color }}>
-                      {isMaxLevel ? '◆ أعلى مستوى' : `${xp} / ${nextLevelXp}`}
+                      {isMaxLevel ? t.profile.maxLevel : `${xp} / ${nextLevelXp}`}
                     </span>
                   </div>
                   <div className="profile-progress-bar">
-                    <div
-                      className="profile-progress-fill"
-                      style={{ width: `${xpProgress}%`, background: level.color }}
-                    />
+                    <div className="profile-progress-fill" style={{ width: `${xpProgress}%`, background: level.color }} />
                   </div>
                 </div>
               </div>
@@ -236,7 +230,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
                 </div>
                 <div className="profile-hero-tagline">
                   <Lock size={12} />
-                  <span>درعك الرقمي • مُفعّل</span>
+                  <span>{t.profile.shieldActive}</span>
                 </div>
               </div>
             </div>
@@ -244,33 +238,32 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
             <div className="profile-hero-bottom">
               <div className="profile-meta-item">
                 <Hash size={14} />
-                <span className="profile-meta-label">ID</span>
+                <span className="profile-meta-label">{t.profile.idLabel}</span>
                 <span className="mono profile-meta-value">{userHash}</span>
               </div>
               <div className="profile-meta-divider" />
               <div className="profile-meta-item">
                 <Calendar size={14} />
-                <span className="profile-meta-label">نشط منذ</span>
-                <span className="profile-meta-value">{daysActive} يوم</span>
+                <span className="profile-meta-label">{t.profile.activeSince}</span>
+                <span className="profile-meta-value">{daysActive} {t.profile.dayUnit}</span>
               </div>
               <div className="profile-meta-divider" />
               <div className="profile-meta-item">
                 <Activity size={14} />
-                <span className="profile-meta-label">آخر نشاط</span>
-                <span className="profile-meta-value">الآن</span>
+                <span className="profile-meta-label">{t.profile.lastActive}</span>
+                <span className="profile-meta-value">{t.profile.now}</span>
               </div>
             </div>
           </section>
 
-          {/* IDENTITY EDIT + ACCOUNT INFO */}
           <section className="profile-section profile-id-section">
             <div className="profile-section-head">
               <div className="profile-section-title">
                 <span className="profile-section-tag">
                   <Shield size={12} />
-                  <span>الحساب</span>
+                  <span>{t.profile.accountTag}</span>
                 </span>
-                <h2>معلومات الحساب</h2>
+                <h2>{t.profile.accountInfo}</h2>
               </div>
             </div>
 
@@ -278,26 +271,18 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
               <div className="profile-field">
                 <label>
                   <Edit3 size={12} />
-                  <span>الاسم الظاهر</span>
+                  <span>{t.profile.displayName}</span>
                 </label>
                 {isEditingName ? (
                   <div className="profile-field-edit">
-                    <input
-                      type="text"
-                      value={editedName}
-                      onChange={(e) => setEditedName(e.target.value)}
-                      autoFocus
-                    />
-                    <button onClick={saveName} className="profile-field-save" aria-label="حفظ">
+                    <input type="text" value={editedName} onChange={(e) => setEditedName(e.target.value)} autoFocus />
+                    <button onClick={saveName} className="profile-field-save" aria-label={t.profile.save}>
                       <Check size={14} />
                     </button>
                     <button
-                      onClick={() => {
-                        setIsEditingName(false);
-                        setEditedName(customName);
-                      }}
+                      onClick={() => { setIsEditingName(false); setEditedName(customName); }}
                       className="profile-field-cancel"
-                      aria-label="إلغاء"
+                      aria-label={t.profile.cancel}
                     >
                       <X size={14} />
                     </button>
@@ -305,7 +290,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
                 ) : (
                   <div className="profile-field-read">
                     <span>{customName || user.email}</span>
-                    <button onClick={() => setIsEditingName(true)} aria-label="تعديل">
+                    <button onClick={() => setIsEditingName(true)} aria-label={t.profile.edit}>
                       <Edit3 size={14} />
                     </button>
                   </div>
@@ -315,7 +300,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
               <div className="profile-field">
                 <label>
                   <Globe size={12} />
-                  <span>البريد الإلكتروني</span>
+                  <span>{t.profile.emailLabel}</span>
                 </label>
                 <div className="profile-field-read profile-field-read-mono">
                   <span>{user.email}</span>
@@ -325,7 +310,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
               <div className="profile-field">
                 <label>
                   <Fingerprint size={12} />
-                  <span>معرّف المتدرب</span>
+                  <span>{t.profile.traineeId}</span>
                 </label>
                 <div className="profile-field-read profile-field-read-mono">
                   <span>{userHash}</span>
@@ -335,16 +320,15 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
               <div className="profile-field">
                 <label>
                   <Cpu size={12} />
-                  <span>المنطقة</span>
+                  <span>{t.profile.region}</span>
                 </label>
                 <div className="profile-field-read">
-                  <span>🇮🇶 بابل، العراق</span>
+                  <span>{t.profile.regionValue}</span>
                 </div>
               </div>
             </div>
           </section>
 
-          {/* 4 METRIC CARDS */}
           <section className="profile-metrics">
             <div className="profile-metric">
               <div className="profile-metric-icon" style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>
@@ -352,7 +336,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
               </div>
               <div className="profile-metric-body">
                 <span className="profile-metric-value mono">{xp.toLocaleString()}</span>
-                <span className="profile-metric-label">نقاط الخبرة</span>
+                <span className="profile-metric-label">{t.profile.metricXp}</span>
               </div>
               <div className="profile-metric-spark" />
             </div>
@@ -363,7 +347,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
               </div>
               <div className="profile-metric-body">
                 <span className="profile-metric-value mono">{completedCount}</span>
-                <span className="profile-metric-label">مهمة مكتملة</span>
+                <span className="profile-metric-label">{t.profile.metricCompleted}</span>
               </div>
               <div className="profile-metric-spark" />
             </div>
@@ -374,7 +358,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
               </div>
               <div className="profile-metric-body">
                 <span className="profile-metric-value mono">{certificates.length}</span>
-                <span className="profile-metric-label">شهادة ممنوحة</span>
+                <span className="profile-metric-label">{t.profile.metricCerts}</span>
               </div>
               <div className="profile-metric-spark" />
             </div>
@@ -385,30 +369,29 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
               </div>
               <div className="profile-metric-body">
                 <span className="profile-metric-value" style={{ color: level.color }}>{level.name}</span>
-                <span className="profile-metric-label">الرتبة الحالية</span>
+                <span className="profile-metric-label">{t.profile.metricRank}</span>
               </div>
               <div className="profile-metric-spark" />
             </div>
           </section>
 
-          {/* CERTIFICATES */}
           <section className="profile-section">
             <div className="profile-section-head">
               <div className="profile-section-title">
                 <span className="profile-section-tag">
                   <Award size={12} />
-                  <span>الإنجازات</span>
+                  <span>{t.profile.certTag}</span>
                 </span>
-                <h2>الشهادات الرقمية</h2>
-                <p>كل شهادة هي رمز وصول لمجال متقدم في الأمن السيبراني.</p>
+                <h2>{t.profile.certTitle}</h2>
+                <p>{t.profile.certSub}</p>
               </div>
               <div className="profile-cert-name-field">
-                <label>الاسم على الشهادة</label>
+                <label>{t.profile.certNameLabel}</label>
                 <input
                   type="text"
                   value={customName}
                   onChange={(e) => setCustomName(e.target.value)}
-                  placeholder="ادخل اسمك الكامل"
+                  placeholder={t.profile.certNamePh}
                 />
               </div>
             </div>
@@ -418,10 +401,10 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
                 <div className="profile-empty-icon">
                   <ShieldCheck size={36} />
                 </div>
-                <h3>لا توجد شهادات بعد</h3>
-                <p>أكمل مسارك التدريبي الأول لتحصل على أول رمز وصول.</p>
+                <h3>{t.profile.certEmptyTitle}</h3>
+                <p>{t.profile.certEmptySub}</p>
                 <button onClick={onBack} className="profile-empty-cta">
-                  ابدأ التدريب
+                  {t.profile.certEmptyCta}
                 </button>
               </div>
             ) : (
@@ -436,15 +419,13 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
                       <ShieldMark size="sm" />
                     </div>
                     <div className="profile-cert-info">
-                      <span className="profile-cert-tag">شهادة مُتحققة</span>
+                      <span className="profile-cert-tag">{t.profile.certVerified}</span>
                       <h3>{cert.category}</h3>
                       <div className="profile-cert-meta">
                         <span>
                           <Calendar size={11} />
-                          {new Date(cert.issue_date).toLocaleDateString('ar-EG', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
+                          {new Date(cert.issue_date).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US', {
+                            year: 'numeric', month: 'long', day: 'numeric',
                           })}
                         </span>
                         <span className="mono">
@@ -522,10 +503,10 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
             <div className="cert-modal-actions">
               <button className="cert-download-btn" onClick={() => handleDownloadCert(showCert)}>
                 <Download size={16} />
-                <span>تحميل PDF</span>
+                <span>{t.profile.certDownload}</span>
               </button>
               <button className="cert-close-btn" onClick={() => setShowCert(null)}>
-                إغلاق
+                {t.profile.certClose}
               </button>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useI18n } from '../i18n/I18nContext';
 
 interface IntroProps {
   onComplete: () => void;
@@ -7,10 +8,10 @@ interface IntroProps {
 const STORAGE_KEY = 'cyberarena_intro_seen';
 
 export const Intro: React.FC<IntroProps> = ({ onComplete }) => {
+  const { t } = useI18n();
   const [phase, setPhase] = useState<'enter' | 'hold' | 'exit' | 'done'>('enter');
 
   useEffect(() => {
-    // Mark intro as seen immediately so refresh during animation doesn't replay
     try { localStorage.setItem(STORAGE_KEY, '1'); } catch {}
 
     const t1 = setTimeout(() => setPhase('hold'), 1200);
@@ -56,7 +57,7 @@ export const Intro: React.FC<IntroProps> = ({ onComplete }) => {
             <span className="intro-logo-reg">®</span>
           </div>
         </div>
-        <p className="intro-tagline">أهلاً بك في عالم الأمن</p>
+        <p className="intro-tagline">{t.intro.tagline}</p>
         <div className="intro-loader">
           <span /><span /><span />
         </div>

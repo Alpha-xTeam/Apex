@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, ChevronLeft, Loader2, ArrowRight } from 'lucide-react';
 import { PathIcon } from './TeamIcons';
+import { useI18n } from '../i18n/I18nContext';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
 
@@ -27,48 +29,6 @@ interface PathData {
   modules: Module[];
 }
 
-const PATHS: Record<string, Record<string, PathData>> = {
-  cybersecurity: {
-    'web-security': {
-      id: 'web-security', title: 'أمن تطبيقات الويب', desc: 'اكتشف وأصلح الثغرات في تطبيقات الويب',
-      modules: [
-        { id: 'sqli',    title: 'SQL Injection - حقن قواعد البيانات', desc: 'اختراق قواعد البيانات عبر الاستعلامات الخبيثة' },
-        { id: 'xss',     title: 'XSS - هجمات الحقن البرمجي', desc: 'Cross-Site Scripting في المتصفح' },
-        { id: 'csrf',    title: 'CSRF - تزوير الطلبات', desc: 'تزوير الطلبات عبر المواقع' },
-        { id: 'idor',    title: 'IDOR - الوصول غير المصرح', desc: 'تغيير المعرّفات في الـ URL للوصول لموارد الغير' },
-        { id: 'lfi-rfi', title: 'LFI/RFI - تضمين الملفات', desc: 'تحميل ملفات محلية أو بعيدة عبر الـ path' },
-        { id: 'xxe',     title: 'XXE - كيانات XML الخارجية', desc: 'استغلال محلل XML لقراءة الملفات' },
-        { id: 'ssrf',    title: 'SSRF - تزوير الطلبات من السيرفر', desc: 'إجبار السيرفر على طلب عناوين داخلية' },
-        { id: 'cmdi',    title: 'Command Injection - حقن الأوامر', desc: 'تنفيذ أوامر نظام عبر حقول الإدخال' },
-        { id: 'auth',    title: 'Auth Flaws - ثغرات المصادقة', desc: 'تجاوز قفل الحسابات وسرقة الجلسات' },
-        { id: 'upload',  title: 'Upload - رفع الملفات الخبيثة', desc: 'رفع webshell عبر نماذج الرفع' },
-      ],
-    },
-    'network-security': {
-      id: 'network-security', title: 'أمن الشبكات', desc: 'تحليل وحماية البنية التحتية للشبكات',
-      modules: [
-        { id: 'packet-analysis', title: 'تحليل الحزم', desc: 'اقرأ و حلل حركة المرور على الشبكة' },
-        { id: 'firewall', title: 'جدران الحماية', desc: 'ابنِ وأعد تكوين جدران الحماية' },
-        { id: 'scanning', title: 'مسح الشبكات', desc: 'استخدم أدوات المسح لاكتشاف الثغرات' },
-      ],
-    },
-    cryptography: {
-      id: 'cryptography', title: 'التشفير', desc: 'فك شفرات وابنِ أنظمة تشفير قوية',
-      modules: [
-        { id: 'encryption-basics', title: 'أساسيات التشفير', desc: 'افهم كيف تعمل خوارزميات التشفير' },
-        { id: 'hash-cracking', title: 'كسر الهاش', desc: 'تعلم تقنيات كسر كلمات المرور المشفرة' },
-      ],
-    },
-    'incident-response': {
-      id: 'incident-response', title: 'الاستجابة للحوادث', desc: 'تعامل مع الاختراقات والهجمات الإلكترونية',
-      modules: [
-        { id: 'log-analysis', title: 'تحليل السجلات', desc: 'اقرأ سجلات الخادم لاكتشاف الاختراق' },
-        { id: 'forensics', title: 'الأدلة الرقمية', desc: 'اجمع وحلل الأدلة بعد الاختراق' },
-      ],
-    },
-  },
-};
-
 interface TrainingPathProps {
   categoryId: string;
   pathId: string;
@@ -78,7 +38,17 @@ interface TrainingPathProps {
 }
 
 export const TrainingPath: React.FC<TrainingPathProps> = ({ categoryId, pathId, teamRole = 'blue', onSelectModule, onBack }) => {
-  const path = PATHS[categoryId]?.[pathId];
+  const { t } = useI18n();
+  const pathInfo = t.paths[pathId as keyof typeof t.paths] as { title: string; desc: string; modules?: Record<string, { title: string; desc: string }> } | undefined;
+  const moduleInfo = pathInfo && 'modules' in pathInfo ? pathInfo.modules : undefined;
+  const path: PathData | null = pathInfo ? {
+    id: pathId,
+    title: pathInfo.title,
+    desc: pathInfo.desc,
+    modules: moduleInfo
+      ? Object.entries(moduleInfo).map(([id, m]) => ({ id, title: m.title, desc: m.desc }))
+      : [],
+  } : null;
 
   const [dbChallenges, setDbChallenges] = useState<DBChallenge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,7 +78,7 @@ export const TrainingPath: React.FC<TrainingPathProps> = ({ categoryId, pathId, 
         id: c.id,
         moduleId: c.module,
         title: c.title,
-        desc: `تحدي ${c.module} • مستوى ${c.difficulty} • جائزة ${c.xpReward} XP`,
+        desc: t.trainingPath.challengeDesc(c.module, c.difficulty, c.xpReward),
         difficulty: c.difficulty,
         xp: c.xpReward,
       }))
@@ -117,25 +87,28 @@ export const TrainingPath: React.FC<TrainingPathProps> = ({ categoryId, pathId, 
         moduleId: m.id,
         title: m.title,
         desc: m.desc,
-        difficulty: 'متوسط',
+        difficulty: t.trainingPath.midDifficulty,
         xp: 100,
       }));
 
   const totalXp = itemsToRender.reduce((sum, it) => sum + (it.xp || 0), 0);
   const accent = teamRole === 'blue' ? '#3b82f6' : '#ef4444';
   const accentSoft = teamRole === 'blue' ? 'rgba(59, 130, 246, 0.08)' : 'rgba(239, 68, 68, 0.08)';
-  const teamLabel = teamRole === 'blue' ? 'الفريق الأزرق' : 'الفريق الأحمر';
-  const teamSubtitle = teamRole === 'blue' ? 'مسار المدافع' : 'مسار المهاجم';
+  const teamLabel = teamRole === 'blue' ? t.trainingPath.teamLabels.blue : t.trainingPath.teamLabels.red;
+  const teamSubtitle = teamRole === 'blue' ? t.trainingPath.teamSubs.blue : t.trainingPath.teamSubs.red;
 
   return (
     <div className="dash-page" style={{ '--accent': accent, '--accent-soft': accentSoft } as React.CSSProperties}>
       <header className="dash-header">
         <div className="dash-header-inner">
           <a href="/" className="dash-logo">CyberArena</a>
-          <button onClick={onBack} className="path-back-link">
-            <ArrowRight size={14} />
-            <span>العودة للرئيسية</span>
-          </button>
+          <div className="dash-header-right">
+            <LanguageSwitcher />
+            <button onClick={onBack} className="path-back-link">
+              <ArrowRight size={14} />
+              <span>{t.trainingPath.backToHome}</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -154,11 +127,11 @@ export const TrainingPath: React.FC<TrainingPathProps> = ({ categoryId, pathId, 
               <div className="path-hero-stats">
                 <div className="path-hero-stat">
                   <span className="path-hero-stat-value">{itemsToRender.length}</span>
-                  <span className="path-hero-stat-label">تحدي متاح</span>
+                  <span className="path-hero-stat-label">{t.trainingPath.available}</span>
                 </div>
                 <div className="path-hero-stat">
                   <span className="path-hero-stat-value">{totalXp.toLocaleString()}</span>
-                  <span className="path-hero-stat-label">XP إجمالية</span>
+                  <span className="path-hero-stat-label">{t.trainingPath.totalXp}</span>
                 </div>
               </div>
             </div>
@@ -168,7 +141,7 @@ export const TrainingPath: React.FC<TrainingPathProps> = ({ categoryId, pathId, 
             {loading ? (
               <div className="path-loading">
                 <Loader2 size={20} className="animate-spin" />
-                <span>جاري تحميل التحديات...</span>
+                <span>{t.trainingPath.loading}</span>
               </div>
             ) : (
               itemsToRender.map((item, index) => (
@@ -193,7 +166,7 @@ export const TrainingPath: React.FC<TrainingPathProps> = ({ categoryId, pathId, 
                       <p>{item.desc}</p>
                     </div>
                     <div className="path-step-action">
-                      <span className="path-step-cta">ابدأ التحدي</span>
+                      <span className="path-step-cta">{t.trainingPath.start}</span>
                       <ChevronLeft size={16} />
                     </div>
                   </button>

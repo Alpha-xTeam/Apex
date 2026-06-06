@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowRight, Target, Flame, Users, TrendingUp, Crown, Medal } from 'lucide-react';
 import { LeaderboardHeroIcon, SparkleIcon } from './TeamIcons';
+import { useI18n } from '../i18n/I18nContext';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
 
@@ -26,28 +28,19 @@ interface Level {
   icon: string;
 }
 
-const LEVELS: Level[] = [
-  { name: 'مبتدئ', minXp: 0, color: '#10b981', gradient: 'linear-gradient(135deg, #10b981, #059669)', bg: 'rgba(16, 185, 129, 0.12)', icon: '🟢' },
-  { name: 'متقدم', minXp: 200, color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', bg: 'rgba(245, 158, 11, 0.12)', icon: '🟡' },
-  { name: 'خبير', minXp: 600, color: '#ef4444', gradient: 'linear-gradient(135deg, #ef4444, #dc2626)', bg: 'rgba(239, 68, 68, 0.12)', icon: '🔴' },
-  { name: 'سايبر ماستر', minXp: 1500, color: '#8b5cf6', gradient: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', bg: 'rgba(139, 92, 246, 0.12)', icon: '👑' },
-];
-
-const LEVEL_THRESHOLDS = [0, 200, 600, 1500];
-
-function getLevel(xp: number): Level {
-  let level = LEVELS[0];
-  for (const l of LEVELS) {
+function getLevel(xp: number, levels: Level[]): Level {
+  let level = levels[0];
+  for (const l of levels) {
     if (xp >= l.minXp) level = l;
   }
   return level;
 }
 
-function getNextLevelMin(xp: number): number {
-  for (const t of LEVEL_THRESHOLDS) {
+function getNextLevelMin(xp: number, thresholds: number[]): number {
+  for (const t of thresholds) {
     if (xp < t) return t;
   }
-  return LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
+  return thresholds[thresholds.length - 1];
 }
 
 function getInitial(name: string) {
@@ -74,15 +67,22 @@ function getAvatarGradient(id: string): string {
 
 type FilterTab = 'all' | 'beginner' | 'advanced' | 'expert' | 'master';
 
-const FILTERS: { key: FilterTab; label: string; minXp: number; maxXp?: number }[] = [
-  { key: 'all', label: 'الكل', minXp: 0 },
-  { key: 'beginner', label: 'مبتدئ', minXp: 0, maxXp: 199 },
-  { key: 'advanced', label: 'متقدم', minXp: 200, maxXp: 599 },
-  { key: 'expert', label: 'خبير', minXp: 600, maxXp: 1499 },
-  { key: 'master', label: 'سايبر ماستر', minXp: 1500 },
-];
-
 export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack }) => {
+  const { t } = useI18n();
+  const LEVELS: Level[] = [
+    { name: t.levels.beginner, minXp: 0, color: '#10b981', gradient: 'linear-gradient(135deg, #10b981, #059669)', bg: 'rgba(16, 185, 129, 0.12)', icon: '🟢' },
+    { name: t.levels.advanced, minXp: 200, color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', bg: 'rgba(245, 158, 11, 0.12)', icon: '🟡' },
+    { name: t.levels.expert, minXp: 600, color: '#ef4444', gradient: 'linear-gradient(135deg, #ef4444, #dc2626)', bg: 'rgba(239, 68, 68, 0.12)', icon: '🔴' },
+    { name: t.levels.master, minXp: 1500, color: '#8b5cf6', gradient: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', bg: 'rgba(139, 92, 246, 0.12)', icon: '👑' },
+  ];
+  const LEVEL_THRESHOLDS = [0, 200, 600, 1500];
+  const FILTERS: { key: FilterTab; label: string; minXp: number; maxXp?: number }[] = [
+    { key: 'all', label: t.leaderboard.filters.all, minXp: 0 },
+    { key: 'beginner', label: t.leaderboard.filters.beginner, minXp: 0, maxXp: 199 },
+    { key: 'advanced', label: t.leaderboard.filters.advanced, minXp: 200, maxXp: 599 },
+    { key: 'expert', label: t.leaderboard.filters.expert, minXp: 600, maxXp: 1499 },
+    { key: 'master', label: t.leaderboard.filters.master, minXp: 1500 },
+  ];
   const [users, setUsers] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -96,16 +96,16 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
         if (res.ok && data.users) {
           setUsers(data.users);
         } else {
-          setError('تعذر تحميل لوحة المتصدرين');
+          setError(t.leaderboard.loadError);
         }
       } catch {
-        setError('فشل الاتصال بالخادم');
+        setError(t.leaderboard.networkError);
       } finally {
         setLoading(false);
       }
     };
     fetchLeaderboard();
-  }, []);
+  }, [t.leaderboard.loadError, t.leaderboard.networkError]);
 
   const stats = useMemo(() => {
     if (users.length === 0) return { total: 0, topXp: 0, totalXp: 0, avgXp: 0 };
@@ -146,16 +146,18 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
           <a href="/" className="dash-logo" onClick={(e) => { e.preventDefault(); onBack(); }}>
             CyberArena
           </a>
-          <button onClick={onBack} className="path-back-link">
-            <ArrowRight size={14} />
-            <span>العودة للرئيسية</span>
-          </button>
+          <div className="dash-header-right">
+            <LanguageSwitcher />
+            <button onClick={onBack} className="path-back-link">
+              <ArrowRight size={14} />
+              <span>{t.leaderboard.backToHome}</span>
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="dash-main">
         <div className="dash-container">
-          {/* Hero */}
           <section className="lb-hero-v2">
             <div className="lb-hero-icon-v2">
               <LeaderboardHeroIcon size={88} />
@@ -163,10 +165,10 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
             <div className="lb-hero-content-v2">
               <span className="lb-hero-tag">
                 <SparkleIcon size={12} />
-                <span>تحدّى الجميع</span>
+                <span>{t.leaderboard.heroTag}</span>
               </span>
-              <h1>لوحة المتصدرين</h1>
-              <p>تسلّق المراتب، اكسب الخبرة، وكن أسطورة الأمن السيبراني.</p>
+              <h1>{t.leaderboard.heroTitle}</h1>
+              <p>{t.leaderboard.heroSub}</p>
             </div>
             {!loading && users.length > 0 && (
               <div className="lb-stats-cards">
@@ -176,7 +178,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
                   </div>
                   <div className="lb-stat-info">
                     <span className="lb-stat-value-v2">{stats.total}</span>
-                    <span className="lb-stat-label-v2">مشغّل</span>
+                    <span className="lb-stat-label-v2">{t.leaderboard.statTotal}</span>
                   </div>
                 </div>
                 <div className="lb-stat-card-v2">
@@ -185,7 +187,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
                   </div>
                   <div className="lb-stat-info">
                     <span className="lb-stat-value-v2">{stats.topXp.toLocaleString()}</span>
-                    <span className="lb-stat-label-v2">أعلى XP</span>
+                    <span className="lb-stat-label-v2">{t.leaderboard.statTopXp}</span>
                   </div>
                 </div>
                 <div className="lb-stat-card-v2">
@@ -194,22 +196,21 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
                   </div>
                   <div className="lb-stat-info">
                     <span className="lb-stat-value-v2">{stats.totalXp.toLocaleString()}</span>
-                    <span className="lb-stat-label-v2">إجمالي XP</span>
+                    <span className="lb-stat-label-v2">{t.leaderboard.statTotalXp}</span>
                   </div>
                 </div>
               </div>
             )}
           </section>
 
-          {/* My rank banner */}
           {currentUser && !loading && currentUserInList && (
             <section className="lb-my-rank-v2">
               <div className="lb-my-rank-tag">
                 <Target size={14} />
-                <span>أنت هنا</span>
+                <span>{t.leaderboard.youAreHere}</span>
               </div>
               <div className="lb-my-rank-info-v2">
-                <span className="lb-my-rank-label-v2">ترتيبك</span>
+                <span className="lb-my-rank-label-v2">{t.leaderboard.rankLabel}</span>
                 <span className="lb-my-rank-value-v2">#{currentUserInList.rank}</span>
               </div>
               <div className="lb-my-rank-divider-v2" />
@@ -219,7 +220,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
               </div>
               <div className="lb-my-rank-divider-v2" />
               <div className="lb-my-rank-info-v2">
-                <span className="lb-my-rank-label-v2">تدريب</span>
+                <span className="lb-my-rank-label-v2">{t.leaderboard.training}</span>
                 <span className="lb-my-rank-value-v2">{currentUserInList.completed_trainings}</span>
               </div>
             </section>
@@ -262,23 +263,23 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
             <div className="lb-empty-v2">
               <div className="lb-empty-icon">⚠️</div>
               <h3>{error}</h3>
-              <p>حاول إعادة تحميل الصفحة</p>
+              <p>{t.leaderboard.retryLoad}</p>
             </div>
           ) : users.length === 0 ? (
             <div className="lb-empty-v2">
               <div className="lb-empty-illust">
                 <SparkleIcon size={64} />
               </div>
-              <h3>القمة بانتظارك</h3>
-              <p>لا يوجد متصدّرون بعد. كن أول من يصعد إلى القمة!</p>
+              <h3>{t.leaderboard.emptyTitle}</h3>
+              <p>{t.leaderboard.emptySub}</p>
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="lb-empty-v2">
               <div className="lb-empty-illust">
                 <SparkleIcon size={64} />
               </div>
-              <h3>لا يوجد لاعبون بهذا المستوى</h3>
-              <p>جرّب فلتر آخر</p>
+              <h3>{t.leaderboard.filterEmptyTitle}</h3>
+              <p>{t.leaderboard.filterEmptySub}</p>
             </div>
           ) : (
             <>
@@ -302,13 +303,12 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
                     <div className="lb-podium-stats">
                       <div className="lb-podium-stat">
                         <span className="lb-podium-stat-value">{top3[1].completed_trainings}</span>
-                        <span className="lb-podium-stat-label">تدريب</span>
+                        <span className="lb-podium-stat-label">{t.leaderboard.training}</span>
                       </div>
                     </div>
                     <div className="lb-podium-bar-v2 lb-podium-bar-2-v2" />
                   </div>
 
-                  {/* 1st place */}
                   <div className="lb-podium-card lb-podium-card-1">
                     <div className="lb-podium-crown-v2">
                       <Crown size={18} />
@@ -328,13 +328,12 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
                     <div className="lb-podium-stats">
                       <div className="lb-podium-stat">
                         <span className="lb-podium-stat-value">{top3[0].completed_trainings}</span>
-                        <span className="lb-podium-stat-label">تدريب</span>
+                        <span className="lb-podium-stat-label">{t.leaderboard.training}</span>
                       </div>
                     </div>
                     <div className="lb-podium-bar-v2 lb-podium-bar-1-v2" />
                   </div>
 
-                  {/* 3rd place */}
                   <div className="lb-podium-card lb-podium-card-3">
                     <div className="lb-podium-medal lb-podium-medal-3">
                       <Medal size={14} />
@@ -351,7 +350,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
                     <div className="lb-podium-stats">
                       <div className="lb-podium-stat">
                         <span className="lb-podium-stat-value">{top3[2].completed_trainings}</span>
-                        <span className="lb-podium-stat-label">تدريب</span>
+                        <span className="lb-podium-stat-label">{t.leaderboard.training}</span>
                       </div>
                     </div>
                     <div className="lb-podium-bar-v2 lb-podium-bar-3-v2" />
@@ -363,15 +362,15 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
               {(rest.length > 0 || showAsListOnly) && (
                 <section className="lb-list-section-v2">
                   <div className="lb-list-header">
-                    <h2>{showAsListOnly ? 'الترتيب الحالي' : 'بقية المتصدرين'}</h2>
+                    <h2>{showAsListOnly ? t.leaderboard.listHeaderSmall : t.leaderboard.listHeader}</h2>
                     <span className="lb-list-count">
-                      {showAsListOnly ? filteredUsers.length : rest.length} لاعب
+                      {showAsListOnly ? filteredUsers.length : rest.length} {t.leaderboard.playerCount}
                     </span>
                   </div>
                   <div className="lb-list-v2">
                     {(showAsListOnly ? filteredUsers : rest).map((user, idx) => {
-                      const level = getLevel(user.xp);
-                      const nextMin = getNextLevelMin(user.xp);
+                      const level = getLevel(user.xp, LEVELS);
+                      const nextMin = getNextLevelMin(user.xp, LEVEL_THRESHOLDS);
                       const progress = nextMin > 0 ? Math.min((user.xp / nextMin) * 100, 100) : 100;
                       const isMe = currentUser?.id === user.id;
                       return (
@@ -388,7 +387,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
                           <div className="lb-list-info-v2">
                             <div className="lb-list-name-row">
                               <span className="lb-list-name-v2">{user.name}</span>
-                              {isMe && <span className="lb-list-me-pill">أنت</span>}
+                              {isMe && <span className="lb-list-me-pill">{t.leaderboard.me}</span>}
                               <span className="lb-list-level-pill" style={{ background: level.bg, color: level.color, borderColor: level.color + '40' }}>
                                 {level.name}
                               </span>
@@ -403,7 +402,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
                             </div>
                           </div>
                           <div className="lb-list-xp-block">
-                            <span className="lb-list-trainings">{user.completed_trainings} تدريب</span>
+                            <span className="lb-list-trainings">{user.completed_trainings} {t.leaderboard.trainings}</span>
                           </div>
                         </div>
                       );

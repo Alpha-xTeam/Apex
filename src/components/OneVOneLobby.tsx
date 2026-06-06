@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { Copy, Check, Swords, Users, Shield, Crosshair, ChevronLeft, Loader2, Shuffle, ListChecks, X, ArrowRight, Lock, Clock } from 'lucide-react';
 import { BlueTeamIcon, RedTeamIcon } from './TeamIcons';
+import { useI18n } from '../i18n/I18nContext';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
 
 // Configurable match length — must match backend MAIN_DURATION_OPTIONS
-const DURATION_OPTIONS: { minutes: number; label: string; seconds: number }[] = [
-  { minutes: 5,  label: '5 دقائق',  seconds: 300 },
-  { minutes: 10, label: '10 دقائق', seconds: 600 },
-  { minutes: 15, label: '15 دقيقة', seconds: 900 },
-  { minutes: 20, label: '20 دقيقة', seconds: 1200 },
-  { minutes: 25, label: '25 دقيقة', seconds: 1500 },
-  { minutes: 30, label: '30 دقيقة', seconds: 1800 },
+const DURATION_OPTIONS: { minutes: number; seconds: number }[] = [
+  { minutes: 5,  seconds: 300 },
+  { minutes: 10, seconds: 600 },
+  { minutes: 15, seconds: 900 },
+  { minutes: 20, seconds: 1200 },
+  { minutes: 25, seconds: 1500 },
+  { minutes: 30, seconds: 1800 },
 ];
 
 interface User {
@@ -56,6 +58,7 @@ interface OneVOneLobbyProps {
 }
 
 export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, onBack }) => {
+  const { t } = useI18n();
   // Mode: 'home' = pick create/join; 'create' = picking options; 'join' = entering code
   const [mode, setMode] = useState<'home' | 'create' | 'join'>('home');
 
@@ -178,13 +181,13 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'فشل إنشاء الغرفة');
+        throw new Error(err.detail || t.oneVOne.createErr);
       }
       const data = await res.json();
       setCreatedRoom(data.room);
     } catch (e) {
       const err = e as { message?: string };
-      setCreateError(err?.message || 'حدث خطأ غير متوقع');
+      setCreateError(err?.message || t.oneVOne.genericErr);
     } finally {
       setCreating(false);
     }
@@ -192,7 +195,7 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
 
   const handleJoin = async () => {
     if (!joinCode.trim()) {
-      setJoinError('أدخل رمز الغرفة أولاً');
+      setJoinError(t.oneVOne.enterCode);
       return;
     }
     setJoining(true);
@@ -209,13 +212,13 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'فشل الانضمام للغرفة');
+        throw new Error(err.detail || t.oneVOne.joinErr);
       }
       const data = await res.json();
       onEnterArena(data.room.code, data.room);
     } catch (e) {
       const err = e as { message?: string };
-      setJoinError(err?.message || 'حدث خطأ غير متوقع');
+      setJoinError(err?.message || t.oneVOne.genericErr);
     } finally {
       setJoining(false);
     }
@@ -233,13 +236,13 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'فشل بدء المباراة');
+        throw new Error(err.detail || t.oneVOne.startErr);
       }
       // SSE will notify; but also navigate proactively
       onEnterArena(createdRoom.code, createdRoom);
     } catch (e) {
       const err = e as { message?: string };
-      setStartError(err?.message || 'حدث خطأ غير متوقع');
+      setStartError(err?.message || t.oneVOne.genericErr);
     } finally {
       setStarting(false);
     }
@@ -279,8 +282,9 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
           <div className="dash-header-inner">
             <a href="#" className="dash-logo">CyberArena</a>
             <div className="dash-header-right">
+              <LanguageSwitcher />
               <span className="onevone-mode-pill" style={{ borderColor: `${teamColor}55`, color: teamColor }}>
-                {createdRoom.team_role === 'red' ? <><Crosshair size={13} /> الفريق الأحمر</> : <><Shield size={13} /> الفريق الأزرق</>}
+                {createdRoom.team_role === 'red' ? <><Crosshair size={13} /> {t.oneVOne.teamRedFull}</> : <><Shield size={13} /> {t.oneVOne.teamBlueFull}</>}
               </span>
               <div className="dash-user-badge">
                 <div className="dash-avatar">{(user.name || user.email).charAt(0)}</div>
@@ -288,7 +292,7 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
                   <span className="dash-name">{user.name || user.email}</span>
                 </div>
               </div>
-              <button onClick={handleLeaveCreated} className="dash-logout">إلغاء</button>
+              <button onClick={handleLeaveCreated} className="dash-logout">{t.oneVOne.cancel}</button>
             </div>
           </div>
         </header>
@@ -299,27 +303,27 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
               <div className="onevone-room-head">
                 <Swords size={28} style={{ color: teamColor }} />
                 <div>
-                  <h1 style={{ margin: 0, fontSize: 22, color: '#f3f1ec' }}>غرفة 1 ضد 1</h1>
+                  <h1 style={{ margin: 0, fontSize: 22, color: '#f3f1ec' }}>{t.oneVOne.leaveTitle}</h1>
                   <p style={{ margin: 0, fontSize: 13, color: 'rgba(243,241,236,0.55)' }}>
-                    شارك الرمز مع خصمكِ ليدخل نفس التحدي
+                    {t.oneVOne.shareCodeHint}
                   </p>
                 </div>
               </div>
 
               <div className="onevone-code-block">
-                <span className="onevone-code-label">رمز الغرفة</span>
+                <span className="onevone-code-label">{t.oneVOne.roomCode}</span>
                 <div className="onevone-code-row">
                   <code className="onevone-code">{createdRoom.code}</code>
                   <button className="onevone-copy-btn" onClick={handleCopy}>
-                    {copied ? <><Check size={14} /> تم النسخ</> : <><Copy size={14} /> نسخ</>}
+                    {copied ? <><Check size={14} /> {t.oneVOne.copied}</> : <><Copy size={14} /> {t.oneVOne.copy}</>}
                   </button>
                 </div>
                 <span className="onevone-code-hint">
                   {createdRoom.challenge_source === 'random'
-                    ? 'سيتم اختيار التحدي بشكل عشوائي عند البدء'
-                    : `تحدي يدوي: ${createdRoom.challenge_source.split(':')[1] || '—'}`}
+                    ? t.oneVOne.randomHint
+                    : `${t.oneVOne.manualHint} ${createdRoom.challenge_source.split(':')[1] || '—'}`}
                   {createdRoom.main_duration_s
-                    ? ` • مدة التحدي: ${DURATION_OPTIONS.find((o) => o.seconds === createdRoom.main_duration_s)?.label || `${createdRoom.main_duration_s / 60} دقيقة`}`
+                    ? ` • ${t.oneVOne.matchDuration} ${Math.floor(createdRoom.main_duration_s / 60)} ${t.oneVOne.minute}`
                     : ''}
                 </span>
               </div>
@@ -327,22 +331,22 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
               <div className="onevone-players">
                 <div className="onevone-players-head">
                   <Users size={16} />
-                  <span>اللاعبون ({players.length}/2)</span>
+                  <span>{t.oneVOne.players(players.length)}</span>
                 </div>
                 <div className="onevone-player-row">
                   <div className={`onevone-player ${players[0] ? 'is-ready' : 'is-empty'}`}>
                     <div className="onevone-player-dot" />
                     <div>
-                      <strong>{players[0]?.display_name || 'في انتظار المالك...'}</strong>
-                      <span>مالك الغرفة • {createdRoom.team_role === 'red' ? 'أحمر' : 'أزرق'}</span>
+                      <strong>{players[0]?.display_name || t.oneVOne.waitingOwner}</strong>
+                      <span>{t.oneVOne.ownerTag} • {createdRoom.team_role === 'red' ? t.oneVOne.teamRed : t.oneVOne.teamBlue}</span>
                     </div>
                   </div>
-                  <div className="onevone-vs">ضد</div>
+                  <div className="onevone-vs">{t.oneVOne.vs}</div>
                   <div className={`onevone-player ${players[1] ? 'is-ready' : 'is-empty'}`}>
                     <div className="onevone-player-dot" />
                     <div>
-                      <strong>{players[1]?.display_name || 'في انتظار خصم...'}</strong>
-                      <span>الخصم • {createdRoom.team_role === 'red' ? 'أحمر' : 'أزرق'}</span>
+                      <strong>{players[1]?.display_name || t.oneVOne.waitingOpponent}</strong>
+                      <span>{t.oneVOne.opponentTag} • {createdRoom.team_role === 'red' ? t.oneVOne.teamRed : t.oneVOne.teamBlue}</span>
                     </div>
                   </div>
                 </div>
@@ -355,9 +359,9 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
                   disabled={!opponentJoined || starting}
                   style={{ '--btn-accent': teamColor } as React.CSSProperties}
                 >
-                  {starting ? <><Loader2 size={16} className="onevone-spin" /> جاري البدء...</>
-                    : opponentJoined ? <><Swords size={16} /> ابدأ المباراة</>
-                    : <span>في انتظار انضمام الخصم...</span>}
+                  {starting ? <><Loader2 size={16} className="onevone-spin" /> {t.oneVOne.startBtnLoading}</>
+                    : opponentJoined ? <><Swords size={16} /> {t.oneVOne.startBtn}</>
+                    : <span>{t.oneVOne.waitingForOpponent}</span>}
                 </button>
               )}
 
@@ -365,7 +369,7 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
 
               {!isOwner && (
                 <div className="onevone-waiting-note">
-                  في انتظار مالك الغرفة لبدء المباراة...
+                  {t.oneVOne.waitingForOwnerToStart}
                 </div>
               )}
             </section>
@@ -382,8 +386,9 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
         <div className="dash-header-inner">
           <a href="#" className="dash-logo">CyberArena</a>
           <div className="dash-header-right">
+            <LanguageSwitcher />
             <button onClick={onBack} className="dash-back-pill">
-              <ChevronLeft size={14} /> العودة
+              <ChevronLeft size={14} /> {t.oneVOne.back}
             </button>
             <div className="dash-user-badge">
               <div className="dash-avatar">{(user.name || user.email).charAt(0)}</div>
@@ -399,21 +404,21 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
         <div className="dash-container" style={{ maxWidth: 880 }}>
           <section className="onevone-hero">
             <div className="onevone-hero-icon"><Swords size={36} /></div>
-            <h1>وضع 1 ضد 1</h1>
-            <p>تحدَّ خصمك على نفس السيناريو في الوقت الفعلي. من ينهي التحدي أولاً يفوز.</p>
+            <h1>{t.oneVOne.heroTitle}</h1>
+            <p>{t.oneVOne.heroSub}</p>
           </section>
 
           {mode === 'home' && (
             <section className="onevone-pick-grid">
               <button className="onevone-pick-card" onClick={() => setMode('create')}>
                 <Swords size={28} />
-                <h3>إنشاء غرفة</h3>
-                <p>اختر فريقك ونمط التحدي وشارك الرمز مع خصمك.</p>
+                <h3>{t.oneVOne.createRoom}</h3>
+                <p>{t.oneVOne.createRoomSub}</p>
               </button>
               <button className="onevone-pick-card" onClick={() => setMode('join')}>
                 <Users size={28} />
-                <h3>الانضمام برمز</h3>
-                <p>أدخل رمز الغرفة الذي أعطاك إياه خصمك.</p>
+                <h3>{t.oneVOne.joinWithCode}</h3>
+                <p>{t.oneVOne.joinWithCodeSub}</p>
               </button>
             </section>
           )}
@@ -421,14 +426,14 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
           {mode === 'create' && (
             <section className="onevone-form-card">
               <div className="onevone-form-head">
-                <h2>إعدادات الغرفة</h2>
+                <h2>{t.oneVOne.roomSettings}</h2>
                 <button className="onevone-icon-btn" onClick={() => { setMode('home'); setCreateError(''); }}>
                   <X size={16} />
                 </button>
               </div>
 
               <div className="onevone-field">
-                <label>فريقك</label>
+                <label>{t.oneVOne.yourTeam}</label>
                 <div className="onevone-team-pick">
                   <button
                     type="button"
@@ -437,8 +442,8 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
                     style={{ '--team-accent': '#ef4444', '--team-accent-soft': 'rgba(239,68,68,0.08)' } as React.CSSProperties}
                   >
                     <RedTeamIcon size={44} />
-                    <strong>الفريق الأحمر</strong>
-                    <span>مهاجم — استخرج العلم أولاً</span>
+                    <strong>{t.oneVOne.teamRedFull}</strong>
+                    <span>{t.oneVOne.redDesc}</span>
                   </button>
                   <button
                     type="button"
@@ -447,15 +452,15 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
                     style={{ '--team-accent': '#3b82f6', '--team-accent-soft': 'rgba(59,130,246,0.08)' } as React.CSSProperties}
                   >
                     <BlueTeamIcon size={44} />
-                    <strong>الفريق الأزرق</strong>
-                    <span>مدافع — أصلح الثغرة أولاً</span>
+                    <strong>{t.oneVOne.teamBlueFull}</strong>
+                    <span>{t.oneVOne.blueDesc}</span>
                   </button>
                 </div>
-                <small className="onevone-hint">سيُلزم خصمك بنفس الفريق عند الانضمام.</small>
+                <small className="onevone-hint">{t.oneVOne.teamLockHint}</small>
               </div>
 
               <div className="onevone-field">
-                <label>مدة التحدي</label>
+                <label>{t.oneVOne.matchLength}</label>
                 <div className="onevone-duration-pick">
                   {DURATION_OPTIONS.map((opt) => {
                     const isActive = durationMin === opt.minutes;
@@ -471,30 +476,30 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
                       >
                         <Clock size={14} />
                         <strong className="onevone-duration-value">{opt.minutes}</strong>
-                        <span className="onevone-duration-unit">{opt.label.replace(/^\d+\s/, '')}</span>
+                        <span className="onevone-duration-unit">{t.oneVOne.minutes}</span>
                       </button>
                     );
                   })}
                 </div>
-                <small className="onevone-hint">سيبدأ العد التنازلي فور بدء المباراة بناءً على الوقت المحدد، وينتهي التحدي عند انتهاء الوقت.</small>
+                <small className="onevone-hint">{t.oneVOne.matchLengthHint}</small>
               </div>
 
               <div className="onevone-field">
-                <label>طريقة اختيار التحدي</label>
+                <label>{t.oneVOne.sourceMode}</label>
                 <div className="onevone-source-pick">
                   <button
                     type="button"
                     className={`onevone-source-btn ${challengeMode === 'random' ? 'is-active' : ''}`}
                     onClick={() => { setChallengeMode('random'); setPickedChallenge(null); setActiveCategory(null); }}
                   >
-                    <Shuffle size={16} /> تحدي عشوائي
+                    <Shuffle size={16} /> {t.oneVOne.sourceRandom}
                   </button>
                   <button
                     type="button"
                     className={`onevone-source-btn ${challengeMode === 'manual' ? 'is-active' : ''}`}
                     onClick={() => setChallengeMode('manual')}
                   >
-                    <ListChecks size={16} /> تحدي محدد
+                    <ListChecks size={16} /> {t.oneVOne.sourceManual}
                   </button>
                 </div>
 
@@ -511,7 +516,7 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
                 )}
 
                 <small className="onevone-hint">
-                  سيتم جلب التحدي من قاعدة البيانات الحالية — لا حاجة لإنشاء محتوى جديد.
+                  {t.oneVOne.sourceHint}
                 </small>
               </div>
 
@@ -523,7 +528,7 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
                 disabled={creating || (challengeMode === 'manual' && !pickedChallenge?.id)}
                 style={{ '--btn-accent': teamRole === 'red' ? '#ef4444' : '#3b82f6' } as React.CSSProperties}
               >
-                {creating ? <><Loader2 size={16} className="onevone-spin" /> جاري الإنشاء...</> : <><Swords size={16} /> إنشاء الغرفة</>}
+                {creating ? <><Loader2 size={16} className="onevone-spin" /> {t.oneVOne.creatingLoading}</> : <><Swords size={16} /> {t.oneVOne.creatingBtn}</>}
               </button>
             </section>
           )}
@@ -531,24 +536,24 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
           {mode === 'join' && (
             <section className="onevone-form-card">
               <div className="onevone-form-head">
-                <h2>الانضمام لغرفة</h2>
+                <h2>{t.oneVOne.joinTitle}</h2>
                 <button className="onevone-icon-btn" onClick={() => { setMode('home'); setJoinError(''); }}>
                   <X size={16} />
                 </button>
               </div>
 
               <div className="onevone-field">
-                <label>رمز الغرفة</label>
+                <label>{t.oneVOne.roomCode}</label>
                 <input
                   className="onevone-input onevone-input-big"
                   type="text"
                   maxLength={6}
-                  placeholder="ABC123"
+                  placeholder={t.oneVOne.codePh}
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   style={{ letterSpacing: '0.4em', textAlign: 'center', fontFamily: 'monospace' }}
                 />
-                <small className="onevone-hint">6 أحرف (بدون 0/1/O/I لتجنب اللبس)</small>
+                <small className="onevone-hint">{t.oneVOne.codeHint}</small>
               </div>
 
               {joinError && <div className="onevone-error">{joinError}</div>}
@@ -559,7 +564,7 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
                 disabled={joining || joinCode.length < 4}
                 style={{ '--btn-accent': '#10b981' } as React.CSSProperties}
               >
-                {joining ? <><Loader2 size={16} className="onevone-spin" /> جاري الانضمام...</> : <><Users size={16} /> انضم للمباراة</>}
+                {joining ? <><Loader2 size={16} className="onevone-spin" /> {t.oneVOne.joiningLoading}</> : <><Users size={16} /> {t.oneVOne.joinBtn}</>}
               </button>
             </section>
           )}
@@ -590,12 +595,13 @@ interface ChallengeBrowserProps {
 const ChallengeBrowser: React.FC<ChallengeBrowserProps> = ({
   challenges, loading, teamRole, activeCategory, setActiveCategory, pickedChallenge, setPickedChallenge,
 }) => {
+  const { t } = useI18n();
   const teamColor = teamRole === 'red' ? '#ef4444' : '#3b82f6';
 
   // group by category (mirrors Dashboard.groupByCategory)
   const groups: { [cat: string]: DBChallenge[] } = {};
   challenges.forEach((c) => {
-    const cat = c.category || 'تحديات عامة';
+    const cat = c.category || t.oneVOne.categoryFallback;
     if (!groups[cat]) groups[cat] = [];
     groups[cat].push(c);
   });
@@ -605,7 +611,7 @@ const ChallengeBrowser: React.FC<ChallengeBrowserProps> = ({
     return (
       <div className="onevone-browser">
         <div className="onevone-browser-loading">
-          <Loader2 size={18} className="onevone-spin" /> جاري تحميل تحديات الفريق...
+          <Loader2 size={18} className="onevone-spin" /> {t.oneVOne.loadingTeam}
         </div>
       </div>
     );
@@ -615,13 +621,12 @@ const ChallengeBrowser: React.FC<ChallengeBrowserProps> = ({
     return (
       <div className="onevone-browser">
         <div className="onevone-browser-empty">
-          لا توجد تحديات متاحة لهذا الفريق حالياً.
+          {t.oneVOne.noChallenges}
         </div>
       </div>
     );
   }
 
-  // Show challenge list for the selected category
   if (activeCategory) {
     const items = groups[activeCategory] || [];
     return (
@@ -631,7 +636,7 @@ const ChallengeBrowser: React.FC<ChallengeBrowserProps> = ({
       >
         <button className="onevone-browser-back" onClick={() => { setActiveCategory(null); setPickedChallenge(null); }}>
           <ArrowRight size={14} />
-          <span>العودة للأقسام</span>
+          <span>{t.oneVOne.backToCategories}</span>
         </button>
         <h4 className="onevone-browser-title" style={{ color: teamColor }}>{activeCategory}</h4>
         <div className="onevone-browser-list">
@@ -660,13 +665,12 @@ const ChallengeBrowser: React.FC<ChallengeBrowserProps> = ({
     );
   }
 
-  // Show categories grid (first level)
   return (
     <div
       className="onevone-browser"
       style={{ '--team-accent': teamColor, '--team-accent-soft': `${teamColor}14` } as React.CSSProperties}
     >
-      <h4 className="onevone-browser-label">اختر قسماً ({categoryNames.length})</h4>
+      <h4 className="onevone-browser-label">{t.oneVOne.pickCategory(categoryNames.length)}</h4>
       <div className="onevone-browser-cats">
         {categoryNames.map((cat) => (
           <button
