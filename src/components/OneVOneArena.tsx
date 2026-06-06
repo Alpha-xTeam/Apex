@@ -106,6 +106,10 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
   const eventSourceRef = useRef<EventSource | null>(null);
   const tickRef = useRef<number | null>(null);
   const matchIdRef = useRef<string | null>(null);
+  // Keep the latest players in a ref so the SSE handler (which is wired once
+  // and stays open) can resolve the winner's display name without forcing
+  // the EventSource to be torn down and re-created on every player update.
+  const playersRef = useRef<Player[]>(players);
 
   const isOwner = String(room.owner_user_id) === String(user.id);
   const teamColor = room.team_role === 'red' ? '#ef4444' : '#3b82f6';
@@ -121,6 +125,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         if (cancelled) return;
         if (data.room) setLocalRoom(data.room as Room);
         setPlayers(data.players || []);
+        playersRef.current = data.players || [];
         if (data.match) {
           setMatch(data.match);
           matchIdRef.current = data.match.id;
@@ -135,6 +140,12 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
   }, [code]);
 
   // ---- 2) SSE for live state ----
+  // NOTE: This effect opens the EventSource ONCE per room code and keeps it
+  // open. We deliberately do NOT include `players` (or any frequently-
+  // changing state) in the dependency array — re-creating the EventSource on
+  // every player update used to cause `match_finished` events to be dropped
+  // for the loser, which is exactly the bug we are fixing. Players/match are
+  // mirrored into refs that the handler reads on demand.
   useEffect(() => {
     const es = new EventSource(`${API_URL}/onevone/rooms/${code}/stream`);
     eventSourceRef.current = es;
@@ -146,12 +157,16 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
             setMatch(evt.match);
             matchIdRef.current = evt.match.id;
           }
-          if (evt.players) setPlayers(evt.players);
+          if (evt.players) {
+            setPlayers(evt.players);
+            playersRef.current = evt.players;
+          }
         } else if (evt.type === 'state' && evt.match) {
           setMatch(evt.match);
           matchIdRef.current = evt.match.id;
         } else if (evt.type === 'players' && evt.players) {
           setPlayers(evt.players);
+          playersRef.current = evt.players;
         } else if (evt.type === 'ready' && evt.userId) {
           setReadyPlayerIds((prev) => {
             const next = new Set(prev);
@@ -161,22 +176,37 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         } else if (evt.type === 'match_started' && evt.matchId) {
           matchIdRef.current = evt.matchId;
         } else if (evt.type === 'match_finished') {
-          // server pushes the new match state in the next tick
+          // Resolve the winner's display name from the LATEST players list
+          // (ref-based, so we don't capture a stale array).
+          let resolvedWinnerName: string | null = null;
           if (evt.winner) {
-            const w = players.find((p) => p.user_id === evt.winner);
-            setWinnerName(w?.display_name || 'الفائز');
-            setDraw(false);
-          } else {
-            setDraw(true);
-            setWinnerName(null);
+            const w = playersRef.current.find((p) => p.user_id === evt.winner);
+            resolvedWinnerName = w?.display_name || 'الفائز';
           }
+          setWinnerName(resolvedWinnerName);
+          setDraw(!evt.winner);
           setShowResultModal(true);
+          // CRITICAL: synchronously transition local match state to 'finished'
+          // so the render branch switches to the Finished view IMMEDIATELY
+          // (no waiting for the next 1s tick). Without this the loser keeps
+          // seeing the playing UI for up to 1s, and if the SSE connection
+          // hiccups at the same time the modal never appears.
+          setMatch((prev) => {
+            if (!prev) return prev;
+            const next: Match = {
+              ...prev,
+              state: 'finished',
+              winner_user_id: evt.winner || prev.winner_user_id || null,
+              win_reason: evt.reason || prev.win_reason || 'flag',
+            };
+            return next;
+          });
         }
       } catch { /* ignore */ }
     };
     es.onerror = () => { /* browser auto-reconnects */ };
     return () => { es.close(); };
-  }, [code, players]);
+  }, [code]);
 
   // ---- 3) Countdown 3..2..1 once the match enters "countdown" state ----
   useEffect(() => {
@@ -210,7 +240,10 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
       if (match.state === 'playing' && match.ends_at) {
         const ms = new Date(match.ends_at).getTime() - now;
         setSecondsLeft(Math.max(0, Math.floor(ms / 1000)));
-        setPhaseLabel('الوقت الأساسي');
+        // Surface the chosen main duration next to the label so players can
+        // see exactly how long the round lasts (5/10/15/20/25/30 min).
+        const mins = match.main_duration_s ? Math.round(match.main_duration_s / 60) : 10;
+        setPhaseLabel(`الوقت الأساسي • ${mins} دقيقة`);
       } else if (match.state === 'overtime' && match.overtime_ends_at) {
         const ms = new Date(match.overtime_ends_at).getTime() - now;
         setSecondsLeft(Math.max(0, Math.floor(ms / 1000)));
@@ -220,7 +253,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
     compute();
     tickRef.current = window.setInterval(compute, 1000);
     return () => { if (tickRef.current) clearInterval(tickRef.current); };
-  }, [match?.state, match?.ends_at, match?.overtime_ends_at]);
+  }, [match?.state, match?.ends_at, match?.overtime_ends_at, match?.main_duration_s]);
 
   // ---- 5) When match enters "ready" / "playing" / "overtime", fetch the challenge once ----
   useEffect(() => {
@@ -482,6 +515,16 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
   }
 
   // Finished (and we didn't catch it via SSE for some reason)
+  // Derive the winner's display name from the latest players list (ref) when
+  // the SSE `match_finished` payload was missed — ensures the loser still
+  // sees "X فاز" instead of a blank modal.
+  let resolvedWinnerName = winnerName;
+  if (!resolvedWinnerName && match.winner_user_id) {
+    const w = playersRef.current.find((p) => p.user_id === match.winner_user_id);
+    resolvedWinnerName = w?.display_name || 'الخصم';
+  } else if (!resolvedWinnerName && match.win_reason === 'overtime_draw') {
+    resolvedWinnerName = null;
+  }
   return (
     <div className="onevone-page">
       <OneVOneHeader teamColor={teamColor} user={user} onLeave={handleLeave} state="finished" />
@@ -489,7 +532,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         <div className="dash-container" style={{ maxWidth: 720 }}>
           <OneVOneResultModal
             open={true}
-            winnerName={winnerName}
+            winnerName={resolvedWinnerName}
             draw={draw || match.win_reason === 'overtime_draw'}
             isWinner={!!match.winner_user_id && String(match.winner_user_id) === String(user.id)}
             reason={match.win_reason || 'flag'}

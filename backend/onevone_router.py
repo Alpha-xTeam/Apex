@@ -62,9 +62,20 @@ SUPABASE_HEADERS = {
 # ---- shared constants ----
 # 6-char base32 (no 0/1/O/I confusion) — easy to read aloud
 _ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-DEFAULT_MAIN_DURATION_S = 600      # 10 min
+DEFAULT_MAIN_DURATION_S = 600      # 10 min (fallback only)
 DEFAULT_OVERTIME_DURATION_S = 120  # 2 min
-MAIN_DURATION_OPTIONS = [300, 600, 900]  # 5/10/15 — future-proof
+# Configurable match length — owner picks at room-creation time
+# 5 min / 10 min / 15 min / 20 min / 25 min / 30 min
+MAIN_DURATION_OPTIONS = [300, 600, 900, 1200, 1500, 1800]
+# Convenience mapping for the UI label
+MAIN_DURATION_LABELS = {
+    300: "5 دقائق",
+    600: "10 دقائق",
+    900: "15 دقيقة",
+    1200: "20 دقيقة",
+    1500: "25 دقيقة",
+    1800: "30 دقيقة",
+}
 READY_TIMEOUT_S = 90               # max wait for both clients to load the challenge
 
 # per-match ready-handshake state. The timer task waits on the Event and polls
@@ -374,6 +385,7 @@ async def create_room(req: CreateRoomRequest):
         "team_role": req.teamRole,
         "status": "open",
         "challenge_source": req.challengeSource,
+        "main_duration_s": req.mainDurationS,
     })
     # add the owner as slot 1
     await _sb_insert("onevone_players", {
@@ -481,7 +493,11 @@ async def start_match(code: str, req: StartMatchRequest):
 
     # mark room + match
     now = _now()
-    main_dur = DEFAULT_MAIN_DURATION_S
+    # Inherit the duration the owner picked at room-creation time.
+    # Fallback to default if the row is older than migration 010 and lacks the column.
+    main_dur = int(room.get("main_duration_s") or DEFAULT_MAIN_DURATION_S)
+    if main_dur not in MAIN_DURATION_OPTIONS:
+        main_dur = DEFAULT_MAIN_DURATION_S
     overtime_dur = DEFAULT_OVERTIME_DURATION_S
     await _sb_update(
         "onevone_rooms",
@@ -647,11 +663,29 @@ async def submit_answer(match_id: str, req: SubmitRequest):
                 f"id=eq.{sub_row['id']}",
                 {"is_final": True},
             )
+            # Broadcast the finish event AND the updated match state.
+            # Sending both is intentional: the loser relies on either of them
+            # to switch their UI to the Finished view. If `match_finished` is
+            # dropped (SSE hiccup, reconnection mid-broadcast, etc.) the
+            # subsequent `state` event still carries winner_user_id + the
+            # new state and the frontend falls back to deriving the winner
+            # from the players list.
             await _broadcast_room_event(match["room_id"], {
                 "type": "match_finished",
                 "winner": req.userId,
                 "reason": win_reason,
             })
+            try:
+                updated_rows = await _sb_select(
+                    "onevone_matches", f"id=eq.{match_id}&select=*&limit=1"
+                )
+                if updated_rows:
+                    await _broadcast_room_event(match["room_id"], {
+                        "type": "state",
+                        "match": _serialize_match(updated_rows[0]),
+                    })
+            except Exception as _e:
+                print(f"[onevone] post-win state broadcast failed: {_e}")
             return {
                 "correct": True,
                 "won": True,

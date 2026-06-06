@@ -1,8 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { Copy, Check, Swords, Users, Shield, Crosshair, ChevronLeft, Loader2, Shuffle, ListChecks, X, ArrowRight, Lock } from 'lucide-react';
+import { Copy, Check, Swords, Users, Shield, Crosshair, ChevronLeft, Loader2, Shuffle, ListChecks, X, ArrowRight, Lock, Clock } from 'lucide-react';
 import { BlueTeamIcon, RedTeamIcon } from './TeamIcons';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
+
+// Configurable match length — must match backend MAIN_DURATION_OPTIONS
+const DURATION_OPTIONS: { minutes: number; label: string; seconds: number }[] = [
+  { minutes: 5,  label: '5 دقائق',  seconds: 300 },
+  { minutes: 10, label: '10 دقائق', seconds: 600 },
+  { minutes: 15, label: '15 دقيقة', seconds: 900 },
+  { minutes: 20, label: '20 دقيقة', seconds: 1200 },
+  { minutes: 25, label: '25 دقيقة', seconds: 1500 },
+  { minutes: 30, label: '30 دقيقة', seconds: 1800 },
+];
 
 interface User {
   id: string;
@@ -17,6 +27,7 @@ interface Room {
   status: 'open' | 'closed' | 'abandoned';
   challenge_source: string;
   owner_user_id: string;
+  main_duration_s?: number;
 }
 
 interface Player {
@@ -52,6 +63,8 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
   const [teamRole, setTeamRole] = useState<'red' | 'blue'>('red');
   const [challengeMode, setChallengeMode] = useState<'random' | 'manual'>('random');
   const [pickedChallenge, setPickedChallenge] = useState<DBChallenge | null>(null);
+  // Selected match length (minutes). Mirrors backend MAIN_DURATION_OPTIONS.
+  const [durationMin, setDurationMin] = useState<number>(10);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
 
@@ -149,6 +162,9 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
     setCreateError('');
     try {
       const challengeId = pickedChallenge?.id ? pickedChallenge.id.trim() : '';
+      // Resolve the selected duration in seconds (server validates against MAIN_DURATION_OPTIONS)
+      const durationOpt = DURATION_OPTIONS.find((o) => o.minutes === durationMin);
+      const mainDurationS = durationOpt ? durationOpt.seconds : 600;
       const res = await fetch(`${API_URL}/onevone/rooms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -157,6 +173,7 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
           displayName: user.name || user.email,
           teamRole,
           challengeSource: challengeMode === 'random' ? 'random' : `manual:${challengeId}`,
+          mainDurationS,
         }),
       });
       if (!res.ok) {
@@ -301,6 +318,9 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
                   {createdRoom.challenge_source === 'random'
                     ? 'سيتم اختيار التحدي بشكل عشوائي عند البدء'
                     : `تحدي يدوي: ${createdRoom.challenge_source.split(':')[1] || '—'}`}
+                  {createdRoom.main_duration_s
+                    ? ` • مدة التحدي: ${DURATION_OPTIONS.find((o) => o.seconds === createdRoom.main_duration_s)?.label || `${createdRoom.main_duration_s / 60} دقيقة`}`
+                    : ''}
                 </span>
               </div>
 
@@ -432,6 +452,31 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
                   </button>
                 </div>
                 <small className="onevone-hint">سيُلزم خصمك بنفس الفريق عند الانضمام.</small>
+              </div>
+
+              <div className="onevone-field">
+                <label>مدة التحدي</label>
+                <div className="onevone-duration-pick">
+                  {DURATION_OPTIONS.map((opt) => {
+                    const isActive = durationMin === opt.minutes;
+                    return (
+                      <button
+                        key={opt.minutes}
+                        type="button"
+                        className={`onevone-duration-btn ${isActive ? 'is-active' : ''}`}
+                        onClick={() => setDurationMin(opt.minutes)}
+                        style={{
+                          '--btn-accent': teamRole === 'red' ? '#ef4444' : '#3b82f6',
+                        } as React.CSSProperties}
+                      >
+                        <Clock size={14} />
+                        <strong className="onevone-duration-value">{opt.minutes}</strong>
+                        <span className="onevone-duration-unit">{opt.label.replace(/^\d+\s/, '')}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <small className="onevone-hint">سيبدأ العد التنازلي فور بدء المباراة بناءً على الوقت المحدد، وينتهي التحدي عند انتهاء الوقت.</small>
               </div>
 
               <div className="onevone-field">

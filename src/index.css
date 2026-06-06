@@ -11901,6 +11901,47 @@ body {
   color: #10b981;
 }
 
+/* duration picker — 6 buttons in a 3x2 grid for the room settings */
+.onevone-duration-pick {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+@media (max-width: 480px) {
+  .onevone-duration-pick { grid-template-columns: repeat(2, 1fr); }
+}
+.onevone-duration-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(243, 241, 236, 0.7);
+  border-radius: 10px;
+  padding: 10px 6px;
+  font-family: var(--font-arabic);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all 0.2s ease;
+  position: relative;
+}
+.onevone-duration-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #f3f1ec;
+}
+.onevone-duration-btn svg { opacity: 0.6; flex-shrink: 0; }
+.onevone-duration-btn.is-active {
+  background: color-mix(in srgb, var(--btn-accent, #10b981) 12%, transparent);
+  border-color: var(--btn-accent, #10b981);
+  color: var(--btn-accent, #10b981);
+  box-shadow: 0 0 0 1px var(--btn-accent, #10b981) inset;
+}
+.onevone-duration-btn.is-active svg { opacity: 1; }
+.onevone-duration-value {
+  font-size: 15px; font-weight: 700; color: inherit;
+}
+.onevone-duration-unit {
+  font-size: 12px; font-weight: 500; color: inherit; opacity: 0.85;
+}
+
 .onevone-input {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
