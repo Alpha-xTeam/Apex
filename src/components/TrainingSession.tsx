@@ -107,10 +107,21 @@ interface TrainingSessionProps {
   teamRole?: 'red' | 'blue';
   challengeId?: string;
   onBack: () => void;
+  /**
+   * Optional 1v1 hook. Fires only when the user SOLVES the challenge
+   * (local eval reports correct=true), with the same payload the
+   * server-side /api/onevone/matches/{id}/submit endpoint expects.
+   *   - Red team:                  the raw flag string
+   *   - Web exploitation:          the payload string
+   *   - Code fixing (blue):        { fixedCode }
+   *   - Log analysis (blue):       { attackType, attackerIp, timestamp, ioc, explanation? }
+   *   - VS Code "evaluate" (blue): { fixedCode }  (the editor's current content)
+   */
+  onChallengeSolved?: (payload: any) => void;
 }
 
 export const TrainingSession: React.FC<TrainingSessionProps> = ({
-  moduleTitle, categoryId, pathId, moduleId, teamRole = 'red', challengeId, onBack,
+  moduleTitle, categoryId, pathId, moduleId, teamRole = 'red', challengeId, onBack, onChallengeSolved,
 }) => {
   const [training, setTraining] = useState<TrainingData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -738,6 +749,11 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
     setIsCorrect(correct);
     setShowResult(true);
 
+    if (correct) {
+      // Notify the 1v1 wrapper (if any) so the server can claim the win
+      onChallengeSolved?.(answer.trim());
+    }
+
     if (correct && training) {
       try {
         const raw = localStorage.getItem('cyberarena_session') || '{}';
@@ -812,6 +828,11 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         setIsCorrect(true);
         setShowResult(true);
         setEvalResult({ secured: true, feedback: data.message || 'تم استغلال الثغرة بنجاح! 🎉' });
+
+        // Notify the 1v1 wrapper (if any) so the server can claim the win.
+        // The 1v1 endpoint does a basic substring check against flag_preview
+        // and exploits_accepted — it expects a plain string payload.
+        onChallengeSolved?.(answer.trim());
 
         // Add XP
         const raw = localStorage.getItem('cyberarena_session') || '{}';
@@ -915,6 +936,9 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         setIsCorrect(true);
         setShowResult(true);
 
+        // Notify the 1v1 wrapper (if any) so the server can claim the win
+        onChallengeSolved?.({ fixedCode });
+
         // Add XP
         const raw = localStorage.getItem('cyberarena_session') || '{}';
         const session = JSON.parse(raw);
@@ -992,6 +1016,15 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
       if (result.passed) {
         setIsCorrect(true);
         setShowResult(true);
+
+        // Notify the 1v1 wrapper (if any) so the server can claim the win
+        onChallengeSolved?.({
+          attackType: data.attackType,
+          attackerIp: data.attackerIp,
+          timestamp: data.timestamp,
+          ioc: data.ioc,
+          explanation: data.explanation,
+        });
 
         const raw = localStorage.getItem('cyberarena_session') || '{}';
         const session = JSON.parse(raw);
@@ -1072,6 +1105,10 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
       if (result.secured) {
         setIsCorrect(true);
         setShowResult(true);
+
+        // Notify the 1v1 wrapper (if any) so the server can claim the win
+        onChallengeSolved?.({ fixedCode: userCode });
+
         const raw = localStorage.getItem('cyberarena_session') || '{}';
         const session = JSON.parse(raw);
         const userData = session.user || session;

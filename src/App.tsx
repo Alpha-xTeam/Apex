@@ -16,9 +16,11 @@ import { TrainingSession } from './components/TrainingSession';
 import { Leaderboard } from './components/Leaderboard';
 import { LegalPage } from './components/LegalPage';
 import { Intro, hasSeenIntro } from './components/Intro';
+import { OneVOneLobby } from './components/OneVOneLobby';
+import { OneVOneArena } from './components/OneVOneArena';
 import { useScrollReveal } from './hooks/useScrollReveal';
 
-type Page = 'home' | 'auth' | 'dashboard' | 'profile' | 'training-path' | 'training-session' | 'leaderboard' | 'legal';
+type Page = 'home' | 'auth' | 'dashboard' | 'profile' | 'training-path' | 'training-session' | 'leaderboard' | 'legal' | 'onevone-lobby' | 'onevone-arena';
 
 export function navigateTo(page: Page) {
   window.dispatchEvent(new CustomEvent('apex:navigate', { detail: page }));
@@ -72,6 +74,9 @@ function App() {
     moduleTitle: '',
     teamRole: 'blue',
   });
+
+  // 1v1 navigation state (separate to keep the existing `nav` shape intact)
+  const [onevone, setOnevone] = useState<{ code: string; room: any } | null>(null);
 
   const handleAuth = () => {
     const raw = localStorage.getItem('apex_session');
@@ -140,6 +145,7 @@ function App() {
           onViewProfile={() => setPage('profile')}
           onViewLeaderboard={() => setPage('leaderboard')}
           onLogout={handleLogout}
+          onOpenOneVOne={() => setPage('onevone-lobby')}
         />
       )}
 
@@ -173,6 +179,29 @@ function App() {
           teamRole={nav.teamRole}
           challengeId={nav.challengeId}
           onBack={() => setPage('dashboard')}
+        />
+      )}
+
+      {page === 'onevone-lobby' && user && (
+        <OneVOneLobby
+          user={user}
+          onEnterArena={(code, room) => {
+            setOnevone({ code, room });
+            setPage('onevone-arena');
+          }}
+          onBack={() => setPage('dashboard')}
+        />
+      )}
+
+      {page === 'onevone-arena' && user && onevone && (
+        <OneVOneArena
+          user={user}
+          code={onevone.code}
+          room={onevone.room}
+          onBack={() => {
+            setOnevone(null);
+            setPage('onevone-lobby');
+          }}
         />
       )}
     </>

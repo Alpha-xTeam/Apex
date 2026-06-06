@@ -2097,6 +2097,19 @@ async def evaluate_log_analysis(req: LogAnalysisEvaluateRequest, background_task
     }
 
 
+# --------------------------------------------------------------------------- #
+# 1v1 Mode router (reuses existing challenge tables and evaluators)
+# MUST be mounted BEFORE `if __name__ == "__main__":` so the routes are
+# registered before uvicorn starts serving traffic.
+# --------------------------------------------------------------------------- #
+try:
+    from onevone_router import router as onevone_router
+    app.include_router(onevone_router)
+    print("[main] 1v1 router mounted at /api/onevone")
+except Exception as _e:
+    print(f"[main] could not mount 1v1 router: {_e}")
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8090))

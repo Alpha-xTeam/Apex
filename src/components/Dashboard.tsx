@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   ChevronLeft,
   Trophy,
+  Swords,
 } from 'lucide-react';
 import { BlueTeamIcon, RedTeamIcon } from './TeamIcons';
 
@@ -50,9 +51,10 @@ interface DashboardProps {
   onViewProfile: () => void;
   onViewLeaderboard: () => void;
   onLogout: () => void;
+  onOpenOneVOne?: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, onViewProfile, onViewLeaderboard, onLogout }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, onViewProfile, onViewLeaderboard, onLogout, onOpenOneVOne }) => {
   const [xp, setXp] = useState(0);
   const [completed, setCompleted] = useState(0);
 
@@ -232,79 +234,110 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
           {loading ? (
             <div className="dash-loading">جاري تحميل التحديات...</div>
           ) : (
-            <div className="dash-teams-grid">
-              {teamsData.map((team) => (
-                <section
-                  key={team.id}
-                  className="dash-team-card"
-                  style={{ '--team-accent': team.accent, '--team-accent-soft': team.accentSoft } as React.CSSProperties}
-                >
-                  <div className="dash-team-header">
-                    <div className="dash-team-icon">{team.icon}</div>
-                    <div>
-                      <h3 className="dash-team-title">{team.title}</h3>
-                      <span className="dash-team-subtitle">{team.subtitle}</span>
-                    </div>
-                  </div>
-                  <p className="dash-team-desc">{team.desc}</p>
-
-                  {activeSection && activeSection.teamId === team.id ? (
-                    <div className="dash-team-content">
-                      <button onClick={closeSection} className="dash-back-btn">
-                        <ArrowLeft size={14} />
-                        <span>العودة للأقسام</span>
-                      </button>
-                      <h4 className="dash-content-title">{activeSection.category}</h4>
-                      <div className="dash-challenges-list">
-                        {activeSection.challenges.map((challenge) => (
-                          <button
-                            key={challenge.id}
-                            className="dash-challenge-item"
-                            onClick={() => onSelectChallenge(
-                              challenge.category, challenge.path, challenge.module,
-                              challenge.title, team.id as 'red' | 'blue', challenge.id
-                            )}
-                          >
-                            <div className="dash-challenge-info">
-                              <span className="dash-challenge-title">{challenge.title}</span>
-                              <span className="dash-challenge-meta">
-                                {challenge.module} • <strong>{challenge.difficulty}</strong>
-                              </span>
-                            </div>
-                            <div className="dash-challenge-reward">
-                              <span className="dash-challenge-xp">+{challenge.xpReward}</span>
-                              <ChevronLeft size={16} />
-                            </div>
-                          </button>
-                        ))}
+            <>
+              <div className="dash-teams-grid">
+                {teamsData.map((team) => (
+                  <section
+                    key={team.id}
+                    className="dash-team-card"
+                    style={{ '--team-accent': team.accent, '--team-accent-soft': team.accentSoft } as React.CSSProperties}
+                  >
+                    <div className="dash-team-header">
+                      <div className="dash-team-icon">{team.icon}</div>
+                      <div>
+                        <h3 className="dash-team-title">{team.title}</h3>
+                        <span className="dash-team-subtitle">{team.subtitle}</span>
                       </div>
                     </div>
-                  ) : (
-                    <div className="dash-categories-list">
-                      {Object.keys(team.groups).map(category => {
-                        const challenges = team.groups[category];
-                        return (
-                          <button
-                            key={category}
-                            className="dash-category-item"
-                            onClick={() => openSection(team.id, category, challenges)}
-                          >
-                            <div className="dash-category-info">
-                              <Lock size={16} className="dash-category-icon-sm" />
-                              <span>{category}</span>
-                            </div>
-                            <span className="dash-category-count">{challenges.length}</span>
-                          </button>
-                        );
-                      })}
-                      {Object.keys(team.groups).length === 0 && (
-                        <div className="dash-empty-state">لا توجد تحديات متوفرة حالياً</div>
-                      )}
+                    <p className="dash-team-desc">{team.desc}</p>
+
+                    {activeSection && activeSection.teamId === team.id ? (
+                      <div className="dash-team-content">
+                        <button onClick={closeSection} className="dash-back-btn">
+                          <ArrowLeft size={14} />
+                          <span>العودة للأقسام</span>
+                        </button>
+                        <h4 className="dash-content-title">{activeSection.category}</h4>
+                        <div className="dash-challenges-list">
+                          {activeSection.challenges.map((challenge) => (
+                            <button
+                              key={challenge.id}
+                              className="dash-challenge-item"
+                              onClick={() => onSelectChallenge(
+                                challenge.category, challenge.path, challenge.module,
+                                challenge.title, team.id as 'red' | 'blue', challenge.id
+                              )}
+                            >
+                              <div className="dash-challenge-info">
+                                <span className="dash-challenge-title">{challenge.title}</span>
+                                <span className="dash-challenge-meta">
+                                  {challenge.module} • <strong>{challenge.difficulty}</strong>
+                                </span>
+                              </div>
+                              <div className="dash-challenge-reward">
+                                <span className="dash-challenge-xp">+{challenge.xpReward}</span>
+                                <ChevronLeft size={16} />
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="dash-categories-list">
+                        {Object.keys(team.groups).map(category => {
+                          const challenges = team.groups[category];
+                          return (
+                            <button
+                              key={category}
+                              className="dash-category-item"
+                              onClick={() => openSection(team.id, category, challenges)}
+                            >
+                              <div className="dash-category-info">
+                                <Lock size={16} className="dash-category-icon-sm" />
+                                <span>{category}</span>
+                              </div>
+                              <span className="dash-category-count">{challenges.length}</span>
+                            </button>
+                          );
+                        })}
+                        {Object.keys(team.groups).length === 0 && (
+                          <div className="dash-empty-state">لا توجد تحديات متوفرة حالياً</div>
+                        )}
+                      </div>
+                    )}
+                  </section>
+                ))}
+              </div>
+
+              {onOpenOneVOne && (
+                <section
+                  className="dash-team-card onevone-dash-card"
+                  style={{ '--team-accent': '#10b981', '--team-accent-soft': 'rgba(16,185,129,0.08)' } as React.CSSProperties}
+                  onClick={onOpenOneVOne}
+                >
+                  <div className="dash-team-header">
+                    <div className="dash-team-icon" style={{ background: 'rgba(16,185,129,0.08)' }}>
+                      <Swords size={36} color="#10b981" />
                     </div>
-                  )}
+                    <div>
+                      <h3 className="dash-team-title">وضع 1 ضد 1</h3>
+                      <span className="dash-team-subtitle">منافسة مباشرة</span>
+                    </div>
+                  </div>
+                  <p className="dash-team-desc">
+                    أنشئ غرفة وشارك الرمز مع خصمك. كلاكما يحصل على نفس التحدي — الأسرع يفوز.
+                  </p>
+                  <div className="onevone-dash-meta">
+                    <span className="onevone-dash-pill">⚔️ تنافس في الوقت الفعلي</span>
+                    <span className="onevone-dash-pill">⏱️ مؤقت + وقت إضافي</span>
+                    <span className="onevone-dash-pill">🏆 أول فائز</span>
+                  </div>
+                  <div className="onevone-dash-cta">
+                    ابدأ الآن <ChevronLeft size={14} />
+                  </div>
                 </section>
-              ))}
-            </div>
+              )}
+            </>
           )}
 
           {/* Tip Section */}

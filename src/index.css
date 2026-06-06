@@ -11760,3 +11760,524 @@ body {
   }
 }
 
+
+/* ============================================================
+   1v1 MODE — appended cleanly without changing existing styles
+   Reuses the platform's design tokens: #0a0a0a, #f3f1ec,
+   rgba(255,255,255,0.04) cards, #10b981 / #ef4444 / #3b82f6
+   accents, IBM Plex Sans Arabic, 12-16px radii.
+   ============================================================ */
+
+.onevone-page {
+  min-height: 100vh;
+  background: #0a0a0a;
+  color: #f3f1ec;
+  font-family: var(--font-arabic);
+  position: relative;
+  overflow-x: hidden;
+}
+
+.onevone-page .dash-header { background: rgba(10, 10, 10, 0.85); }
+
+/* hero */
+.onevone-hero {
+  text-align: center;
+  padding: 24px 0 8px;
+  animation: fadeInUp 0.5s ease both;
+}
+.onevone-hero-icon {
+  width: 72px; height: 72px; margin: 0 auto 16px;
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+}
+.onevone-hero h1 {
+  font-size: 28px; font-weight: 800; color: #f3f1ec;
+  margin: 0 0 8px 0; letter-spacing: -0.5px;
+}
+.onevone-hero p {
+  font-size: 14px; color: rgba(243, 241, 236, 0.55);
+  max-width: 540px; margin: 0 auto; line-height: 1.7;
+}
+
+/* home picker (create / join) */
+.onevone-pick-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  animation: fadeInUp 0.6s ease both;
+}
+@media (max-width: 640px) { .onevone-pick-grid { grid-template-columns: 1fr; } }
+
+.onevone-pick-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 24px;
+  color: #f3f1ec;
+  font-family: var(--font-arabic);
+  text-align: right;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+.onevone-pick-card:hover {
+  background: rgba(16, 185, 129, 0.06);
+  border-color: rgba(16, 185, 129, 0.3);
+  transform: translateY(-2px);
+}
+.onevone-pick-card svg { color: #10b981; }
+.onevone-pick-card h3 { margin: 0; font-size: 17px; font-weight: 700; }
+.onevone-pick-card p { margin: 0; font-size: 13px; color: rgba(243,241,236,0.55); line-height: 1.6; }
+
+/* form card (create-room + join-room) */
+.onevone-form-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 24px;
+  display: flex; flex-direction: column; gap: 18px;
+  animation: fadeIn 0.3s ease both;
+}
+.onevone-form-head {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.onevone-form-head h2 { margin: 0; font-size: 18px; font-weight: 700; color: #f3f1ec; }
+.onevone-icon-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(243, 241, 236, 0.55);
+  width: 30px; height: 30px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.2s ease;
+}
+.onevone-icon-btn:hover { color: #f3f1ec; background: rgba(255, 255, 255, 0.08); }
+
+.onevone-field { display: flex; flex-direction: column; gap: 8px; }
+.onevone-field label {
+  font-size: 12px; font-weight: 600; color: rgba(243, 241, 236, 0.55);
+}
+.onevone-hint { font-size: 11px; color: rgba(243, 241, 236, 0.4); }
+
+.onevone-team-pick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (max-width: 640px) { .onevone-team-pick { grid-template-columns: 1fr; } }
+
+.onevone-team-card {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 18px 12px;
+  color: #f3f1ec;
+  font-family: var(--font-arabic);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+.onevone-team-card strong { font-size: 14px; font-weight: 700; }
+.onevone-team-card span { font-size: 11px; color: rgba(243, 241, 236, 0.55); }
+.onevone-team-card.is-active {
+  background: var(--team-accent-soft, rgba(16,185,129,0.08));
+  border-color: var(--team-accent, #10b981);
+  box-shadow: 0 0 0 1px var(--team-accent, #10b981) inset;
+}
+
+.onevone-source-pick { display: flex; gap: 8px; flex-wrap: wrap; }
+.onevone-source-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(243, 241, 236, 0.7);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-family: var(--font-arabic);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all 0.2s ease;
+}
+.onevone-source-btn.is-active {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #10b981;
+}
+
+.onevone-input {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f3f1ec;
+  font-family: var(--font-arabic);
+  font-size: 14px; font-weight: 500;
+  padding: 10px 14px;
+  border-radius: 10px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+.onevone-input:focus { border-color: #10b981; background: rgba(16,185,129,0.05); }
+.onevone-input-big { padding: 14px 18px; font-size: 22px; }
+
+.onevone-primary-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--btn-accent, #10b981);
+  color: #fff;
+  font-family: var(--font-arabic);
+  font-size: 14px; font-weight: 700;
+  padding: 12px 18px;
+  border: none; border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.onevone-primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.onevone-primary-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.onevone-error {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+/* created-room card */
+.onevone-room-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 24px;
+  display: flex; flex-direction: column; gap: 18px;
+  animation: fadeIn 0.3s ease both;
+}
+.onevone-room-head { display: flex; align-items: center; gap: 12px; }
+
+.onevone-code-block { display: flex; flex-direction: column; gap: 8px; }
+.onevone-code-label { font-size: 12px; color: rgba(243, 241, 236, 0.55); font-weight: 600; }
+.onevone-code-row {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px dashed rgba(16, 185, 129, 0.4);
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+.onevone-code {
+  flex: 1;
+  font-family: 'Courier New', monospace;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.4em;
+  color: #10b981;
+  text-align: center;
+  direction: ltr;
+}
+.onevone-copy-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
+  font-family: var(--font-arabic);
+  font-size: 12px; font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.onevone-copy-btn:hover { background: rgba(16, 185, 129, 0.18); }
+.onevone-code-hint { font-size: 11px; color: rgba(243, 241, 236, 0.4); }
+
+.onevone-players { display: flex; flex-direction: column; gap: 8px; }
+.onevone-players-head {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; color: rgba(243, 241, 236, 0.7); font-weight: 600;
+}
+.onevone-player-row {
+  display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center;
+}
+.onevone-player {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: #f3f1ec;
+}
+.onevone-player.is-empty { opacity: 0.55; border-style: dashed; }
+.onevone-player.is-ready { border-color: rgba(16, 185, 129, 0.35); }
+.onevone-player strong { display: block; font-size: 14px; font-weight: 700; }
+.onevone-player span { display: block; font-size: 11px; color: rgba(243, 241, 236, 0.5); }
+.onevone-player-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: rgba(243, 241, 236, 0.25); flex-shrink: 0;
+}
+.onevone-player.is-ready .onevone-player-dot {
+  background: #10b981; box-shadow: 0 0 8px #10b981;
+}
+.onevone-vs {
+  font-size: 12px; font-weight: 700; color: rgba(243, 241, 236, 0.5);
+  text-align: center;
+}
+
+.onevone-start-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--btn-accent, #10b981);
+  color: #fff;
+  font-family: var(--font-arabic);
+  font-size: 15px; font-weight: 700;
+  padding: 14px 20px;
+  border: none; border-radius: 12px;
+  cursor: pointer; transition: all 0.2s ease;
+}
+.onevone-start-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.onevone-start-btn:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
+
+.onevone-waiting-note {
+  text-align: center; color: rgba(243, 241, 236, 0.55); font-size: 13px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.onevone-waiting-spinner {
+  display: flex; align-items: center; justify-content: center;
+  color: #10b981; padding: 12px 0;
+}
+
+.onevone-mode-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 5px 10px;
+  border-radius: 999px;
+}
+
+.onevone-spin { animation: onevone-spin-anim 1s linear infinite; }
+@keyframes onevone-spin-anim {
+  to { transform: rotate(360deg); }
+}
+
+/* ARENA */
+.onevone-arena-header { padding-bottom: 8px; }
+.onevone-hud {
+  display: flex; align-items: center; justify-content: center; gap: 18px;
+  padding: 8px 0 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.25);
+}
+.onevone-hud-player {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: #f3f1ec; font-size: 13px; font-weight: 600;
+}
+.onevone-hud-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: rgba(243, 241, 236, 0.3);
+}
+.onevone-hud-dot.is-self {
+  background: #10b981; box-shadow: 0 0 8px #10b981;
+}
+.onevone-hud-vs {
+  font-size: 11px; font-weight: 700; color: rgba(243, 241, 236, 0.45);
+  text-transform: uppercase; letter-spacing: 0.1em;
+}
+
+.onevone-timer {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px; font-weight: 600;
+}
+.onevone-timer strong { font-size: 14px; }
+
+/* countdown */
+.onevone-countdown-page { display: flex; flex-direction: column; min-height: 100vh; }
+.onevone-countdown {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  font-size: clamp(120px, 22vw, 220px);
+  font-weight: 900; color: #10b981;
+  text-shadow: 0 0 40px rgba(16, 185, 129, 0.5);
+  animation: countdown-pop 0.6s ease both;
+}
+@keyframes countdown-pop {
+  0%   { transform: scale(0.4); opacity: 0; }
+  60%  { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+/* result modal */
+.onevone-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.onevone-modal {
+  background: #151520;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 32px;
+  max-width: 420px; width: calc(100% - 32px);
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  text-align: center;
+  animation: fadeInUp 0.4s ease both;
+}
+.onevone-modal-icon { display: flex; }
+.onevone-modal h2 { margin: 0; font-size: 22px; font-weight: 800; color: #f3f1ec; }
+.onevone-modal p { margin: 0; font-size: 14px; color: rgba(243, 241, 236, 0.7); line-height: 1.6; }
+.onevone-modal-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+/* Dashboard 1v1 entry card */
+.onevone-dash-card {
+  cursor: pointer;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.06) 0%, rgba(16, 185, 129, 0.015) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  margin-top: 4px;
+}
+.onevone-dash-card:hover {
+  border-color: rgba(16, 185, 129, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(16, 185, 129, 0.1);
+}
+.onevone-dash-meta {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.onevone-dash-pill {
+  font-size: 11px; font-weight: 600; color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 4px 10px; border-radius: 999px;
+}
+.onevone-dash-cta {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 4px;
+  font-size: 13px; font-weight: 700; color: #10b981;
+}
+
+/* minor responsive tweaks */
+@media (max-width: 640px) {
+  .onevone-room-card { padding: 18px; }
+  .onevone-code { font-size: 22px; }
+  .onevone-player-row { grid-template-columns: 1fr; }
+  .onevone-vs { padding: 4px 0; }
+  .onevone-hud { flex-wrap: wrap; gap: 10px; }
+}
+
+/* ============================================================
+   1v1 Challenge Browser — categories + challenges picker
+   Reuses the Dashboard's two-level visual pattern
+   ============================================================ */
+.onevone-browser {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex; flex-direction: column; gap: 10px;
+  animation: fadeIn 0.25s ease both;
+}
+.onevone-browser-label,
+.onevone-browser-title {
+  margin: 0; font-size: 13px; font-weight: 700;
+}
+.onevone-browser-loading,
+.onevone-browser-empty {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: rgba(243, 241, 236, 0.55); font-size: 13px;
+  padding: 14px 0;
+  text-align: center;
+  justify-content: center;
+}
+.onevone-browser-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: none;
+  color: rgba(243, 241, 236, 0.55);
+  font-size: 12px; font-weight: 500;
+  cursor: pointer; padding: 0;
+  font-family: var(--font-arabic);
+  align-self: flex-start;
+  transition: color 0.2s ease;
+}
+.onevone-browser-back:hover { color: #f3f1ec; }
+
+.onevone-browser-cats { display: flex; flex-direction: column; gap: 6px; }
+.onevone-browser-cat {
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-family: var(--font-arabic);
+  font-size: 13px; font-weight: 500;
+  color: #f3f1ec;
+  text-align: right;
+  transition: all 0.2s ease;
+}
+.onevone-browser-cat:hover {
+  background: var(--team-accent-soft, rgba(255,255,255,0.05));
+  border-color: var(--team-accent, rgba(255,255,255,0.2));
+  transform: translateX(-2px);
+}
+.onevone-browser-cat-info { display: inline-flex; align-items: center; gap: 8px; }
+.onevone-browser-cat-icon { color: var(--team-accent, rgba(243, 241, 236, 0.55)); }
+.onevone-browser-cat-count {
+  font-size: 11px; font-weight: 700;
+  color: var(--team-accent, rgba(243, 241, 236, 0.55));
+  background: var(--team-accent-soft, rgba(255, 255, 255, 0.05));
+  padding: 2px 10px; border-radius: 999px;
+  min-width: 28px; text-align: center;
+}
+
+.onevone-browser-list {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 260px; overflow-y: auto;
+  padding-left: 4px;
+}
+.onevone-browser-list::-webkit-scrollbar { width: 6px; }
+.onevone-browser-list::-webkit-scrollbar-track { background: transparent; }
+.onevone-browser-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1); border-radius: 999px;
+}
+.onevone-browser-item {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-family: var(--font-arabic);
+  text-align: right;
+  transition: all 0.2s ease;
+  gap: 10px;
+}
+.onevone-browser-item:hover {
+  background: var(--team-accent-soft, rgba(255, 255, 255, 0.05));
+  border-color: var(--team-accent, rgba(255, 255, 255, 0.2));
+}
+.onevone-browser-item.is-picked {
+  background: var(--team-accent-soft, rgba(16, 185, 129, 0.12));
+  border-color: var(--team-accent, #10b981);
+  box-shadow: 0 0 0 1px var(--team-accent, #10b981) inset;
+}
+.onevone-browser-item-info {
+  display: flex; flex-direction: column; gap: 3px;
+  min-width: 0; flex: 1;
+}
+.onevone-browser-item-title {
+  font-size: 13px; font-weight: 600; color: #f3f1ec;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.onevone-browser-item-meta {
+  font-size: 11px; font-weight: 500; color: rgba(243, 241, 236, 0.55);
+}
+.onevone-browser-item-reward { color: var(--team-accent, #10b981); flex-shrink: 0; }
+.onevone-browser-xp {
+  font-size: 12px; font-weight: 700;
+  background: var(--team-accent-soft, rgba(255,255,255,0.05));
+  padding: 3px 10px; border-radius: 999px;
+}

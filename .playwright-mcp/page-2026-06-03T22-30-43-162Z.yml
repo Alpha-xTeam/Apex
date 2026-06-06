@@ -1,0 +1,302 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - img [ref=e7]
+      - generic [ref=e14]:
+        - generic [ref=e15]: CyberArena
+        - generic [ref=e16]: ®
+    - paragraph [ref=e17]: أهلاً بك في عالم الأمن
+  - navigation [ref=e22]:
+    - generic [ref=e23]:
+      - link "CyberArena ®" [ref=e24] [cursor=pointer]:
+        - /url: /
+        - text: CyberArena
+        - superscript [ref=e25]: ®
+      - generic [ref=e26]:
+        - link "من نحن" [ref=e27] [cursor=pointer]:
+          - /url: "#about"
+        - link "خدماتنا" [ref=e28] [cursor=pointer]:
+          - /url: "#services"
+        - link "أعمالنا" [ref=e29] [cursor=pointer]:
+          - /url: "#work"
+        - link "تواصل" [ref=e30] [cursor=pointer]:
+          - /url: "#contact"
+      - generic [ref=e31]:
+        - generic [ref=e34]: متاح — ٩:٠٠م — ٢٣ يونيو ٢٠٢٦
+        - button "تسجيل دخول" [ref=e35] [cursor=pointer]:
+          - img [ref=e36]
+          - generic [ref=e39]: تسجيل دخول
+  - generic [ref=e40]:
+    - generic [ref=e41]:
+      - generic [ref=e42]:
+        - generic [ref=e43]:
+          - generic [ref=e44]: ◆
+          - generic [ref=e45]: منصة تدريب الأمن السيبراني
+        - generic [ref=e46]:
+          - generic [ref=e48]: متاح الآن
+          - generic [ref=e49]: •
+          - generic [ref=e50]: 1:30 AM — 4 June, 2026
+      - generic [ref=e51]:
+        - generic:
+          - generic:
+            - generic:
+              - generic: "01"
+              - generic: "10"
+              - generic: "11"
+              - generic: "01"
+            - img
+            - generic: "01001110"
+            - generic: "10110011"
+            - generic: SECURE
+        - generic [ref=e52]:
+          - heading "نبدأ من الصفر، لنصنع خبراء الأمن السيبراني." [level=1] [ref=e53]:
+            - generic [ref=e54]: نبدأ من الصفر،
+            - generic [ref=e55]: لنصنع خبراء
+            - generic [ref=e56]: الأمن السيبراني.
+          - generic [ref=e57]:
+            - generic [ref=e58]:
+              - img [ref=e59]
+              - img [ref=e61]
+              - img [ref=e63]
+              - img [ref=e65]
+              - img [ref=e67]
+            - generic [ref=e69]: +٣٠٠٠ متدرب يثق بنا
+          - generic [ref=e70]:
+            - button "ابدأ التدريب المجاني" [ref=e71] [cursor=pointer]:
+              - generic [ref=e72]: ابدأ التدريب المجاني
+              - img [ref=e73]
+            - button "استكشف التحديات" [ref=e76] [cursor=pointer]
+      - generic: CYBERARENA
+      - generic [ref=e77]:
+        - generic [ref=e78]:
+          - generic [ref=e79]: +٥
+          - generic [ref=e80]: سنوات خبرة
+        - generic [ref=e81]:
+          - generic [ref=e82]: بابل
+          - generic [ref=e83]: العراق
+        - link "مرر للأسفل" [ref=e84] [cursor=pointer]:
+          - /url: "#about"
+          - generic [ref=e85]: مرر للأسفل
+          - img [ref=e86]
+    - generic [ref=e89]:
+      - generic [ref=e91]: من نحن
+      - heading "نُمكّن المتدربين من مواجهة تحديات الأمن السيبراني الحقيقية عبر بيئات محاكاة كاملة، يُولّدها الذكاء الاصطناعي ويتولاها خبراء بشريون." [level=2] [ref=e92]
+      - paragraph [ref=e93]: منصتنا ليست مكاناً للتعلم النظري. هي ساحة تدريب حيّة، تتحدى فيها فرقاً افتراضية، تواجه سيناريوهات حقيقية، وتخرج منها بخبرة ميدانية يصعب اكتسابها لسنوات.
+      - generic [ref=e94]:
+        - generic [ref=e95]:
+          - generic [ref=e96]: تابعنا
+          - link "Instagram" [ref=e97] [cursor=pointer]:
+            - /url: https://instagram.com/talpha.dev
+            - img [ref=e98]
+          - link "Telegram" [ref=e101] [cursor=pointer]:
+            - /url: https://t.me/xteam_alpha
+            - img [ref=e102]
+        - link "اعرف المزيد" [ref=e104] [cursor=pointer]:
+          - /url: /auth
+      - generic [ref=e105]:
+        - generic [ref=e106]: صُنع بحب من قبل
+        - generic [ref=e107]:
+          - img "Alpha Team" [ref=e108]
+          - generic [ref=e109]:
+            - generic [ref=e110]: Alpha Team
+            - generic [ref=e111]: نبني حلولاً تقنية بجرأة
+          - generic [ref=e112]:
+            - link "Instagram" [ref=e113] [cursor=pointer]:
+              - /url: https://instagram.com/talpha.dev
+              - img [ref=e114]
+              - generic [ref=e117]: "@talpha.dev"
+            - link "Telegram" [ref=e118] [cursor=pointer]:
+              - /url: https://t.me/xteam_alpha
+              - img [ref=e119]
+              - generic [ref=e121]: "@xteam_alpha"
+      - generic [ref=e122]:
+        - img [ref=e124]
+        - generic [ref=e136]:
+          - heading "فرق افتراضية من ١٢ دولة حول العالم" [level=3] [ref=e137]
+          - paragraph [ref=e138]: يعمل معك متدربون افتراضيون من ثقافات ومستويات متنوعة، يتفاعلون ويتحدون قراراتك لتدريبك على التواصل في بيئات عمل دولية حقيقية.
+    - generic [ref=e140]:
+      - generic [ref=e141]:
+        - generic [ref=e142]: الفكرة الرائدة
+        - heading "كيف نُعيد ابتكار التدريب المهني في الأمن السيبراني." [level=2] [ref=e143]
+      - generic [ref=e144]:
+        - article [ref=e145]:
+          - generic [ref=e146]:
+            - generic [ref=e147]: "01"
+            - generic [ref=e148]: التحليل
+          - heading "تولّد الذكاء الاصطناعي سيناريو" [level=3] [ref=e149]
+          - paragraph [ref=e150]: ينشئ محرك المحاكاة تحدياً أمنياً واقعياً — اختراق خادم، ثغرة صفر-يوم، أو هجوم تصيّد على نطاق واسع — مُفصّلاً بأدوات حقيقية.
+          - link "اعرف المزيد" [ref=e151] [cursor=pointer]:
+            - /url: /auth
+            - generic [ref=e152]: اعرف المزيد
+            - img [ref=e153]
+        - article [ref=e156]:
+          - generic [ref=e157]:
+            - generic [ref=e158]: "02"
+            - generic [ref=e159]: الغمر
+          - heading "تُغمر في قلب الأزمة" [level=3] [ref=e160]
+          - paragraph [ref=e161]: تصبح المسؤول الأول. تتراكم الإشعارات، تتصل فرق افتراضية، ويُفرض عليك ضغط زمني حقيقي لاتخاذ القرار.
+          - link "اعرف المزيد" [ref=e162] [cursor=pointer]:
+            - /url: /auth
+            - generic [ref=e163]: اعرف المزيد
+            - img [ref=e164]
+        - article [ref=e167]:
+          - generic [ref=e168]:
+            - generic [ref=e169]: "03"
+            - generic [ref=e170]: التقييم
+          - heading "تُقيَّم قراراتك بشكل فوري" [level=3] [ref=e171]
+          - paragraph [ref=e172]: يحلل نظامنا خياراتك، يقيس سرعتك ودقتك، ويقدم تقريراً معمّقاً يكشف نقاط القوة والضعف في تفكيرك الأمني.
+          - link "اعرف المزيد" [ref=e173] [cursor=pointer]:
+            - /url: /auth
+            - generic [ref=e174]: اعرف المزيد
+            - img [ref=e175]
+    - generic [ref=e179]:
+      - generic [ref=e180]:
+        - button "Blue Team نحمي" [ref=e181] [cursor=pointer]:
+          - generic [ref=e182]: Blue Team
+          - generic [ref=e183]: نحمي
+        - button "Red Team نختبر" [ref=e184] [cursor=pointer]:
+          - generic [ref=e185]: Red Team
+          - generic [ref=e186]: نختبر
+        - button "DFIR نحلل" [ref=e187] [cursor=pointer]:
+          - generic [ref=e188]: DFIR
+          - generic [ref=e189]: نحلل
+        - button "AppSec نبني" [ref=e190] [cursor=pointer]:
+          - generic [ref=e191]: AppSec
+          - generic [ref=e192]: نبني
+        - button "Leader نُمكّن" [ref=e193] [cursor=pointer]:
+          - generic [ref=e194]: Leader
+          - generic [ref=e195]: نُمكّن
+      - generic [ref=e197]:
+        - generic [ref=e198]:
+          - generic [ref=e199]: Leader
+          - heading "نُمكّن" [level=3] [ref=e200]
+          - paragraph [ref=e201]: خبراء محترفون
+        - generic [ref=e202] [cursor=pointer]:
+          - generic [ref=e203]: استكشف المسار
+          - img [ref=e204]
+    - generic [ref=e208]:
+      - generic [ref=e209]:
+        - generic [ref=e210]: المميزات
+        - heading "أدوات مصممة لتمكينك من قيادة المشهد الأمني بالكامل." [level=2] [ref=e211]
+      - generic [ref=e212]:
+        - article [ref=e213]:
+          - img [ref=e215]
+          - heading "بيئات محاكاة رملية" [level=3] [ref=e218]
+          - paragraph [ref=e219]: تفاعل مع واجهات برمجية حقيقية، خوادم افتراضية، وأدوات اختبار اختراق داخل نظام آمن بالكامل.
+          - img [ref=e221]
+        - article [ref=e224]:
+          - img [ref=e226]
+          - heading "توليد ديناميكي مستمر" [level=3] [ref=e230]
+          - paragraph [ref=e231]: الذكاء الاصطناعي لا يكرر السيناريو مرتين. يتم ضبط التحديات تلقائياً بناءً على مستوى مهاراتك وسرعة تقدمك.
+          - img [ref=e233]
+        - article [ref=e236]:
+          - img [ref=e238]
+          - heading "تحليلات القرارات العميقة" [level=3] [ref=e239]
+          - paragraph [ref=e240]: تقارير بيانية تفصيلية تقيس سرعة ردود أفعالك، دقة خياراتك التقنية، وهدوء تفكيرك أثناء إدارة الضغوط.
+          - img [ref=e242]
+        - article [ref=e245]:
+          - img [ref=e247]
+          - heading "فرق افتراضية تفاعلية" [level=3] [ref=e252]
+          - paragraph [ref=e253]: تواصل مع زملاء ومستثمرين ومديرين افتراضيين يعملون بالذكاء الاصطناعي لمحاكاة اتصالات العمل الحرجة.
+          - img [ref=e255]
+    - generic [ref=e259]:
+      - generic [ref=e264]: رحلة التطور
+      - generic [ref=e267]:
+        - generic [ref=e268]: ⬡
+        - generic: ٠١
+        - heading "التحدي" [level=3] [ref=e269]
+        - paragraph [ref=e270]: تواجه سيناريو تقني غير متوقع — خادم ينهار، ثغرة أمنية، أو نظام يتعطل في أكثر اللحظات حرجاً.
+    - generic [ref=e279]:
+      - generic [ref=e280]:
+        - generic [ref=e282]: أعمالنا
+        - heading "استكشف أبرز التحديات الواقعية التي صممناها لمتدربينا." [level=2] [ref=e283]
+        - paragraph [ref=e284]: حالات حقيقية من سوق العمل، أُعيد بناؤها داخل المنصة بأدوات واقعية وقياسات احترافية.
+      - generic [ref=e285]:
+        - article [ref=e286]:
+          - generic [ref=e287]:
+            - generic [ref=e288]: RED
+            - generic [ref=e289]: "#001"
+          - heading "اختراق خادم شركة اتصالات" [level=3] [ref=e290]
+          - paragraph [ref=e291]: سيناريو هجوم متعدد المراحل على بنية تحتية حرجة، مع تمويه وتلميحات لفريق دفاع متاح للاختبار.
+          - generic [ref=e292]:
+            - generic [ref=e293]: ١٢ تحدياً
+            - generic [ref=e294]: •
+            - generic [ref=e295]: متوسط +
+          - link "ابدأ السيناريو" [ref=e296] [cursor=pointer]:
+            - /url: /auth
+            - generic [ref=e297]: ابدأ السيناريو
+            - img [ref=e298]
+        - article [ref=e301]:
+          - generic [ref=e302]:
+            - generic [ref=e303]: BLUE
+            - generic [ref=e304]: "#002"
+          - heading "احتواء هجوم فدية على مستشفى" [level=3] [ref=e305]
+          - paragraph [ref=e306]: دفاع في الوقت الفعلي ضد Ransomware، مع تواصل مع فرق طبية افتراضية وضغوط إنقاذ أرواح حقيقية.
+          - generic [ref=e307]:
+            - generic [ref=e308]: ١٥ تحدياً
+            - generic [ref=e309]: •
+            - generic [ref=e310]: متقدم
+          - link "ابدأ السيناريو" [ref=e311] [cursor=pointer]:
+            - /url: /auth
+            - generic [ref=e312]: ابدأ السيناريو
+            - img [ref=e313]
+        - article [ref=e316]:
+          - generic [ref=e317]:
+            - generic [ref=e318]: BLUE
+            - generic [ref=e319]: "#003"
+          - heading "تحقيق اختراق منصة بنكية" [level=3] [ref=e320]
+          - paragraph [ref=e321]: تحقيق رقمي جنائي (DFIR) على اختراق حقيقي لأنظمة بنكية، مع روابط وبيانات ملوثة للتتبع.
+          - generic [ref=e322]:
+            - generic [ref=e323]: ١٠ تحديات
+            - generic [ref=e324]: •
+            - generic [ref=e325]: متوسط
+          - link "ابدأ السيناريو" [ref=e326] [cursor=pointer]:
+            - /url: /auth
+            - generic [ref=e327]: ابدأ السيناريو
+            - img [ref=e328]
+  - contentinfo [ref=e331]:
+    - generic [ref=e332]:
+      - generic [ref=e333]:
+        - generic [ref=e334]: تواصل
+        - heading "جاهز لبدء رحلتك في الأمن السيبراني؟" [level=2] [ref=e335]
+        - link "سجّل الدخول للبدأ" [ref=e336] [cursor=pointer]:
+          - /url: /auth
+          - generic [ref=e337]: سجّل الدخول للبدأ
+          - img [ref=e338]
+      - generic [ref=e341]:
+        - generic [ref=e342]:
+          - link "CyberArena ®" [ref=e343] [cursor=pointer]:
+            - /url: /
+            - text: CyberArena
+            - superscript [ref=e344]: ®
+          - paragraph [ref=e345]: منصة تدريب تكنولوجي عبر محاكاة الذكاء الاصطناعي. نعدّك لسوق العمل قبل أن تخطو إليه.
+        - generic [ref=e346]:
+          - heading "المنصة" [level=4] [ref=e347]
+          - link "من نحن" [ref=e348] [cursor=pointer]:
+            - /url: "#about"
+          - link "الفكرة" [ref=e349] [cursor=pointer]:
+            - /url: "#services"
+          - link "المميزات" [ref=e350] [cursor=pointer]:
+            - /url: "#features"
+          - link "أعمالنا" [ref=e351] [cursor=pointer]:
+            - /url: "#work"
+        - generic [ref=e352]:
+          - heading "تواصل" [level=4] [ref=e353]
+          - link "سجّل الدخول" [ref=e354] [cursor=pointer]:
+            - /url: /auth
+        - generic [ref=e355]:
+          - heading "قانوني" [level=4] [ref=e356]
+          - link "سياسة الخصوصية" [ref=e357] [cursor=pointer]:
+            - /url: /legal
+          - link "شروط الاستخدام" [ref=e358] [cursor=pointer]:
+            - /url: /legal
+      - generic [ref=e359]:
+        - generic [ref=e360]:
+          - link "Instagram" [ref=e361] [cursor=pointer]:
+            - /url: https://instagram.com/talpha.dev
+            - img [ref=e362]
+          - link "Telegram" [ref=e365] [cursor=pointer]:
+            - /url: https://t.me/xteam_alpha
+            - img [ref=e366]
+          - img "Alpha Team" [ref=e368]
+        - paragraph [ref=e369]: © 2026 CyberArena. جميع الحقوق محفوظة.
