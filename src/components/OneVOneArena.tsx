@@ -126,12 +126,16 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         if (!res.ok) throw new Error(t.oneVOne.loadRoomErr);
         const data = await res.json();
         if (cancelled) return;
+        console.log('[1v1] init room', { code, hasRoom: !!data.room, hasMatch: !!data.match, match: data.match, players: data.players });
         if (data.room) setLocalRoom(data.room as Room);
         setPlayers(data.players || []);
         playersRef.current = data.players || [];
         if (data.match) {
           setMatch(data.match);
           matchIdRef.current = data.match.id;
+          console.log('[1v1] init: matchIdRef set to', data.match.id, 'state=', data.match.state);
+        } else {
+          console.log('[1v1] init: no match yet (room is in waiting)');
         }
       } catch (e) {
         const err = e as { message?: string };
@@ -139,7 +143,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
       }
     };
     init();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; matchIdRef.current = null; };
   }, [code]);
 
   // ---- 2) SSE for live state ----
@@ -155,10 +159,12 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
     es.onmessage = (e) => {
       try {
         const evt = JSON.parse(e.data);
+        console.log('[1v1] SSE event', evt.type, evt);
         if (evt.type === 'snapshot' || evt.type === 'tick') {
           if (evt.match) {
             setMatch(evt.match);
             matchIdRef.current = evt.match.id;
+            console.log('[1v1] matchIdRef <-', evt.match.id, 'state=', evt.match.state);
           }
           if (evt.players) {
             setPlayers(evt.players);
@@ -167,6 +173,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         } else if (evt.type === 'state' && evt.match) {
           setMatch(evt.match);
           matchIdRef.current = evt.match.id;
+          console.log('[1v1] matchIdRef <-', evt.match.id, 'state=', evt.match.state);
         } else if (evt.type === 'players' && evt.players) {
           setPlayers(evt.players);
           playersRef.current = evt.players;
@@ -178,6 +185,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
           });
         } else if (evt.type === 'match_started' && evt.matchId) {
           matchIdRef.current = evt.matchId;
+          console.log('[1v1] matchIdRef <-', evt.matchId, '(match_started)');
         } else if (evt.type === 'match_finished') {
           // Resolve the winner's display name from the LATEST players list
           // (ref-based, so we don't capture a stale array).
@@ -299,6 +307,8 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
   }, [match?.id, match?.state, training, loadingTraining, hasSignaledReady, user.id]);
 
   const handleLeave = async () => {
+    console.log('[1v1] handleLeave: clearing matchIdRef', { prev: matchIdRef.current });
+    matchIdRef.current = null;
     try {
       await fetch(`${API_URL}/onevone/rooms/${code}/leave`, {
         method: 'POST',
@@ -324,9 +334,11 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         throw new Error(err.detail || t.oneVOne.startErr);
       }
       const data = await res.json();
+      console.log('[1v1] startMatch response', { status: res.status, data });
       if (data.match) {
         setMatch(data.match);
         matchIdRef.current = data.match.id;
+        console.log('[1v1] matchIdRef <-', data.match.id, '(after start)');
       }
     } catch (e) {
       const err = e as { message?: string };
@@ -348,45 +360,57 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
     | { attackType: string; attackerIp: string; timestamp: string; ioc: string; explanation?: string };
 
   const handleChallengeSolved = async (payload: SubmissionPayload) => {
-    if (!match || !matchIdRef.current) return;
-    if (match.state !== 'playing' && match.state !== 'overtime') return;
-    if (isSubmitting1v1) return;
+    if (!match || !matchIdRef.current) {
+      console.warn('[1v1] handleChallengeSolved aborted: missing match or matchIdRef', { match: !!match, matchIdRef: matchIdRef.current });
+      return;
+    }
+    if (match.state !== 'playing' && match.state !== 'overtime') {
+      console.warn('[1v1] handleChallengeSolved aborted: match not active', { state: match.state, matchId: matchIdRef.current });
+      return;
+    }
+    if (isSubmitting1v1) {
+      console.warn('[1v1] handleChallengeSolved aborted: already submitting');
+      return;
+    }
     setIsSubmitting1v1(true);
     setSubmitError('');
     try {
-      // For blue team (code-fixing / log-analysis) the local TrainingSession
-      // AI eval is the source of truth. We send clientVerdict:true so the
-      // server doesn't re-evaluate (the AI verifier is non-deterministic and
-      // routinely disagreed with itself, causing "solved locally but room
-      // never ends"). The server still claims the win atomically via
-      // onevone_claim_win so two concurrent submitters don't double-claim.
       const isBlueTeam = room?.team_role === 'blue';
-      const res = await fetch(`${API_URL}/onevone/matches/${matchIdRef.current}/submit`, {
+      const url = `${API_URL}/onevone/matches/${matchIdRef.current}/submit`;
+      const body = JSON.stringify({
+        userId: user.id,
+        submission: payload,
+        clientVerdict: isBlueTeam ? true : undefined,
+      });
+      console.log('[1v1] handleChallengeSolved: POST', url, { userId: user.id, isBlueTeam, payload, body });
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          submission: payload,
-          clientVerdict: isBlueTeam ? true : undefined,
-        }),
+        body,
       });
-      const data: { won?: boolean; correct?: boolean; winner_id?: string } = await res.json();
+      const raw = await res.text();
+      console.log('[1v1] submit response', { status: res.status, ok: res.ok, raw });
+      let data: { won?: boolean; correct?: boolean; winner_id?: string } = {};
+      try { data = raw ? JSON.parse(raw) : {}; } catch { data = {}; }
       if (data.won) {
         const me = players.find((p) => p.user_id === user.id);
         setWinnerName(me?.display_name || user.name || user.email);
         setDraw(false);
         setShowResultModal(true);
+        matchIdRef.current = null;
       } else if (data.correct) {
-        // raced and lost — the other player already claimed the win
         const opponentId = data.winner_id || players.find((p) => p.user_id !== user.id)?.user_id;
         const opponent = players.find((p) => p.user_id === opponentId);
         setWinnerName(opponent?.display_name || t.oneVOne.genericOpponent);
         setDraw(false);
         setShowResultModal(true);
+        matchIdRef.current = null;
       } else {
-        setSubmitError('خادم الـ 1v1 لم يقبل التسليم. حاول مرة أخرى.');
+        setSubmitError(`خادم الـ 1v1 رفض التسليم (HTTP ${res.status}). حاول مرة أخرى.`);
+        console.warn('[1v1] submit rejected by server', { status: res.status, data, raw });
       }
-    } catch {
+    } catch (err) {
+      console.error('[1v1] submit fetch error', err);
       setSubmitError('تعذّر الاتصال بخادم الـ 1v1. أعد المحاولة.');
     } finally {
       setIsSubmitting1v1(false);
