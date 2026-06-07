@@ -75,7 +75,16 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(user.name);
   const [now, setNow] = useState(() => new Date());
+  const [progress, setProgress] = useState<Record<string, { completions: number; required: number; ready: boolean }>>({});
+  const [downloading, setDownloading] = useState(false);
   const certRef = useRef<HTMLDivElement>(null);
+
+  const CERT_CATEGORIES = [
+    { key: 'code-fixing', label: t.profile.catCodeFixing || 'Code Fixing', icon: '🛠' },
+    { key: 'log-analysis', label: t.profile.catLogAnalysis || 'Log Analysis', icon: '🔍' },
+    { key: 'vulnerability-hunter', label: t.profile.catVulnHunter || 'Vulnerability Hunter', icon: '🎯' },
+  ];
+  const CERT_REQUIRED = 50;
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60_000);
@@ -101,6 +110,19 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
         });
         const certData = await certRes.json();
         if (certData.certificates) setCertificates(certData.certificates);
+
+        // Fetch per-category progress for the bars
+        const prog: Record<string, { completions: number; required: number; ready: boolean }> = {};
+        await Promise.all(CERT_CATEGORIES.map(async (c) => {
+          try {
+            const r = await fetch(`${API_URL}/certificates/progress?user_id=${encodeURIComponent(user.id)}&category=${encodeURIComponent(c.key)}`);
+            const pd = await r.json();
+            prog[c.key] = { completions: pd.completions || 0, required: pd.required || CERT_REQUIRED, ready: !!pd.ready };
+          } catch {
+            prog[c.key] = { completions: 0, required: CERT_REQUIRED, ready: false };
+          }
+        }));
+        setProgress(prog);
       } catch (err) {
         console.error('Error fetching profile:', err);
       }
@@ -117,30 +139,53 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
   const daysActive = Math.max(1, Math.floor((now.getTime() - joinDate.getTime()) / 86_400_000));
 
   const handleDownloadCert = async (_cert: Certificate) => {
-    if (!certRef.current) return;
-    if (!(window as any).html2canvas || !(window as any).jspdf) {
-      alert(t.profile.certDownloadLoading);
-      return;
-    }
+    setDownloading(true);
     try {
-      const canvas = await (window as any).html2canvas(certRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
+      const res = await fetch(`${API_URL}/certificates/${encodeURIComponent(_cert.id)}/pdf?lang=${encodeURIComponent(lang)}`);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `CyberArena-Certificate-${_cert.category}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error('PDF download error:', err);
+      alert(t.profile.certDownloadError || 'PDF download failed');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleIssueCert = async (category: string) => {
+    try {
+      const res = await fetch(`${API_URL}/certificates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'issue', user_id: user.id, category }),
       });
-      const imgData = canvas.toDataURL('image/png');
-      const { jsPDF } = (window as any).jspdf;
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'px',
-        format: [canvas.width, canvas.height],
-      });
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-      pdf.save(`Certificate-${_cert.category}.pdf`);
-    } catch (error) {
-      console.error('PDF Export error:', error);
-      alert(t.profile.certDownloadError);
-      window.print();
+      const data = await res.json();
+      if (data.status === 'issued' || data.status === 'already_issued') {
+        const cert = data.certificate;
+        // refresh list
+        const certRes = await fetch(`${API_URL}/certificates`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'list', user_id: user.id }),
+        });
+        const certData = await certRes.json();
+        if (certData.certificates) setCertificates(certData.certificates);
+        setShowCert(cert);
+      } else if (data.status === 'not_eligible') {
+        alert(`${t.profile.certNotEligible || 'Not eligible'} (${data.completions}/${data.required})`);
+      }
+    } catch (err) {
+      console.error('Issue cert error:', err);
     }
   };
 
@@ -396,6 +441,39 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
               </div>
             </div>
 
+            <div className="profile-cert-progress">
+              {CERT_CATEGORIES.map((c) => {
+                const p = progress[c.key] || { completions: 0, required: CERT_REQUIRED, ready: false };
+                const pct = p.required > 0 ? Math.min((p.completions / p.required) * 100, 100) : 0;
+                const issued = certificates.some(cert => cert.category === c.key);
+                return (
+                  <div key={c.key} className={`profile-cert-progress-row ${p.ready || issued ? 'ready' : ''}`}>
+                    <div className="profile-cert-progress-icon">{c.icon}</div>
+                    <div className="profile-cert-progress-body">
+                      <div className="profile-cert-progress-label">
+                        <span>{c.label}</span>
+                        <span className="mono">{p.completions}/{p.required}</span>
+                      </div>
+                      <div className="profile-cert-progress-bar">
+                        <div className="profile-cert-progress-fill" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                    {!issued && (
+                      <button
+                        className="profile-cert-progress-btn"
+                        onClick={() => handleIssueCert(c.key)}
+                        disabled={!p.ready}
+                        title={p.ready ? (t.profile.certIssue || 'Issue') : (t.profile.certNotEligible || 'Locked')}
+                      >
+                        {p.ready ? (t.profile.certIssue || 'Issue') : '🔒'}
+                      </button>
+                    )}
+                    {issued && <span className="profile-cert-progress-badge">✓ {t.profile.certVerified}</span>}
+                  </div>
+                );
+              })}
+            </div>
+
             {certificates.length === 0 ? (
               <div className="profile-empty">
                 <div className="profile-empty-icon">
@@ -461,20 +539,27 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
                     <span className="cert-brand-mark">◆</span>
                     <span>CyberArena</span>
                   </div>
-                  <div className="cert-type">Cybersecurity Achievement Certificate</div>
+                  <div className="cert-type" dir="ltr">
+                    {lang === 'ar' ? 'شهادة إتمام في الأمن السيبراني' : 'Cybersecurity Achievement Certificate'}
+                  </div>
                 </div>
 
-                <div className="cert-body">
-                  <p className="cert-intro">This is to certify that</p>
-                  <h2 className="cert-user-name">{customName || user.name}</h2>
-                  <p className="cert-text">
-                    Has successfully completed all interactive challenges and practical labs in:
+                <div className="cert-body" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                  <p className="cert-intro">
+                    {lang === 'ar' ? 'نشهد بأن' : 'This is to certify that'}
                   </p>
-                  <h3 className="cert-category-name">{showCert.category}</h3>
+                  <h2 className="cert-user-name" dir="auto">{customName || user.name}</h2>
+                  <p className="cert-text">
+                    {lang === 'ar'
+                      ? 'قد أكمل بنجاح جميع التحديات التفاعلية والمختبرات العملية في:'
+                      : 'Has successfully completed all interactive challenges and practical labs in:'}
+                  </p>
+                  <h3 className="cert-category-name" dir="ltr">{showCert.category}</h3>
                   <div className="cert-divider" />
                   <p className="cert-details">
-                    The recipient has demonstrated exceptional proficiency in vulnerability analysis,
-                    system hardening, and active defense strategies using AI-driven security simulations.
+                    {lang === 'ar'
+                      ? 'أظهر المستلم كفاءة استثنائية في تحليل الثغرات وتحصين الأنظمة واستراتيجيات الدفاع النشط باستخدام محاكاة أمنية مدعومة بالذكاء الاصطناعي.'
+                      : 'The recipient has demonstrated exceptional proficiency in vulnerability analysis, system hardening, and active defense strategies using AI-driven security simulations.'}
                   </p>
                 </div>
 
@@ -483,27 +568,27 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
                     <div className="qr-placeholder">
                       <img src="/ALPHA-LOGO.png" alt="Logo" />
                     </div>
-                    <div className="verify-info">
-                      <span className="v-label">Verification Code</span>
+                    <div className="verify-info" dir="ltr">
+                      <span className="v-label">{lang === 'ar' ? 'رمز التحقق' : 'Verification Code'}</span>
                       <span className="v-code">{showCert.verify_code}</span>
                     </div>
                   </div>
-                  <div className="cert-date">
-                    <span className="v-label">Issue Date</span>
-                    <span className="v-code">{new Date(showCert.issue_date).toLocaleDateString('en-US')}</span>
+                  <div className="cert-date" dir="ltr">
+                    <span className="v-label">{lang === 'ar' ? 'تاريخ الإصدار' : 'Issue Date'}</span>
+                    <span className="v-code">{new Date(showCert.issue_date).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US')}</span>
                   </div>
-                  <div className="cert-sign">
+                  <div className="cert-sign" dir="ltr">
                     <div className="sign-line" />
-                    <span>Academic Board Administration</span>
+                    <span>{lang === 'ar' ? 'مجلس إدارة أكاديمية ألفا' : 'Alpha Academy Board'}</span>
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="cert-modal-actions">
-              <button className="cert-download-btn" onClick={() => handleDownloadCert(showCert)}>
+              <button className="cert-download-btn" onClick={() => handleDownloadCert(showCert)} disabled={downloading}>
                 <Download size={16} />
-                <span>{t.profile.certDownload}</span>
+                <span>{downloading ? (t.profile.certDownloadLoading || '...') : t.profile.certDownload}</span>
               </button>
               <button className="cert-close-btn" onClick={() => setShowCert(null)}>
                 {t.profile.certClose}

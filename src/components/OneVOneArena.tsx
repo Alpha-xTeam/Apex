@@ -352,12 +352,14 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
   // For Red team: payload is a flag string.
   // For Blue code-fixing: payload is { fixedCode }.
   // For Blue log-analysis: payload is { attackType, attackerIp, timestamp, ioc, explanation? }.
+  // For Blue vulnerability-hunter: payload is { vulnerabilityType }.
   // The server-side /api/onevone/matches/{id}/submit re-evaluates and (atomically)
   // claims the win via the onevone_claim_win RPC.
   type SubmissionPayload =
     | string
     | { fixedCode: string }
-    | { attackType: string; attackerIp: string; timestamp: string; ioc: string; explanation?: string };
+    | { attackType: string; attackerIp: string; timestamp: string; ioc: string; explanation?: string }
+    | { vulnerabilityType: string };
 
   const handleChallengeSolved = async (payload: SubmissionPayload) => {
     if (!match || !matchIdRef.current) {

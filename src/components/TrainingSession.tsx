@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import CodeFixEditor from './CodeFixEditor';
 import LogAnalysisEditor from './LogAnalysisEditor';
+import VulnerabilityHunterEditor from './VulnerabilityHunterEditor';
 import { useI18n } from './../i18n/I18nContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
@@ -188,6 +189,10 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
     feedback: string;
     xp_awarded: number;
   } | null>(null);
+
+  // --- Vulnerability Hunter Challenge States ---
+  const [isVulnHunterChallenge, setIsVulnHunterChallenge] = useState(false);
+  const [vulnHunterResult, setVulnHunterResult] = useState<{ success: boolean; feedback: string } | null>(null);
 
   // Notepad state
   const [notepadTitle, setNotepadTitle] = useState('CyberArena_Readme.txt');
@@ -453,6 +458,8 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
     setNotepadStatus('');
     setUserWorkdirFiles([]);
     setSimulatedUrl('https://apex-train.com/lab-preview');
+    setVulnHunterResult(null);
+    setIsVulnHunterChallenge(false);
 
     let isFinishedFetching = false;
     let fetchedTraining: TrainingData | null = null;
@@ -700,6 +707,14 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
             (fetchedTraining as any).log_url !== undefined ||
             (fetchedTraining as any).log_type !== undefined
           )
+        );
+        // Detect vulnerability-hunter challenges (blue team with vulnerability_type + vulnerable_code, no fix needed)
+        const ft: any = fetchedTraining;
+        setIsVulnHunterChallenge(
+          teamRole === 'blue' &&
+          ft.vulnerability_class !== undefined &&
+          ft.vulnerability_type !== undefined &&
+          ft.type === 'vulnerability-hunter'
         );
         setLoading(false);
       } else {
@@ -1073,6 +1088,91 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         correct_fields: [],
         feedback: 'عذراً، فشل الاتصال بخادم التقييم. حاول مرة أخرى.\n' + (err?.message || ''),
         xp_awarded: 0,
+      });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  // --- Vulnerability Hunter Challenge Submit ---
+  const handleVulnHunterSubmit = async (vulnerabilityType: string) => {
+    if (!training) return;
+    setIsVerifying(true);
+    setVulnHunterResult(null);
+
+    try {
+      const raw = localStorage.getItem('cyberarena_session') || '{}';
+      const session = JSON.parse(raw);
+      const userData = session.user || session;
+      const userId = userData.id;
+
+      const res = await fetch(`${API_URL}/training/evaluate-vulnerability-hunter`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          challengeId: training.scenarioId || training.id,
+          userId: userId || undefined,
+          vulnerabilityType,
+          teamRole: 'blue',
+        }),
+      });
+
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(`HTTP ${res.status}: ${t}`);
+      }
+
+      const data = await res.json();
+      const evaluation = data?.evaluation;
+      if (!evaluation || typeof evaluation !== 'object') {
+        throw new Error('Invalid response from server: missing evaluation object.');
+      }
+      const passed = !!evaluation.passed;
+      setVulnHunterResult({
+        success: passed,
+        feedback: evaluation.feedback || (passed ? 'إجابة صحيحة!' : 'إجابة خاطئة.'),
+      });
+
+      if (passed) {
+        setIsCorrect(true);
+        setShowResult(true);
+
+        // Notify the 1v1 wrapper (if any) so the server can claim the win
+        onChallengeSolved?.({ vulnerabilityType });
+
+        // Add XP
+        if (userId) {
+          await fetch(`${API_URL}/xp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'add_xp',
+              user_id: userId,
+              xp_amount: evaluation.xp_awarded || training.xpReward,
+            }),
+          });
+        }
+
+        // Mark as solved
+        if ((training.id || training.scenarioId) && !onChallengeSolved) {
+          fetch(`${API_URL}/training/solved`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              challengeId: training.scenarioId || training.id,
+              teamRole: 'blue',
+              module: training.type || moduleId || moduleTitle,
+              path: pathId,
+              category: categoryId,
+              difficulty: training.difficulty || 'متوسط',
+            }),
+          }).catch(err => console.error('Error reporting solved:', err));
+        }
+      }
+    } catch (err: any) {
+      setVulnHunterResult({
+        success: false,
+        feedback: 'عذراً، فشل الاتصال بخادم التقييم. حاول مرة أخرى.\n' + (err?.message || ''),
       });
     } finally {
       setIsVerifying(false);
@@ -1647,6 +1747,36 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
           onBack={onBack}
           isVerifying={isVerifying}
           result={logAnalysisResult}
+          inOneVOne={!!onChallengeSolved}
+        />
+      </div>
+    );
+  }
+
+  // Vulnerability Hunter Challenge: render VulnerabilityHunterEditor component
+  if (isVulnHunterChallenge && training) {
+    return (
+      <div className="dash-page session-page team-blue">
+        <VulnerabilityHunterEditor
+          challenge={{
+            id: training.id || '',
+            scenarioId: training.scenarioId || '',
+            language: (training as any).language || 'PYTHON',
+            title: training.title,
+            story: training.story,
+            task_outline: training.task,
+            vulnerable_code: (training as any).vulnerable_code || (training as any).code || '',
+            vulnerability_type: (training as any).vulnerability_type || '',
+            vulnerability_class: (training as any).vulnerability_class || '',
+            vulnerability_description: (training as any).vulnerability_description || '',
+            difficulty: training.difficulty,
+            xp_reward: training.xpReward,
+            hints: (training as any).hints || [],
+          }}
+          onSubmit={handleVulnHunterSubmit}
+          onBack={onBack}
+          isVerifying={isVerifying}
+          result={vulnHunterResult}
           inOneVOne={!!onChallengeSolved}
         />
       </div>

@@ -18,9 +18,10 @@ import { LegalPage } from './components/LegalPage';
 import { Intro, hasSeenIntro } from './components/Intro';
 import { OneVOneLobby } from './components/OneVOneLobby';
 import { OneVOneArena } from './components/OneVOneArena';
+import { CertificateVerify } from './components/CertificateVerify';
 import { useScrollReveal } from './hooks/useScrollReveal';
 
-type Page = 'home' | 'auth' | 'dashboard' | 'profile' | 'training-path' | 'training-session' | 'leaderboard' | 'legal' | 'onevone-lobby' | 'onevone-arena';
+type Page = 'home' | 'auth' | 'dashboard' | 'profile' | 'training-path' | 'training-session' | 'leaderboard' | 'legal' | 'onevone-lobby' | 'onevone-arena' | 'verify';
 
 export function navigateTo(page: Page) {
   window.dispatchEvent(new CustomEvent('apex:navigate', { detail: page }));
@@ -57,7 +58,13 @@ function App() {
   };
 
   const storedUser = getStoredUser();
-  const [page, setPage] = useState<Page>(storedUser ? 'dashboard' : 'home');
+  const [page, setPage] = useState<Page>(() => {
+    // Detect deep-link to /verify?code=... (so the QR code on a printed PDF works)
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/verify')) {
+      return 'verify';
+    }
+    return storedUser ? 'dashboard' : 'home';
+  });
   const [user, setUser] = useState<{ id: string; name: string; email: string } | null>(storedUser);
   const [showIntro, setShowIntro] = useState<boolean>(() => !storedUser && !hasSeenIntro());
   const [nav, setNav] = useState<{
@@ -202,6 +209,13 @@ function App() {
             setOnevone(null);
             setPage('onevone-lobby');
           }}
+        />
+      )}
+
+      {page === 'verify' && (
+        <CertificateVerify
+          verifyCode={new URLSearchParams(window.location.search).get('code') || undefined}
+          onBack={() => setPage(user ? 'dashboard' : 'home')}
         />
       )}
     </>
