@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import CodeFixEditor from './CodeFixEditor';
 import LogAnalysisEditor from './LogAnalysisEditor';
 import VulnerabilityHunterEditor from './VulnerabilityHunterEditor';
@@ -64,6 +64,7 @@ import {
   Search,
   Power,
   Download,
+  FileArchive,
   ArrowRight
 } from 'lucide-react';
 import { BlueTeamIcon, RedTeamIcon, StoryIcon, TaskIcon } from './TeamIcons';
@@ -185,6 +186,7 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
 
   // --- Log Analysis Challenge States ---
   const [isLogAnalysisChallenge, setIsLogAnalysisChallenge] = useState(false);
+  const [isSteganographyChallenge, setIsSteganographyChallenge] = useState(false);
   const [logAnalysisResult, setLogAnalysisResult] = useState<{
     passed: boolean;
     score: number;
@@ -468,6 +470,7 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
       );
       setIsLogAnalysisChallenge(teamRole === 'blue' && ft.type === 'log-analysis');
       setIsVulnHunterChallenge(teamRole === 'blue' && ft.type === 'vulnerability-hunter');
+      setIsSteganographyChallenge(ft.type === 'steganography');
       setSimulatedStep(5);
       setSimulatedPercent(100);
       setSimulatedTitle('Lab fully prepared!');
@@ -514,6 +517,7 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
           );
           setIsLogAnalysisChallenge(teamRole === 'blue' && ft.type === 'log-analysis');
           setIsVulnHunterChallenge(teamRole === 'blue' && ft.type === 'vulnerability-hunter');
+          setIsSteganographyChallenge(ft.type === 'steganography');
           setSimulatedStep(5);
           setSimulatedPercent(100);
           setSimulatedTitle('Lab fully prepared!');
@@ -777,6 +781,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         setIsVulnHunterChallenge(
           teamRole === 'blue' && ft.type === 'vulnerability-hunter'
         );
+        setIsSteganographyChallenge(ft.type === 'steganography');
         setLoading(false);
       } else {
         setError('Failed to receive cyber lab contents.');
@@ -1774,7 +1779,168 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         {/* LEFT WORKSPACE: WEB PREVIEW + VS CODE OR WINDOWS DESKTOP SIMULATOR */}
         <div className="session-left">
 
-          {showWebView ? (
+          {isSteganographyChallenge ? (
+            /* --- STEGANOGRAPHY DOWNLOAD WORKSPACE --- */
+            <div className="stego-download-workspace" style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              padding: '40px',
+              background: 'radial-gradient(circle at center, #0f172a 0%, #020617 100%)',
+              color: '#fff',
+              overflowY: 'auto'
+            }} dir="rtl">
+              <div className="stego-card" style={{
+                maxWidth: '600px',
+                width: '100%',
+                background: 'rgba(15, 23, 42, 0.65)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(99, 102, 241, 0.2)',
+                borderRadius: '24px',
+                padding: '32px',
+                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '24px',
+                textAlign: 'center'
+              }}>
+                <div className="stego-icon-wrapper" style={{
+                  position: 'relative',
+                  width: '96px',
+                  height: '96px',
+                  borderRadius: '20px',
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(244, 63, 94, 0.15))',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 8px 32px rgba(99, 102, 241, 0.15)'
+                }}>
+                  <FileArchive size={48} className="text-indigo-400" />
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '-4px',
+                    right: '-4px',
+                    background: '#e11d48',
+                    color: '#fff',
+                    borderRadius: '8px',
+                    padding: '2px 8px',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    border: '2px solid #0f172a'
+                  }}>
+                    {(() => {
+                      const files = training?.files || {};
+                      const filename = Object.keys(files)[0] || 'suspect.jpg';
+                      const ext = filename.split('.').pop()?.toUpperCase() || 'FILE';
+                      return ext;
+                    })()}
+                  </div>
+                </div>
+
+                <div>
+                  <h2 style={{ fontSize: '22px', fontWeight: 'bold', margin: '0 0 10px 0', color: '#f8fafc' }}>
+                    ملف التحدي الرقمي
+                  </h2>
+                  <p style={{ fontSize: '14px', color: '#94a3b8', margin: 0, lineHeight: 1.6 }}>
+                    أنت الآن في مختبر إخفاء المعلومات (Steganography).
+                    يتعين عليك تنزيل هذا الملف المرفق أدناه إلى جهازك الشخصي وفحصه محلياً
+                    باستخدام أدواتك الخاصة للبحث عن العلم المخفي.
+                  </p>
+                </div>
+
+                <div className="file-info-bar" style={{
+                  width: '100%',
+                  background: 'rgba(2, 6, 23, 0.4)',
+                  border: '1px solid rgba(255, 255, 255, 0.05)',
+                  borderRadius: '12px',
+                  padding: '12px 16px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  fontSize: '13px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#cbd5e1' }}>
+                    <span style={{ color: '#64748b' }}>اسم الملف:</span>
+                    <strong style={{ fontFamily: 'monospace' }}>
+                      {(() => {
+                        const files = training?.files || {};
+                        return Object.keys(files)[0] || 'suspect.jpg';
+                      })()}
+                    </strong>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#cbd5e1' }}>
+                    <span style={{ color: '#64748b' }}>الحجم:</span>
+                    <strong>
+                      {(() => {
+                        const files = training?.files || {};
+                        const filename = Object.keys(files)[0] || 'suspect.jpg';
+                        const size = training?.fileMetadata?.[filename]?.size || 0;
+                        if (size > 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+                        if (size > 1024) return `${(size / 1024).toFixed(1)} KB`;
+                        return `${size} Bytes`;
+                      })()}
+                    </strong>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    const files = training?.files || {};
+                    const filename = Object.keys(files)[0] || 'suspect.jpg';
+                    const base64Data = files[filename] || '';
+                    if (!base64Data) return;
+                    const byteCharacters = atob(base64Data);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                      byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], { type: 'application/octet-stream' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                    color: '#fff',
+                    padding: '14px 28px',
+                    borderRadius: '12px',
+                    fontWeight: 'bold',
+                    fontSize: '15px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 16px rgba(99, 102, 241, 0.4)',
+                    transition: 'all 0.2s',
+                    width: '100%'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(99, 102, 241, 0.6)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 16px rgba(99, 102, 241, 0.4)';
+                  }}
+                >
+                  <Download size={18} />
+                  <span>تنزيل الملف المرفق</span>
+                </button>
+              </div>
+            </div>
+          ) : showWebView ? (
             /* --- WEB VIEW --- */
             <div className="session-browser">
               <div className="session-browser-tabs">
@@ -2517,9 +2683,69 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                   </>
                 )}
 
-                <div className="session-hints" style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(99, 102, 241, 0.05)', border: '1px solid rgba(99, 102, 241, 0.18)', borderRadius: '6px', fontSize: '12px', color: '#a5b4fc' }}>
-                  💡 التلميحات موجودة داخل نافذة <strong>أدوات التشفير السيبرانية</strong> (Swiss Tools) — افتحها من سطح المكتب.
-                </div>
+                {isSteganographyChallenge ? (
+                  training?.hints && training.hints.length > 0 && (
+                    <div className="session-hints-box" style={{
+                      marginTop: '20px',
+                      padding: '16px',
+                      background: 'rgba(15, 23, 42, 0.4)',
+                      border: '1px solid rgba(99, 102, 241, 0.25)',
+                      borderRadius: '12px',
+                      textAlign: 'right'
+                    }} dir="rtl">
+                      <h4 style={{ color: '#a5b4fc', margin: '0 0 12px 0', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>💡 التلميحات المساعدة</span>
+                      </h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {training.hints.map((h, i) => (
+                          <div
+                            key={i}
+                            style={{
+                              padding: '10px 12px',
+                              background: i < hintIndex ? 'rgba(34, 197, 94, 0.06)' : 'rgba(148, 163, 184, 0.04)',
+                              border: `1px solid ${i < hintIndex ? 'rgba(34, 197, 94, 0.25)' : 'rgba(148, 163, 184, 0.10)'}`,
+                              borderRadius: '8px',
+                              fontSize: '13px',
+                              color: i < hintIndex ? '#cbd5e1' : '#475569',
+                              filter: i < hintIndex ? 'none' : 'blur(4px)',
+                              userSelect: i < hintIndex ? 'text' : 'none',
+                              transition: 'all 0.3s',
+                              lineHeight: '1.5'
+                            }}
+                          >
+                            <strong style={{ color: i < hintIndex ? '#4ade80' : '#475569', marginLeft: '6px' }}>تلميح {i + 1}:</strong>
+                            {h}
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => setHintIndex((i) => Math.min(i + 1, training.hints.length))}
+                        disabled={hintIndex >= training.hints.length}
+                        style={{
+                          marginTop: '12px',
+                          padding: '8px 16px',
+                          background: hintIndex >= training.hints.length ? 'rgba(30, 41, 59, 0.5)' : 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.35))',
+                          color: hintIndex >= training.hints.length ? '#475569' : '#e0e7ff',
+                          border: '1px solid rgba(99, 102, 241, 0.3)',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          cursor: hintIndex >= training.hints.length ? 'not-allowed' : 'pointer',
+                          fontWeight: 'bold',
+                          width: '100%',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {hintIndex >= training.hints.length
+                          ? '✓ تم كشف جميع التلميحات'
+                          : `🔓 كشف التلميح المساعد التالي (${hintIndex}/${training.hints.length})`}
+                      </button>
+                    </div>
+                  )
+                ) : (
+                  <div className="session-hints" style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(99, 102, 241, 0.05)', border: '1px solid rgba(99, 102, 241, 0.18)', borderRadius: '6px', fontSize: '12px', color: '#a5b4fc' }}>
+                    💡 التلميحات موجودة داخل نافذة <strong>أدوات التشفير السيبرانية</strong> (Swiss Tools) — افتحها من سطح المكتب.
+                  </div>
+                )}
               </>
             )}
 

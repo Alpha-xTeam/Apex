@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Lock,
   Zap,
   GraduationCap,
   Lightbulb,
-  ArrowLeft,
   ChevronLeft,
   Trophy,
   Swords,
@@ -15,16 +13,6 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
 
-interface DBChallenge {
-  id: string;
-  title: string;
-  module: string;
-  category: string;
-  path: string;
-  difficulty: string;
-  xpReward: number;
-}
-
 interface DashboardProps {
   user: { id: string; name: string; email: string };
   onSelectChallenge: (categoryId: string, pathId: string, moduleId: string, moduleTitle: string, teamRole: 'red' | 'blue', challengeId?: string) => void;
@@ -32,6 +20,7 @@ interface DashboardProps {
   onViewLeaderboard: () => void;
   onLogout: () => void;
   onOpenOneVOne?: () => void;
+  onOpenBlueVsRed?: () => void;
 }
 
 function useLevels(t: ReturnType<typeof useI18n>['t']) {
@@ -54,16 +43,13 @@ function getNextLevelXp(xp: number, levels: { minXp: number }[]) {
   return levels[levels.length - 1].minXp;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, onViewProfile, onViewLeaderboard, onLogout, onOpenOneVOne }) => {
-  const { t, lang } = useI18n();
+export const Dashboard: React.FC<DashboardProps> = ({ user, onViewProfile, onViewLeaderboard, onLogout, onOpenOneVOne, onOpenBlueVsRed }) => {
+  const { t } = useI18n();
   const LEVELS = useLevels(t);
   const [xp, setXp] = useState(0);
   const [completed, setCompleted] = useState(0);
-  const [blueChallenges, setBlueChallenges] = useState<DBChallenge[]>([]);
-  const [redChallenges, setRedChallenges] = useState<DBChallenge[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
-  const [activeSection, setActiveSection] = useState<{ teamId: string; category: string; challenges: DBChallenge[] } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -79,20 +65,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
           setXp(xpData.xp);
           setCompleted(xpData.completed_trainings || 0);
         }
-
-        const [blueRes, redRes] = await Promise.all([
-          fetch(`${API_URL}/training/list?team_role=blue&limit=1000`),
-          fetch(`${API_URL}/training/list?team_role=red&limit=1000`)
-        ]);
-
-        if (!blueRes.ok || !redRes.ok) {
-          throw new Error(`Backend unavailable (${blueRes.status}/${redRes.status}). ${t.dashboard.fetchError}`);
-        }
-
-        const blueData = await blueRes.json();
-        const redData = await redRes.json();
-        setBlueChallenges(blueData.items || []);
-        setRedChallenges(redData.items || []);
       } catch (err) {
         console.error('Error fetching dashboard data', err);
         setFetchError(err instanceof Error ? err.message : t.dashboard.fetchError);
@@ -107,24 +79,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
   const level = getLevel(xp, LEVELS);
   const nextLevelXp = getNextLevelXp(xp, LEVELS);
   const xpProgress = nextLevelXp > 0 ? Math.min((xp / nextLevelXp) * 100, 100) : 100;
-
-  const groupByCategory = (challenges: DBChallenge[]) => {
-    const groups: { [cat: string]: DBChallenge[] } = {};
-    challenges.forEach(c => {
-      const cat = c.category || (lang === 'ar' ? 'تحديات عامة' : 'General challenges');
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(c);
-    });
-    return groups;
-  };
-
-  const blueGroups = groupByCategory(blueChallenges);
-  const redGroups = groupByCategory(redChallenges);
-
-  const teamsData = [
-    { id: 'blue', title: t.dashboard.blueTitle, subtitle: t.dashboard.blueSubtitle, desc: t.dashboard.blueDesc, accent: '#3b82f6', accentSoft: 'rgba(59, 130, 246, 0.08)', icon: <BlueTeamIcon size={56} />, groups: blueGroups },
-    { id: 'red', title: t.dashboard.redTitle, subtitle: t.dashboard.redSubtitle, desc: t.dashboard.redDesc, accent: '#ef4444', accentSoft: 'rgba(239, 68, 68, 0.08)', icon: <RedTeamIcon size={56} />, groups: redGroups }
-  ];
 
   return (
     <div className="dash-page">
@@ -207,79 +161,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
             <div className="dash-loading">{t.dashboard.loading}</div>
           ) : (
             <>
-              <div className="dash-teams-grid">
-                {teamsData.map((team) => (
-                  <section
-                    key={team.id}
-                    className="dash-team-card"
-                    style={{ '--team-accent': team.accent, '--team-accent-soft': team.accentSoft } as React.CSSProperties}
-                  >
-                    <div className="dash-team-header">
-                      <div className="dash-team-icon">{team.icon}</div>
-                      <div>
-                        <h3 className="dash-team-title">{team.title}</h3>
-                        <span className="dash-team-subtitle">{team.subtitle}</span>
-                      </div>
-                    </div>
-                    <p className="dash-team-desc">{team.desc}</p>
-
-                    {activeSection && activeSection.teamId === team.id ? (
-                      <div className="dash-team-content">
-                        <button onClick={() => setActiveSection(null)} className="dash-back-btn">
-                          <ArrowLeft size={14} />
-                          <span>{t.dashboard.backToCategories}</span>
-                        </button>
-                        <h4 className="dash-content-title">{activeSection.category}</h4>
-                        <div className="dash-challenges-list">
-                          {activeSection.challenges.map((challenge) => (
-                            <button
-                              key={challenge.id}
-                              className="dash-challenge-item"
-                              onClick={() => onSelectChallenge(
-                                challenge.category, challenge.path, challenge.module,
-                                challenge.title, team.id as 'red' | 'blue', challenge.id
-                              )}
-                            >
-                              <div className="dash-challenge-info">
-                                <span className="dash-challenge-title">{challenge.title}</span>
-                                <span className="dash-challenge-meta">
-                                  {challenge.module} • <strong>{challenge.difficulty}</strong>
-                                </span>
-                              </div>
-                              <div className="dash-challenge-reward">
-                                <span className="dash-challenge-xp">+{challenge.xpReward}</span>
-                                <ChevronLeft size={16} />
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="dash-categories-list">
-                        {Object.keys(team.groups).map(category => {
-                          const challenges = team.groups[category];
-                          return (
-                            <button
-                              key={category}
-                              className="dash-category-item"
-                              onClick={() => setActiveSection({ teamId: team.id, category, challenges })}
-                            >
-                              <div className="dash-category-info">
-                                <Lock size={16} className="dash-category-icon-sm" />
-                                <span>{category}</span>
-                              </div>
-                              <span className="dash-category-count">{challenges.length}</span>
-                            </button>
-                          );
-                        })}
-                        {Object.keys(team.groups).length === 0 && (
-                          <div className="dash-empty-state">{t.dashboard.noChallenges}</div>
-                        )}
-                      </div>
-                    )}
-                  </section>
-                ))}
-              </div>
+              <section
+                className="dash-team-card bluevsred-card"
+                onClick={onOpenBlueVsRed}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="bluevsred-card-inner">
+                  <div className="bluevsred-left">
+                    <BlueTeamIcon size={48} />
+                    <h3 className="bluevsred-title">{t.dashboard.blueTitle}</h3>
+                    <span className="bluevsred-subtitle">{t.dashboard.blueSubtitle}</span>
+                  </div>
+                  <div className="bluevsred-divider" />
+                  <div className="bluevsred-right">
+                    <RedTeamIcon size={48} />
+                    <h3 className="bluevsred-title">{t.dashboard.redTitle}</h3>
+                    <span className="bluevsred-subtitle">{t.dashboard.redSubtitle}</span>
+                  </div>
+                </div>
+                <div className="bluevsred-cta">
+                  <span>{t.dashboard.blueVsRedCta || 'استعرض التحديات'}</span>
+                  <ChevronLeft size={16} />
+                </div>
+              </section>
 
               {onOpenOneVOne && (
                 <section

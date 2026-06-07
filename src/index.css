@@ -2035,6 +2035,106 @@ html[dir="ltr"] th {
   margin: 0;
 }
 
+/* ---------- Blue vs Red Card ---------- */
+.bluevsred-card {
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.04) 45%, rgba(239, 68, 68, 0.04) 55%, rgba(239, 68, 68, 0.08) 100%);
+  border: 1px solid transparent;
+  border-image: linear-gradient(90deg, #3b82f6, #ef4444) 1;
+  padding: 32px 24px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.bluevsred-card:hover {
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.12) 0%, rgba(59, 130, 246, 0.06) 45%, rgba(239, 68, 68, 0.06) 55%, rgba(239, 68, 68, 0.12) 100%);
+  border-image: linear-gradient(90deg, #3b82f6, #ef4444) 1;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(59, 130, 246, 0.15), 0 12px 32px rgba(239, 68, 68, 0.15);
+}
+
+.bluevsred-card-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  position: relative;
+  z-index: 2;
+}
+
+.bluevsred-left,
+.bluevsred-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.bluevsred-left {
+  text-align: right;
+}
+
+.bluevsred-right {
+  text-align: left;
+}
+
+.bluevsred-left .bluevsred-title {
+  color: #3b82f6;
+}
+
+.bluevsred-right .bluevsred-title {
+  color: #ef4444;
+}
+
+.bluevsred-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.bluevsred-subtitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(243, 241, 236, 0.55);
+  margin: 0;
+}
+
+.bluevsred-divider {
+  width: 1px;
+  height: 80px;
+  background: linear-gradient(180deg, #3b82f6, #ef4444);
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.bluevsred-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(243, 241, 236, 0.7);
+  font-size: 14px;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.bluevsred-card:hover .bluevsred-cta {
+  color: #f3f1ec;
+}
+
+.bluevsred-cta svg {
+  transition: transform 0.2s ease;
+}
+
+.bluevsred-card:hover .bluevsred-cta svg {
+  transform: translateX(-4px);
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 960px) {
   .dash-stats-grid {

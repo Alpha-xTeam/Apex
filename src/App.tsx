@@ -18,10 +18,11 @@ import { LegalPage } from './components/LegalPage';
 import { Intro, hasSeenIntro } from './components/Intro';
 import { OneVOneLobby } from './components/OneVOneLobby';
 import { OneVOneArena } from './components/OneVOneArena';
+import { BlueVsRed } from './components/BlueVsRed';
 import { CertificateVerify } from './components/CertificateVerify';
 import { useScrollReveal } from './hooks/useScrollReveal';
 
-type Page = 'home' | 'auth' | 'dashboard' | 'profile' | 'training-path' | 'training-session' | 'leaderboard' | 'legal' | 'onevone-lobby' | 'onevone-arena' | 'verify';
+type Page = 'home' | 'auth' | 'dashboard' | 'profile' | 'training-path' | 'training-session' | 'leaderboard' | 'legal' | 'onevone-lobby' | 'onevone-arena' | 'verify' | 'bluevsred';
 
 export function navigateTo(page: Page) {
   window.dispatchEvent(new CustomEvent('apex:navigate', { detail: page }));
@@ -153,6 +154,7 @@ function App() {
           onViewLeaderboard={() => setPage('leaderboard')}
           onLogout={handleLogout}
           onOpenOneVOne={() => setPage('onevone-lobby')}
+          onOpenBlueVsRed={() => setPage('bluevsred')}
         />
       )}
 
@@ -209,6 +211,13 @@ function App() {
             setOnevone(null);
             setPage('onevone-lobby');
           }}
+        />
+      )}
+
+      {page === 'bluevsred' && user && (
+        <BlueVsRed
+          onSelectChallenge={handleSelectChallenge}
+          onBack={() => setPage('dashboard')}
         />
       )}
 
