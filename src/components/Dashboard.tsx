@@ -91,8 +91,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectChallenge, o
 
         const blueData = await blueRes.json();
         const redData = await redRes.json();
-        setBlueChallenges(blueData.challenges || []);
-        setRedChallenges(redData.challenges || []);
+        setBlueChallenges(blueData.items || []);
+        setRedChallenges(redData.items || []);
       } catch (err) {
         console.error('Error fetching dashboard data', err);
         setFetchError(err instanceof Error ? err.message : t.dashboard.fetchError);

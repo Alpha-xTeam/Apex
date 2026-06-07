@@ -58,10 +58,9 @@ export const TrainingPath: React.FC<TrainingPathProps> = ({ categoryId, pathId, 
       try {
         const res = await fetch(`${API_URL}/training/list?team_role=${teamRole}&limit=2000`);
         const data = await res.json();
-        if (data.challenges) {
-          const filtered = data.challenges.filter((c: DBChallenge) => c.path === pathId);
-          setDbChallenges(filtered);
-        }
+        const list = Array.isArray(data.items) ? data.items : [];
+        const filtered = list.filter((c: DBChallenge) => c.path === pathId);
+        setDbChallenges(filtered);
       } catch (err) {
         console.error('Failed to fetch challenges:', err);
       } finally {

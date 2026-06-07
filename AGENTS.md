@@ -204,12 +204,149 @@ the output provably correct and immune to LLM hallucination.
    `PYTHONIOENCODING=utf-8` + `PYTHONUTF8=1` and `errors="replace"` — Windows
    defaults to cp1252 which breaks Arabic output.
 
-## Challenge Format (current)
-- Per-type table (e.g. `encryption_challenges`):
-  - `id`, `team_role`, `module`, `title`, `story`, `task_outline`
-  - `files` (jsonb), `file_metadata` (jsonb), `command_outputs` (jsonb)
-  - `hints` (jsonb), `tools_whitelist` (text[])
-  - `flag_hash`, `flag_preview`, `difficulty`, `xp_reward`, `created_at`
+## Challenge Type vs Module — the single source of truth
+
+### The two columns
+
+Each per-type challenges table carries TWO distinct fields:
+
+| Column      | Meaning                                                                 | Allowed values                                                                                              |
+|-------------|-------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| `module`    | **Challenge type** — which editor the front-end must render.            | Exactly **one** of: `crypto`, `web`, `code-fixing`, `log-analysis`, `vulnerability-hunter`                  |
+| `topic`     | **Specific subject** of the row (xss, sqli, hash-cracking, …). Free-form. | Any short kebab-case string the pool watcher / dashboard wants to filter on. |
+
+The two are **never** the same string (with the trivial exception of
+`log-analysis`, where the legacy data had no finer distinction).
+
+### Canonical mapping (enforced by CHECK constraints)
+
+| Table                             | `module` (forced)    | Sample `topic` values                                                |
+|-----------------------------------|----------------------|----------------------------------------------------------------------|
+| `encryption_challenges`           | `crypto`             | `encryption-basics`, `hash-cracking`, `rsa-aes`                      |
+| `web_exploitation_challenges`     | `web`                | `xss`, `sqli`, `csrf`, `idor`, `lfi-rfi`, `xxe`, `ssrf`, `cmdi`, `auth`, `upload` |
+| `code_fixing_challenges`          | `code-fixing`        | `web-security`, `systems-security`                                   |
+| `log_analysis_challenges`         | `log-analysis`       | `log-analysis`                                                       |
+| `vulnerability_hunter_challenges` | `vulnerability-hunter` | `secure-coding`, `web-security`, `cryptography`                    |
+
+The constraints live in
+`CyberArena/db/schema/011_challenge_type_normalization.sql` and are
+named `<table>_module_canonical_chk`. A diagnostic view
+`v_challenge_type_consistency` returns `bad_rows = 0` for every
+table once the data is healthy — `scripts/check_state.py` queries
+this view at startup.
+
+### Front-end ↔ back-end contract
+
+The HTTP request that lands on `POST /api/training/generate` carries
+`module` in the JSON body, and **the value is always the canonical
+challenge type**, not the topic:
+
+```json
+{ "module": "code-fixing", "path": "web-security",
+  "category": "Code Fixing", "teamRole": "blue", "challengeId": "…" }
+```
+
+The back-end normalises this with
+`app.api.training._normalize_challenge_type` and uses it for two
+things:
+
+1. **Row lookup.** `_fetch_scenario_by_id_typed` tries the matching
+   per-type table first, then falls back to every other table the
+   team owns. The old `fetch_scenario_by_id` always looked in
+   `encryption_challenges` regardless of the actual type — that
+   silent miss is what was sending code-fixing rows to the web
+   editor.
+2. **Type pinning.** `attach_scenario_metadata(training, scenario,
+   challenge_type=…)` writes the canonical type into
+   `training["type"]` and `training["challengeType"]`. The previous
+   code used `scenario.get("module")` as a fallback, which
+   silently routed a code-fixing row whose DB `module` was
+   `web-security` to the web view.
+
+The front-end then picks the editor by:
+
+```ts
+const isCodeFix        = teamRole === 'blue' && type === 'code-fixing';
+const isLogAnalysis    = teamRole === 'blue' && type === 'log-analysis';
+const isVulnHunter     = teamRole === 'blue' && type === 'vulnerability-hunter';
+const isWebExploit     = challengeType === 'web' || ['sqli','xss',…].includes(type);
+const isCrypto         = challengeType === 'crypto' || type === 'crypto';
+```
+
+The dashboard list endpoint (`GET /api/training/list`) projects the
+DB row to the same shape via `app.services.challenge_loader`'s
+`map_*_row_to_training` functions. **All five mappers now hard-code
+`type` to the canonical value** (e.g. `map_code_fixing_row_to_training`
+always returns `"type": "code-fixing"`); the old behaviour of
+reading `row.get("module")` is gone.
+
+### Rules for AI generators (mandatory)
+
+Every generator in `app/generators/` MUST, when inserting a row into
+its per-type table:
+
+1. Set `module` to the **canonical challenge type** for that
+   generator. No exceptions. Even if the topic is `xss`, a row going
+   into `web_exploitation_challenges` MUST have `module = 'web'`.
+2. Set `topic` to the **specific subject** of the row (e.g. `xss`,
+   `sqli`, `hash-cracking`, `secure-coding`).
+3. **Never** put a topic string in the `module` column. The DB
+   CHECK constraint will reject it anyway, but the generator should
+   not try.
+
+The existing `app/services/challenge_loader.py::map_*_row_to_training`
+functions are the canonical examples; copy their style.
+
+### Rules for new challenge types
+
+When adding a sixth challenge type:
+
+1. Create the table with a `module` column constrained to the new
+   canonical value, a `topic` column, and the standard per-type
+   columns (see `db/schema/002..006_*.sql` for the schema template).
+2. Add a `map_<type>_row_to_training` function in
+   `app/services/challenge_loader.py` that hard-codes
+   `"type": "<the new canonical value>"`.
+3. Extend `app.services.supabase_service.scenario_table` with the
+   new mapping.
+4. Extend `app.api.training._CANONICAL_CHALLENGE_TYPES` with the
+   new aliases.
+5. Extend `app.generators.REGISTRY` with the new generator.
+6. Extend the dashboard list loop in
+   `app.api.training.list_challenges` with the new type.
+7. Extend the front-end `TrainingSession` routing with the new
+   `is<NewType>Challenge` boolean (and follow the in-editor vs
+   in-1v1 rules in the "1v1 Mode" section below).
+
+Do not skip any of these — the new type will silently misroute.
+
+### Per-type table schema (current)
+
+Each per-type table follows the same shape — only the additional
+per-type columns differ. The canonical columns are:
+
+| Column           | Type        | Notes |
+|------------------|-------------|-------|
+| `id`             | `uuid`      | PK |
+| `team_role`      | `text`      | `'red'` or `'blue'` (CHECK enforced) |
+| `module`         | `text`      | Canonical challenge type (CHECK enforced — see table above) |
+| `topic`          | `text`      | Specific subject (free-form) — added by migration 011 |
+| `title`          | `text`      | Arabic display title |
+| `story`          | `text`      | Arabic context paragraph |
+| `task_outline`   | `text`      | Arabic student instructions |
+| `difficulty`     | `text`      | `'مبتدئ'` / `'سهل'` / `'متوسط'` / `'قوي'` / `'خبير'` (CHECK enforced) |
+| `xp_reward`      | `int`       | 100/150/200 |
+| `hints`          | `jsonb`     | `[{"level":1,"text":…,"xp_cost":20}, …]` |
+| `created_at`     | `timestamptz` | Default `now()` |
+
+The legacy red-team crypto/web tables additionally carry `files`,
+`file_metadata`, `command_outputs`, `tools_whitelist`, `flag_hash`,
+and `flag_preview`. The blue-team tables (code-fixing / log-analysis
+/ vulnerability-hunter) carry the per-type challenge payload columns
+(`vulnerable_code`, `vulnerability_type`, `vulnerability_class`,
+`vulnerability_description`, `language`, …) instead of the flag
+columns because the validation is structured, not a single hash.
+
 - **Flag format**: `CyberArena{<64-hex>}` — `flag_hash = sha256(flag_preview)`
 - **Anti-patterns enforced** in `ScenarioSpec.validate()`:
   - No algorithm names in `task_outline` (no AES/RSA/MD5/SHA/HMAC/XOR/...)
@@ -368,8 +505,84 @@ purely navigation.
 - [ ] Editor's overlay z-index ≤ 9999
 - [ ] `SubmissionPayload` union in `OneVOneArena.tsx` extended
 - [ ] Manual test: 2 browsers, solve the challenge, confirm
-      `onevone_matches.winner_user_id` is set and both clients see
+      `onev1_matches.winner_user_id` is set and both clients see
       the result modal.
+
+## Challenge Loading — DB row is the source of truth
+
+> **This is the rule the original refactor almost got right.** A
+> previous version of `app/api/training.py::generate_training` would
+> call Groq every time a student opened a challenge, asking the
+> model to rebuild the full training dict from a one-line scenario.
+> That broke three things at once: the routing (the model's
+> `type` field didn't match the canonical challenge type), the
+> payload (the model sometimes returned an empty `vulnerable_code`
+> or `htmlPreview`), and the rate limit (one open = one Groq call,
+> so a dashboard refresh would burn 429s).
+
+### The correct flow (post-fix)
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  POOL WATCHER (background, every 30s)                                │
+│  ──────────────────────────────────────                              │
+│  1. AI generates the FULL challenge (text + file content).           │
+│  2. Generator uploads the file to the right Storage bucket:          │
+│       - log-analysis    → "log-analysis-files"  bucket              │
+│       - crypto / web / code-fixing / vulnerability-hunter →          │
+│         "challenge-files" bucket (or inlined in the row jsonb)       │
+│  3. Generator inserts a single row into the per-type table:          │
+│       module = canonical challenge type                              │
+│       topic  = specific subject (xss, sqli, hash-cracking, …)        │
+│       <type-specific payload columns> (vulnerable_code, html, …)     │
+└──────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  STUDENT OPENS A CHALLENGE  (POST /api/training/generate)            │
+│  ──────────────────────────────────────────────────────              │
+│  1. Backend looks up the row in the right per-type table             │
+│     (challenge_id → _fetch_scenario_by_id_typed).                    │
+│  2. Backend runs the per-type row mapper                             │
+│     (map_<type>_row_to_training) — the mapper reads the row          │
+│     and produces the complete TrainingData payload:                  │
+│       - vulnerable_code, language, vulnerability_type, …             │
+│       - log_url (built from storage_path + SUPABASE_URL)             │
+│       - files (decoded base64), htmlPreview                          │
+│       - hard-coded "type": "code-fixing" / "log-analysis" / …        │
+│  3. attach_scenario_metadata pins type / id / topic / difficulty /   │
+│     xpReward. No Groq call.                                          │
+└──────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                          Front-end renders
+```
+
+### What this means for each piece of code
+
+- `app/api/training.py::generate_training` MUST NOT call Groq. The
+  row mapper is the single source of truth.
+- `app/services/scenario_service.py::generate_challenge_from_scenario`
+  is **kept as a utility** for ad-hoc testing / the dashboard
+  "preview" button, but `generate_training` does not import it.
+- `app/services/file_storage.py::upload_challenge_file` is a
+  **utility for the pool watcher**, not for the open flow. The open
+  flow reads files from the row (`files` jsonb for the legacy
+  crypto/web path, `log_url` for log-analysis).
+- A new pool-watcher row in `code_fixing_challenges`,
+  `vulnerability_hunter_challenges`, `encryption_challenges`, or
+  `web_exploitation_challenges` MUST carry the full payload in the
+  per-type columns (`vulnerable_code`, `html_preview`, `files`,
+  etc.) — never rely on a follow-up AI call to fill them in.
+
+### Detecting regressions
+
+The `scripts/check_state.py` health report includes a
+"challenge type consistency" section that reads
+`v_challenge_type_consistency` from the DB. Any non-zero
+`bad_rows` value means somebody inserted a row whose `module`
+column doesn't match its table's canonical value — that row will
+route to the wrong editor and must be fixed.
 
 ## Running the Backend
 ```bash

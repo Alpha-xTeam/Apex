@@ -691,30 +691,30 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         });
 
         setTraining(fetchedTraining);
-        // Detect code-fixing challenges (blue team with code-fixing module)
+        // Detect code-fixing challenges (blue team with type='code-fixing').
+        // We deliberately check `type` first because vulnerability-hunter
+        // challenges also carry `language` + `vulnerable_code` but must
+        // NOT be misclassified as code-fixing (they have a different UX).
         setIsCodeFixChallenge(
-          teamRole === 'blue' && (
+          teamRole === 'blue' &&
+          fetchedTraining.type !== 'vulnerability-hunter' &&
+          (
             fetchedTraining.type === 'code-fixing' ||
             fetchedTraining.type?.startsWith('code-fixing') ||
-            (fetchedTraining as any).language !== undefined ||
-            (fetchedTraining as any).vulnerable_code !== undefined
+            (
+              (fetchedTraining as any).language !== undefined &&
+              (fetchedTraining as any).vulnerable_code !== undefined
+            )
           )
         );
-        // Detect log-analysis challenges (blue team with log_url / log_type)
+        // Detect log-analysis challenges (blue team with explicit type='log-analysis')
         setIsLogAnalysisChallenge(
-          teamRole === 'blue' && (
-            fetchedTraining.type === 'log-analysis' ||
-            (fetchedTraining as any).log_url !== undefined ||
-            (fetchedTraining as any).log_type !== undefined
-          )
+          teamRole === 'blue' && fetchedTraining.type === 'log-analysis'
         );
-        // Detect vulnerability-hunter challenges (blue team with vulnerability_type + vulnerable_code, no fix needed)
+        // Detect vulnerability-hunter challenges (blue team with type='vulnerability-hunter')
         const ft: any = fetchedTraining;
         setIsVulnHunterChallenge(
-          teamRole === 'blue' &&
-          ft.vulnerability_class !== undefined &&
-          ft.vulnerability_type !== undefined &&
-          ft.type === 'vulnerability-hunter'
+          teamRole === 'blue' && ft.type === 'vulnerability-hunter'
         );
         setLoading(false);
       } else {
@@ -791,7 +791,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              challengeId: training.scenarioId || training.id,
+              scenarioId: training.scenarioId || training.id,
               teamRole,
               module: training.type || moduleId || moduleTitle,
               path: pathId,
@@ -875,7 +875,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              challengeId: training.scenarioId || training.id,
+              scenarioId: training.scenarioId || training.id,
               teamRole,
               module: training.type || moduleId || moduleTitle,
               path: pathId,
@@ -983,7 +983,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              challengeId: training.scenarioId || training.id,
+              scenarioId: training.scenarioId || training.id,
               teamRole: 'blue',
               module: training.type || moduleId || moduleTitle,
               path: pathId,
@@ -1071,7 +1071,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              challengeId: training.scenarioId || training.id,
+              scenarioId: training.scenarioId || training.id,
               teamRole: 'blue',
               module: training.type || moduleId || moduleTitle,
               path: pathId,
@@ -1159,7 +1159,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              challengeId: training.scenarioId || training.id,
+              scenarioId: training.scenarioId || training.id,
               teamRole: 'blue',
               module: training.type || moduleId || moduleTitle,
               path: pathId,
@@ -1478,7 +1478,10 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
   const isWebChallenge =
     !pathId.toLowerCase().includes('crypto') &&
     !categoryId.toLowerCase().includes('crypto') &&
-    pathId !== 'basics-crypto';
+    pathId !== 'basics-crypto' &&
+    pathId !== 'vulnerability-hunter' &&
+    !categoryId.toLowerCase().includes('vulnerability hunter') &&
+    (training as any)?.type !== 'vulnerability-hunter';
   // For web exploitation challenges, force the Web view (iframe + VS Code)
   // even if the path/category happen to contain "crypto" (defensive).
   const isWebExploitChallenge = training?.challengeType === 'web' ||
@@ -1722,6 +1725,36 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
     );
   }
 
+  // Vulnerability Hunter Challenge: render VulnerabilityHunterEditor component
+  if (isVulnHunterChallenge && training) {
+    return (
+      <div className="dash-page session-page team-blue">
+        <VulnerabilityHunterEditor
+          challenge={{
+            id: training.id || '',
+            scenarioId: training.scenarioId || '',
+            language: (training as any).language || 'PYTHON',
+            title: training.title,
+            story: training.story,
+            task_outline: training.task,
+            vulnerable_code: (training as any).vulnerable_code || (training as any).code || '',
+            vulnerability_type: (training as any).vulnerability_type || '',
+            vulnerability_class: (training as any).vulnerability_class || '',
+            vulnerability_description: (training as any).vulnerability_description || '',
+            difficulty: training.difficulty,
+            xp_reward: training.xpReward,
+            hints: (training as any).hints || [],
+          }}
+          onSubmit={handleVulnHunterSubmit}
+          onBack={onBack}
+          isVerifying={isVerifying}
+          result={vulnHunterResult}
+          inOneVOne={!!onChallengeSolved}
+        />
+      </div>
+    );
+  }
+
   // Log Analysis Challenge: render LogAnalysisEditor component
   if (isLogAnalysisChallenge && training) {
     return (
@@ -1747,36 +1780,6 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
           onBack={onBack}
           isVerifying={isVerifying}
           result={logAnalysisResult}
-          inOneVOne={!!onChallengeSolved}
-        />
-      </div>
-    );
-  }
-
-  // Vulnerability Hunter Challenge: render VulnerabilityHunterEditor component
-  if (isVulnHunterChallenge && training) {
-    return (
-      <div className="dash-page session-page team-blue">
-        <VulnerabilityHunterEditor
-          challenge={{
-            id: training.id || '',
-            scenarioId: training.scenarioId || '',
-            language: (training as any).language || 'PYTHON',
-            title: training.title,
-            story: training.story,
-            task_outline: training.task,
-            vulnerable_code: (training as any).vulnerable_code || (training as any).code || '',
-            vulnerability_type: (training as any).vulnerability_type || '',
-            vulnerability_class: (training as any).vulnerability_class || '',
-            vulnerability_description: (training as any).vulnerability_description || '',
-            difficulty: training.difficulty,
-            xp_reward: training.xpReward,
-            hints: (training as any).hints || [],
-          }}
-          onSubmit={handleVulnHunterSubmit}
-          onBack={onBack}
-          isVerifying={isVerifying}
-          result={vulnHunterResult}
           inOneVOne={!!onChallengeSolved}
         />
       </div>

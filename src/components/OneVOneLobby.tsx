@@ -148,7 +148,7 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
         const res = await fetch(`${API_URL}/training/list?team_role=${teamRole}&limit=1000`);
         const data = await res.json();
         if (!cancelled) {
-          setAvailableChallenges(Array.isArray(data.challenges) ? data.challenges : []);
+          setAvailableChallenges(Array.isArray(data.items) ? data.items : []);
         }
       } catch {
         if (!cancelled) setAvailableChallenges([]);
