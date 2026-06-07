@@ -264,26 +264,49 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
     return () => { if (tickRef.current) clearInterval(tickRef.current); };
   }, [match?.state, match?.ends_at, match?.overtime_ends_at, match?.main_duration_s]);
 
-  // ---- 5) When match enters "ready" / "playing" / "overtime", fetch the challenge once ----
+  // ---- 5) When match enters "ready" / "playing" / "overtime", fetch the
+  //        challenge. Auto-retries up to 4 times with exponential backoff
+  //        (1s, 2s, 4s, 8s) so a transient network blip or a slow Supabase
+  //        read doesn't leave this client stuck on "waiting for opponent".
+  //        Note: a successful /challenge ALSO marks the player as ready
+  //        on the server (see get_match_challenge in onevone.py), so the
+  //        /ready POST below is now just a safety net. ----
   useEffect(() => {
     if (!match) return;
     if (!['ready', 'playing', 'overtime'].includes(match.state)) return;
     if (training) return;
     if (loadingTraining) return;
+    let cancelled = false;
     setLoadingTraining(true);
-    (async () => {
+    setError('');
+
+    const attempt = async (n: number): Promise<void> => {
+      if (cancelled) return;
       try {
-        const res = await fetch(`${API_URL}/onevone/matches/${match.id}/challenge?userId=${user.id}`);
-        if (!res.ok) throw new Error(t.oneVOne.loadChallengeErr);
+        const res = await fetch(
+          `${API_URL}/onevone/matches/${match.id}/challenge?userId=${user.id}`,
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
+        if (cancelled) return;
         setTraining(data.training);
+        setLoadingTraining(false);
       } catch (e) {
+        if (cancelled) return;
+        if (n < 4) {
+          // exponential backoff: 1s, 2s, 4s, 8s
+          const delay = 1000 * Math.pow(2, n);
+          await new Promise((r) => setTimeout(r, delay));
+          return attempt(n + 1);
+        }
         const err = e as { message?: string };
         setError(err?.message || t.oneVOne.loadChallengeErr);
-      } finally {
         setLoadingTraining(false);
       }
-    })();
+    };
+
+    attempt(0);
+    return () => { cancelled = true; };
   }, [match?.id, match?.state, training, loadingTraining, user.id]);
 
   // ---- 6) Once the challenge is loaded, signal /ready so the server can
