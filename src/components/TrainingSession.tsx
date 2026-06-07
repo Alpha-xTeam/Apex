@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import CodeFixEditor from './CodeFixEditor';
 import LogAnalysisEditor from './LogAnalysisEditor';
 import VulnerabilityHunterEditor from './VulnerabilityHunterEditor';
@@ -93,13 +93,7 @@ interface TrainingData {
   commandOutputs?: Record<string, { stdout: string; stderr?: string }>;
   toolsWhitelist?: string[];
 
-  // v2: web exploitation 3-layer validation fields
-  codeView?: string;
-  sinkType?: string;
-  validationPattern?: string;
-  exploitsAccepted?: string[];
-  challengeType?: 'web' | 'crypto' | string;
-  labKind?: 'iframe' | string;
+  challengeType?: 'crypto' | string;
 }
 
 interface TrainingSessionProps {
@@ -170,16 +164,6 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evalResult, setEvalResult] = useState<{ secured: boolean; feedback: string } | null>(null);
 
-  // --- v2 web exploitation: exploit signal from iframe postMessage ---
-  const [exploitSignal, setExploitSignal] = useState<{
-    sink?: string;
-    secret?: string;
-    payload?: string;
-    module?: string;
-    vuln_type?: string;
-    ts?: number;
-  } | null>(null);
-  const [evalLayer, setEvalLayer] = useState<string>(''); // which layer failed (pattern/sink/secret)
   const [simulatedUrl, setSimulatedUrl] = useState('https://apex-train.com/lab-preview');
 
   // --- Windows OS Simulator States ---
@@ -350,29 +334,10 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
     generateTraining();
   }, [challengeId]);
 
-  // --- v2: postMessage listener for web exploitation labs ---
-  // The lab iframe sends a `__APEX_EXPLOIT_OK__` message when the student
-  // successfully triggers the vulnerable sink. Capture it into state so
-  // the submit handler can forward it to /api/training/evaluate-web.
-  useEffect(() => {
-    const onMsg = (ev: MessageEvent) => {
-      const data = ev.data;
-      if (!data || typeof data !== 'object') return;
-      if (data.type === '__APEX_EXPLOIT_OK__') {
-        console.log('[TrainingSession] exploit_success from iframe:', data);
-        setExploitSignal({
-          sink: data.sink,
-          secret: data.secret,
-          payload: data.payload,
-          module: data.module,
-          vuln_type: data.vuln_type,
-          ts: data.ts || Date.now(),
-        });
-      }
-    };
-    window.addEventListener('message', onMsg);
-    return () => window.removeEventListener('message', onMsg);
-  }, []);
+  // --- v2: postMessage listener for web exploitation labs (REMOVED) ---
+  // Web exploitation challenges have been removed from the platform.
+  // The postMessage handler that captured `__APEX_EXPLOIT_OK__` sink
+  // signals is gone; the lab iframe is no longer used for attack labs.
 
   const prettyPrintHtml = (input: string) => {
     const compact = input.replace(/>\s+</g, '><').trim();
@@ -476,7 +441,6 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
     setNotepadSaving(false);
     setNotepadStatus('');
     setUserWorkdirFiles([]);
-    setSimulatedUrl('https://apex-train.com/lab-preview');
     setVulnHunterResult(null);
     setIsVulnHunterChallenge(false);
 
@@ -898,111 +862,6 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
           }).catch(err => console.error('Error reporting solved challenge:', err));
         }
       } catch { }
-    }
-  };
-
-  // --- v2: Web Exploitation 3-layer validation submit ---
-  // Uses the new /api/training/evaluate-web endpoint which validates:
-  //   1. PATTERN  (regex match)
-  //   2. SINK     (iframe postMessage confirmed vulnerable sink triggered)
-  //   3. SECRET   (iframe postMessage returned the secret_marker)
-  const handleWebSubmitV2 = async () => {
-    if (!training) return;
-    const payload = answer.trim();
-    if (!payload) {
-      setError('Please enter the payload first');
-      return;
-    }
-
-    setIsEvaluating(true);
-    setEvalResult(null);
-    setEvalLayer('');
-    setError('');
-
-    try {
-      const res = await fetch(`${API_URL}/training/evaluate-web`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          challengeId: training.scenarioId || training.id,
-          payload,
-          teamRole,
-          exploitSignal: exploitSignal || {},
-        }),
-      });
-
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(`HTTP ${res.status}: ${t}`);
-      }
-
-      const data = await res.json();
-      setEvalLayer(data.layer || '');
-
-      if (data.success) {
-        setIsCorrect(true);
-        setShowResult(true);
-        setEvalResult({ secured: true, feedback: data.message || 'تم استغلال الثغرة بنجاح! 🎉' });
-
-        // Notify the 1v1 wrapper (if any) so the server can claim the win.
-        // The 1v1 endpoint does a basic substring check against flag_preview
-        // and exploits_accepted — it expects a plain string payload.
-        onChallengeSolved?.(answer.trim());
-
-        // Add XP
-        const raw = localStorage.getItem('cyberarena_session') || '{}';
-        const session = JSON.parse(raw);
-        const userData = session.user || session;
-        const userId = userData.id;
-        if (userId) {
-          await fetch(`${API_URL}/xp`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'add_xp',
-              user_id: userId,
-              xp_amount: training.xpReward,
-            }),
-          });
-        }
-
-        // Mark as solved
-        if ((training.id || training.scenarioId) && !onChallengeSolved) {
-          fetch(`${API_URL}/training/solved`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              scenarioId: training.scenarioId || training.id,
-              teamRole,
-              module: training.type || moduleId || moduleTitle,
-              path: pathId,
-              category: categoryId,
-              difficulty: training.difficulty || 'متوسط',
-            }),
-          }).catch(err => console.error('Error reporting solved:', err));
-        }
-      } else {
-        setIsCorrect(false);
-        setShowResult(true);
-        const layerHint = {
-          pattern: 'Payload does not match the vulnerability pattern. Check the source code.',
-          sink: 'Sink not captured. Make sure to execute the payload inside the preview (simulator), not in the answer field.',
-          secret: 'Secret not extracted. The flag is hidden in the lab — use the vuln to extract it (e.g. document.cookie).',
-          input: data.error || 'Please enter a valid payload.',
-          load: 'Failed to load challenge data.',
-        }[data.layer || 'input'] || data.error || 'Verification failed.';
-
-        setEvalResult({ secured: false, feedback: layerHint });
-      }
-    } catch (err: any) {
-      setIsCorrect(false);
-      setShowResult(true);
-      setEvalResult({
-        secured: false,
-        feedback: 'عذراً، فشل الاتصال بخادم التقييم. حاول مرة أخرى.\n' + (err?.message || ''),
-      });
-    } finally {
-      setIsEvaluating(false);
     }
   };
 
@@ -1579,12 +1438,10 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
     pathId !== 'vulnerability-hunter' &&
     !categoryId.toLowerCase().includes('vulnerability hunter') &&
     (training as any)?.type !== 'vulnerability-hunter';
-  // For web exploitation challenges, force the Web view (iframe + VS Code)
-  // even if the path/category happen to contain "crypto" (defensive).
-  const isWebExploitChallenge = training?.challengeType === 'web' ||
-    ['sqli', 'xss', 'csrf', 'idor', 'lfi-rfi', 'xxe', 'ssrf', 'cmdi', 'auth', 'upload']
-      .includes((training?.type || '').toLowerCase());
-  const showWebView = isWebChallenge || isWebExploitChallenge;
+  // Web exploitation challenges have been removed from the platform —
+  // see AGENTS.md for the supported types. The browser/IDE view is
+  // still used for code-fixing / log-analysis / etc.
+  const showWebView = isWebChallenge;
   const hasLog = training?.type === 'analyze_log';
 
   if (error) {
@@ -2478,53 +2335,10 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
               <div className="vuln-marker-text">
                 <span>⚠️ الثغرة المكتشفة</span>
                 <p>{training.vulnerabilityLocation}</p>
-                {training.sinkType && (
-                  <p style={{ marginTop: '4px', fontSize: '11px', opacity: 0.85 }}>
-                    نوع الـ Sink: <code style={{ color: '#fca5a5' }}>{training.sinkType}</code>
-                  </p>
-                )}
               </div>
             </div>
           )}
 
-          {/* v2: Source code viewer (code_view) */}
-          {isWebExploitChallenge && training.codeView && (
-            <details className="session-code-view" style={{
-              margin: '8px 0 12px',
-              background: 'rgba(15, 23, 42, 0.6)',
-              border: '1px solid #1f2937',
-              borderRadius: '8px',
-              padding: '8px 12px',
-            }}>
-              <summary style={{
-                cursor: 'pointer', fontSize: '13px', color: '#94a3b8',
-                fontWeight: 600, userSelect: 'none'
-              }}>
-                🔍 عرض الكود المصدري للثغرة (Source Code)
-              </summary>
-              <pre dir="ltr" style={{
-                marginTop: '8px', padding: '12px',
-                background: '#0a0d14', color: '#cbd5e1',
-                fontFamily: 'JetBrains Mono, Consolas, monospace',
-                fontSize: '11.5px', lineHeight: 1.6,
-                borderRadius: '6px', overflow: 'auto', maxHeight: '320px',
-                whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-                textAlign: 'left',
-              }}><code>{training.codeView}</code></pre>
-              {Array.isArray(training.exploitsAccepted) && training.exploitsAccepted.length > 0 && (
-                <div style={{ marginTop: '8px', fontSize: '11px', color: '#64748b' }}>
-                  💡 Payload vectors مقبولة:
-                  <ul style={{ marginTop: '4px', paddingRight: '16px' }}>
-                    {training.exploitsAccepted.slice(0, 4).map((p, i) => (
-                      <li key={i} style={{ color: '#fbbf24', fontFamily: 'monospace', direction: 'ltr', textAlign: 'left' }}>
-                        {p.length > 80 ? p.slice(0, 80) + '...' : p}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </details>
-          )}
         </div>
 
         {/* RIGHT WORKSPACE: TASK, STORY & ANSWERS */}
@@ -2661,21 +2475,17 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                   </button>
                 ) : (
                   <>
-                    {((!isWebChallenge && !isWebExploitChallenge) || !isOpenEditor) && (
+                    {(!isWebChallenge || !isOpenEditor) && (
                       <div className="session-answer-area">
                         <label className="session-answer-label">
                           {teamRole === 'red'
-                            ? (isWebExploitChallenge
-                                ? '🎯 أدخل الـ Payload (حمولة الاختراق) أو العلم (Flag) المستخرج:'
-                                : '🎯 أدخل الـ Payload أو العلم (Flag)')
+                            ? '🎯 أدخل الـ Payload أو العلم (Flag)'
                             : '✏️ تقديم الإجابة أو العلم (Flag)'}
                         </label>
                         <textarea
                           className="session-answer-input"
                           placeholder={teamRole === 'red'
-                            ? (isWebExploitChallenge
-                                ? "مثال: <img src=x onerror=alert(1)> أو العلم: CyberArena{...}"
-                                : "أدخل حمولة الاختراق (Payload)...")
+                            ? "أدخل حمولة الاختراق (Payload)..."
                             : "اكتب إجابتك هنا..."}
                           value={answer}
                           onChange={(e) => setAnswer(e.target.value)}
@@ -2685,50 +2495,16 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
                       </div>
                     )}
 
-                    {isWebExploitChallenge && exploitSignal && (
-                      <div className="exploit-signal-indicator" style={{
-                        marginTop: '10px',
-                        padding: '8px 12px',
-                        background: 'rgba(16, 185, 129, 0.1)',
-                        border: '1px solid rgba(16, 185, 129, 0.3)',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        color: '#6ee7b7',
-                        display: 'flex', alignItems: 'center', gap: '8px'
-                      }}>
-                        <span style={{
-                          display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-                          background: '#10b981', boxShadow: '0 0 8px #10b981'
-                        }} />
-                        ✅ الـ sink تنفّذ: <code style={{color:'#fbbf24'}}>{exploitSignal.sink}</code>
-                        — السر تم استخراجه، جاهز للإرسال
-                      </div>
-                    )}
-
-                    {isWebExploitChallenge && !exploitSignal && (
-                      <div className="exploit-signal-hint" style={{
-                        marginTop: '10px',
-                        padding: '8px 12px',
-                        background: 'rgba(251, 191, 36, 0.08)',
-                        border: '1px solid rgba(251, 191, 36, 0.25)',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        color: '#fde68a',
-                      }}>
-                        ⚠️ لم يُلتقَط تنفيذ الـ sink. ادخل الـ payload في <strong>حقل الإدخال داخل المعاينة</strong> (أعلى) واضغط "إرسال" — ثم ارجع هنا واضغط "أرسل الاستغلال".
-                      </div>
-                    )}
-
-                    {((!isWebChallenge && !isWebExploitChallenge) || !isOpenEditor) && (
+                    {(!isWebChallenge || !isOpenEditor) && (
                       <button
                         className={`session-submit ${teamRole === 'red' ? 'submit-red' : 'submit-blue'}`}
-                        onClick={isWebExploitChallenge ? handleWebSubmitV2 : handleSubmit}
+                        onClick={handleSubmit}
                         disabled={isEvaluating}
                       >
                         {isEvaluating ? (
                           <>
                             <Loader2 size={18} className="animate-spin" style={{ marginLeft: '8px' }} />
-                            <span>جاري التحقق (3 طبقات)...</span>
+                            <span>جاري التحقق...</span>
                           </>
                         ) : (
                           <>

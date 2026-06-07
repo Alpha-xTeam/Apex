@@ -74,7 +74,7 @@ type TrainingData = Record<string, unknown> & {
   sinkType?: string;
   validationPattern?: string;
   exploitsAccepted?: string[];
-  challengeType?: 'web' | 'crypto' | string;
+  challengeType?: 'crypto' | string;
   labKind?: 'iframe' | string;
 };
 

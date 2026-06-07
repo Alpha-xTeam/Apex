@@ -12,7 +12,7 @@
 - **Region**: `ap-southeast-1`
 - **Database**: Supabase PostgreSQL (`users`, `leaderboard`, `certificates`,
   one challenges table per type — e.g. `encryption_challenges`, future
-  `web_challenges`, `forensics_challenges`, ...)
+  `forensics_challenges`, `network_challenges`, ...)
 
 ## Stack
 - **Frontend**: React 19 + TypeScript + Vite
@@ -55,14 +55,13 @@ Frontend (React :5173) → Python Backend (FastAPI :8090) → Supabase (challeng
 
 ## Pool Architecture — Per-Type Generators
 
-Each challenge **type** (crypto, web, forensics, ...) has its own table and
+Each challenge **type** (crypto, forensics, ...) has its own table and
 its own generator module:
 
 ```
 backend/
   main.py                 ← orchestrator: starts one watcher per (type, team)
   crypto_generator.py     ← owns encryption_challenges
-  web_generator.py        ← (future) owns web_challenges
   forensics_generator.py  ← (future) owns forensics_challenges
   ...
 ```
@@ -212,8 +211,8 @@ Each per-type challenges table carries TWO distinct fields:
 
 | Column      | Meaning                                                                 | Allowed values                                                                                              |
 |-------------|-------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
-| `module`    | **Challenge type** — which editor the front-end must render.            | Exactly **one** of: `crypto`, `web`, `code-fixing`, `log-analysis`, `vulnerability-hunter`                  |
-| `topic`     | **Specific subject** of the row (xss, sqli, hash-cracking, …). Free-form. | Any short kebab-case string the pool watcher / dashboard wants to filter on. |
+| `module`    | **Challenge type** — which editor the front-end must render.            | Exactly **one** of: `crypto`, `code-fixing`, `log-analysis`, `vulnerability-hunter`                  |
+| `topic`     | **Specific subject** of the row (hash-cracking, …). Free-form. | Any short kebab-case string the pool watcher / dashboard wants to filter on. |
 
 The two are **never** the same string (with the trivial exception of
 `log-analysis`, where the legacy data had no finer distinction).
@@ -223,7 +222,6 @@ The two are **never** the same string (with the trivial exception of
 | Table                             | `module` (forced)    | Sample `topic` values                                                |
 |-----------------------------------|----------------------|----------------------------------------------------------------------|
 | `encryption_challenges`           | `crypto`             | `encryption-basics`, `hash-cracking`, `rsa-aes`                      |
-| `web_exploitation_challenges`     | `web`                | `xss`, `sqli`, `csrf`, `idor`, `lfi-rfi`, `xxe`, `ssrf`, `cmdi`, `auth`, `upload` |
 | `code_fixing_challenges`          | `code-fixing`        | `web-security`, `systems-security`                                   |
 | `log_analysis_challenges`         | `log-analysis`       | `log-analysis`                                                       |
 | `vulnerability_hunter_challenges` | `vulnerability-hunter` | `secure-coding`, `web-security`, `cryptography`                    |
@@ -254,14 +252,14 @@ things:
    per-type table first, then falls back to every other table the
    team owns. The old `fetch_scenario_by_id` always looked in
    `encryption_challenges` regardless of the actual type — that
-   silent miss is what was sending code-fixing rows to the web
+   silent miss is what was sending code-fixing rows to the wrong
    editor.
 2. **Type pinning.** `attach_scenario_metadata(training, scenario,
    challenge_type=…)` writes the canonical type into
    `training["type"]` and `training["challengeType"]`. The previous
    code used `scenario.get("module")` as a fallback, which
    silently routed a code-fixing row whose DB `module` was
-   `web-security` to the web view.
+   `web-security` to the wrong editor.
 
 The front-end then picks the editor by:
 
@@ -269,7 +267,6 @@ The front-end then picks the editor by:
 const isCodeFix        = teamRole === 'blue' && type === 'code-fixing';
 const isLogAnalysis    = teamRole === 'blue' && type === 'log-analysis';
 const isVulnHunter     = teamRole === 'blue' && type === 'vulnerability-hunter';
-const isWebExploit     = challengeType === 'web' || ['sqli','xss',…].includes(type);
 const isCrypto         = challengeType === 'crypto' || type === 'crypto';
 ```
 
@@ -286,8 +283,8 @@ Every generator in `app/generators/` MUST, when inserting a row into
 its per-type table:
 
 1. Set `module` to the **canonical challenge type** for that
-   generator. No exceptions. Even if the topic is `xss`, a row going
-   into `web_exploitation_challenges` MUST have `module = 'web'`.
+   generator. No exceptions. Even if the topic is `hash-cracking`, a row
+   going into `encryption_challenges` MUST have `module = 'crypto'`.
 2. Set `topic` to the **specific subject** of the row (e.g. `xss`,
    `sqli`, `hash-cracking`, `secure-coding`).
 3. **Never** put a topic string in the `module` column. The DB
@@ -339,7 +336,7 @@ per-type columns differ. The canonical columns are:
 | `hints`          | `jsonb`     | `[{"level":1,"text":…,"xp_cost":20}, …]` |
 | `created_at`     | `timestamptz` | Default `now()` |
 
-The legacy red-team crypto/web tables additionally carry `files`,
+The legacy red-team crypto tables additionally carry `files`,
 `file_metadata`, `command_outputs`, `tools_whitelist`, `flag_hash`,
 and `flag_preview`. The blue-team tables (code-fixing / log-analysis
 / vulnerability-hunter) carry the per-type challenge payload columns
@@ -367,7 +364,7 @@ columns because the validation is structured, not a single hash.
 ## 1v1 Mode (head-to-head match) — applies to **every** challenge type
 
 > **Read this section before adding ANY new challenge type.** Every
-> challenge type — current (`web`, `crypto`, `code-fixing`,
+> challenge type — current (`crypto`, `code-fixing`,
 > `log-analysis`) and future (`forensics`, `network`, `reverse`, …) —
 > MUST satisfy this contract or it cannot be played 1v1.
 
@@ -393,9 +390,9 @@ Server-Sent Events.
    **and** `_check_red_answer` (red team). The verifier returns
    `bool`. The current dispatch is:
    ```python
-   if challenge_type in ("web", "crypto"):
+   if challenge_type == "crypto":
        correct = _check_red_answer(...)        # string flag
-   elif challenge_type in ("code-fixing", "log-analysis"):
+   elif challenge_type in ("code-fixing", "log-analysis", "vulnerability-hunter"):
        correct = await _ai_check_blue_answer(...)  # structured payload
    ```
    New blue types go into the second branch with their own payload
@@ -418,7 +415,7 @@ follow:
 
 1. **Call `onChallengeSolved?.(payload)` exactly once per successful
    solve.** `payload` is whatever the verifier expects:
-   - `crypto` / `web` (red team): the flag **string**
+   - `crypto` (red team): the flag **string**
    - `code-fixing` (blue team): `{ fixedCode: string }`
    - `log-analysis` (blue team):
      `{ attackType, attackerIp, timestamp, ioc, explanation? }`
@@ -529,7 +526,7 @@ purely navigation.
 │  1. AI generates the FULL challenge (text + file content).           │
 │  2. Generator uploads the file to the right Storage bucket:          │
 │       - log-analysis    → "log-analysis-files"  bucket              │
-│       - crypto / web / code-fixing / vulnerability-hunter →          │
+│       - crypto / code-fixing / vulnerability-hunter →               │
 │         "challenge-files" bucket (or inlined in the row jsonb)       │
 │  3. Generator inserts a single row into the per-type table:          │
 │       module = canonical challenge type                              │
@@ -568,12 +565,12 @@ purely navigation.
 - `app/services/file_storage.py::upload_challenge_file` is a
   **utility for the pool watcher**, not for the open flow. The open
   flow reads files from the row (`files` jsonb for the legacy
-  crypto/web path, `log_url` for log-analysis).
+  crypto path, `log_url` for log-analysis).
 - A new pool-watcher row in `code_fixing_challenges`,
-  `vulnerability_hunter_challenges`, `encryption_challenges`, or
-  `web_exploitation_challenges` MUST carry the full payload in the
-  per-type columns (`vulnerable_code`, `html_preview`, `files`,
-  etc.) — never rely on a follow-up AI call to fill them in.
+  `vulnerability_hunter_challenges`, or `encryption_challenges`
+  MUST carry the full payload in the per-type columns
+  (`vulnerable_code`, `html_preview`, `files`, etc.) — never rely
+  on a follow-up AI call to fill them in.
 
 ### Detecting regressions
 
