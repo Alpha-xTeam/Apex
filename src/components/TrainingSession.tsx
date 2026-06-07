@@ -109,6 +109,25 @@ interface TrainingSessionProps {
   moduleId: string;
   teamRole?: 'red' | 'blue';
   challengeId?: string;
+  /**
+   * 1v1 mode only. When provided, the component skips its own
+   * /api/training/generate fetch and uses this hydrated TrainingData
+   * directly. The mock "preparing the challenge environment" animation
+   * is also shortened. This prevents the duplicate fetch (and the
+   * associated 1v1 loading-screen deadlock when the training lookup
+   * takes too long).
+   */
+  initialTraining?: TrainingData | null;
+  /**
+   * 1v1 mode safety net. If `initialTraining` is null (the parent
+   * OneVOneArena's fetch is still in flight, errored, or the Vite
+   * HMR served a stale component), TrainingSession can recover on
+   * its own by hitting the 1v1 challenge endpoint directly with
+   * this match id + userId. This is the difference between
+   * "stuck on the loading spinner forever" and "the player can
+   * actually play the match".
+   */
+  oneVOneContext?: { matchId: string; userId: string } | null;
   onBack: () => void;
   /**
    * Optional 1v1 hook. Fires only when the user SOLVES the challenge
@@ -124,7 +143,7 @@ interface TrainingSessionProps {
 }
 
 export const TrainingSession: React.FC<TrainingSessionProps> = ({
-  moduleTitle, categoryId, pathId, moduleId, teamRole = 'red', challengeId, onBack, onChallengeSolved,
+  moduleTitle, categoryId, pathId, moduleId, teamRole = 'red', challengeId, initialTraining, oneVOneContext, onBack, onChallengeSolved,
 }) => {
   const { t } = useI18n();
   const [training, setTraining] = useState<TrainingData | null>(null);
@@ -464,6 +483,84 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
     let isFinishedFetching = false;
     let fetchedTraining: TrainingData | null = null;
     let fetchErrorMsg = '';
+
+    // 1v1 fast path: caller already fetched the challenge via
+    // /api/onevone/matches/{id}/challenge. Skip BOTH the duplicate
+    // /api/training/generate round-trip AND the ~7s mock
+    // "preparing the environment" animation. Just set the training
+    // data and exit loading immediately.
+    if (initialTraining) {
+      console.log('[TS] 1v1 fast path (initialTraining prop)');
+      setTraining(initialTraining);
+      const ft: any = initialTraining;
+      setIsCodeFixChallenge(
+        teamRole === 'blue' &&
+        ft.type !== 'vulnerability-hunter' &&
+        (
+          ft.type === 'code-fixing' ||
+          ft.type?.startsWith('code-fixing') ||
+          (ft.language !== undefined && ft.vulnerable_code !== undefined)
+        )
+      );
+      setIsLogAnalysisChallenge(teamRole === 'blue' && ft.type === 'log-analysis');
+      setIsVulnHunterChallenge(teamRole === 'blue' && ft.type === 'vulnerability-hunter');
+      setSimulatedStep(5);
+      setSimulatedPercent(100);
+      setSimulatedTitle('Lab fully prepared!');
+      setLoading(false);
+      return;
+    }
+
+    // 1v1 fallback path: initialTraining was null (parent fetch is
+    // still in flight, errored, or Vite HMR served a stale component).
+    // If the caller gave us the 1v1 match context, fetch the challenge
+    // ourselves from the 1v1 endpoint. This is the difference between
+    // "stuck on the loading spinner forever" and "the player can
+    // actually play the match". Up to 4 attempts with exponential
+    // backoff (1s, 2s, 4s, 8s) to absorb transient network blips.
+    if (oneVOneContext) {
+      console.log('[TS] 1v1 fallback path: fetching challenge for match', oneVOneContext.matchId);
+      try {
+        const { matchId, userId } = oneVOneContext;
+        let res: Response | null = null;
+        let attemptData: any = null;
+        for (let attempt = 0; attempt < 4; attempt++) {
+          res = await fetch(
+            `${API_URL}/onevone/matches/${matchId}/challenge?userId=${userId}`,
+          );
+          if (res.ok) {
+            attemptData = await res.json();
+            break;
+          }
+          const delay = 1000 * Math.pow(2, attempt);
+          await new Promise((r) => setTimeout(r, delay));
+        }
+        if (res && res.ok && attemptData && attemptData.training) {
+          console.log('[TS] 1v1 fallback succeeded, hydrating training');
+          const ft: any = attemptData.training;
+          setTraining(ft);
+          setIsCodeFixChallenge(
+            teamRole === 'blue' &&
+            ft.type !== 'vulnerability-hunter' &&
+            (
+              ft.type === 'code-fixing' ||
+              ft.type?.startsWith('code-fixing') ||
+              (ft.language !== undefined && ft.vulnerable_code !== undefined)
+            )
+          );
+          setIsLogAnalysisChallenge(teamRole === 'blue' && ft.type === 'log-analysis');
+          setIsVulnHunterChallenge(teamRole === 'blue' && ft.type === 'vulnerability-hunter');
+          setSimulatedStep(5);
+          setSimulatedPercent(100);
+          setSimulatedTitle('Lab fully prepared!');
+          setLoading(false);
+          return;
+        }
+        console.warn('[TS] 1v1 fallback exhausted retries; falling through to training/generate');
+      } catch (e) {
+        console.warn('[TS] 1v1 fallback threw, falling through to training/generate', e);
+      }
+    }
 
     const apiFetchPromise = (async () => {
       try {

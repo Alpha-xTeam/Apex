@@ -289,9 +289,11 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (cancelled) return;
+        console.log('[1v1] challenge loaded for match', match.id, '— training keys:', data.training ? Object.keys(data.training) : 'no .training field');
         setTraining(data.training);
         setLoadingTraining(false);
       } catch (e) {
+        console.warn('[1v1] challenge fetch attempt', n, 'failed:', e);
         if (cancelled) return;
         if (n < 4) {
           // exponential backoff: 1s, 2s, 4s, 8s
@@ -509,16 +511,31 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
   // (we want the challenge to render as soon as it's available, even if the
   // server is still waiting for the opponent to signal /ready)
   if (['ready', 'playing', 'overtime'].includes(match.state)) {
-    if (loadingTraining || !training) {
+    // When `training` is still null (parent fetch in flight / failed /
+    // Vite HMR served a stale component), still render TrainingSession
+    // — it can recover on its own via `oneVOneContext` (it will fetch
+    // the challenge from the 1v1 endpoint with exponential backoff).
+    // The match header + result modal still mount around it.
+    if (!training) {
       return (
-        <div className="onevone-page">
-          <OneVOneHeader teamColor={teamColor} user={user} onLeave={handleLeave} state="loading" />
-          <main className="dash-main">
-            <div className="dash-container" style={{ maxWidth: 720, textAlign: 'center' }}>
-              <Loader2 size={36} className="onevone-spin" style={{ color: teamColor, marginTop: 80 }} />
-              <p style={{ marginTop: 16, color: 'rgba(243,241,236,0.55)' }}>{t.oneVOne.challengeLoad}</p>
-            </div>
-          </main>
+        <div className="onevone-page onevone-arena-active">
+          <OneVOneHeader
+            teamColor={teamColor}
+            user={user}
+            onLeave={handleLeave}
+            state="loading"
+          />
+          <TrainingSession
+            moduleTitle={t.oneVOne.moduleTitle}
+            categoryId=""
+            pathId="cryptography"
+            moduleId=""
+            teamRole={room.team_role}
+            initialTraining={null}
+            oneVOneContext={{ matchId: match.id, userId: user.id }}
+            onBack={handleTrainingBack}
+            onChallengeSolved={handleChallengeSolved}
+          />
         </div>
       );
     }
@@ -598,6 +615,8 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
           moduleId={training.type || ''}
           teamRole={room.team_role}
           challengeId={training.scenarioId || training.id}
+          initialTraining={training}
+          oneVOneContext={{ matchId: match.id, userId: user.id }}
           onBack={handleTrainingBack}
           onChallengeSolved={handleChallengeSolved}
         />
