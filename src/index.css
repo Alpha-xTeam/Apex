@@ -7080,65 +7080,75 @@ html[dir="ltr"] th {
 /* ----- Navbar ----- */
 .z-navbar {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 18px;
+  left: 50%;
+  right: auto;
   z-index: 100;
-  background: rgba(243, 241, 236, 0.78);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--z-line);
+  width: min(calc(100% - 32px), 1320px);
+  transform: translateX(-50%);
+  background: var(--z-cream);
+  border: 1px solid rgba(10, 10, 10, 0.1);
+  border-radius: 30px;
+  box-shadow: 0 18px 55px rgba(10, 10, 10, 0.1);
 }
 
 .z-nav-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 32px;
-  max-width: 1440px;
-  margin: 0 auto;
-  gap: 24px;
+  padding: 10px 12px 10px 16px;
+  gap: 16px;
 }
 
 .z-nav-logo {
   font-family: var(--font-arabic);
-  font-weight: 700;
-  font-size: 20px;
-  letter-spacing: -0.01em;
-  color: var(--z-ink);
+  font-weight: 900;
+  font-size: 18px;
+  letter-spacing: -0.03em;
+  color: var(--z-cream);
   text-decoration: none;
   display: inline-flex;
   align-items: baseline;
   gap: 2px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--z-ink);
+  white-space: nowrap;
 }
 .z-nav-logo sup {
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 700;
   color: var(--z-orange);
 }
 
 .z-nav-links {
   display: flex;
   align-items: center;
-  gap: 32px;
-  flex: 1;
   justify-content: center;
+  gap: 4px;
+  flex: 1;
 }
 .z-nav-links a {
   font-family: var(--font-arabic);
   font-size: 14px;
-  font-weight: 500;
-  color: var(--z-ink-2);
+  font-weight: 700;
+  color: var(--z-ink);
   text-decoration: none;
-  transition: color 0.25s ease;
-  position: relative;
+  transition: all 0.25s ease;
+  padding: 9px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
-.z-nav-links a:hover { color: var(--z-orange); }
+.z-nav-links a:hover {
+  color: var(--z-cream);
+  background: var(--z-ink);
+  transform: translateY(-1px);
+}
 
 .z-nav-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
 }
 
 .z-nav-status {
@@ -7146,12 +7156,13 @@ html[dir="ltr"] th {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: var(--z-ink-2);
-  font-weight: 500;
-  border: 1px solid var(--z-line);
+  color: var(--z-ink);
+  font-weight: 700;
+  border: 1px solid rgba(16, 185, 129, 0.28);
   padding: 8px 14px;
-  border-radius: 100px;
-  background: rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  background: var(--z-orange-soft);
+  white-space: nowrap;
 }
 .z-nav-dot {
   width: 8px;
@@ -7171,17 +7182,19 @@ html[dir="ltr"] th {
   align-items: center;
   gap: 10px;
   background: var(--z-ink);
-  color: #fff;
+  color: var(--z-cream);
   border: none;
   padding: 10px 18px;
-  border-radius: 100px;
+  border-radius: 999px;
   font-family: var(--font-arabic);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 800;
   cursor: pointer;
-  transition: transform 0.2s ease, background 0.2s ease;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 10px 24px rgba(10, 10, 10, 0.14);
+  white-space: nowrap;
 }
-.z-nav-menu-btn:hover { background: var(--z-orange); }
+.z-nav-menu-btn:hover { background: var(--z-orange); transform: translateY(-1px); }
 
 /* Desktop login button (hidden on mobile by default) */
 .z-nav-login-btn {
@@ -7189,20 +7202,23 @@ html[dir="ltr"] th {
   align-items: center;
   gap: 8px;
   background: var(--z-ink);
-  color: #fff;
+  color: var(--z-cream);
   border: none;
   padding: 10px 20px;
-  border-radius: 100px;
+  border-radius: 999px;
   font-family: var(--font-arabic);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 800;
   cursor: pointer;
   text-decoration: none;
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 10px 24px rgba(10, 10, 10, 0.14);
+  white-space: nowrap;
 }
 .z-nav-login-btn:hover {
   background: var(--z-orange);
   transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(16, 185, 129, 0.22);
 }
 
 /* ---------- Language Switcher ---------- */
@@ -7233,6 +7249,25 @@ html[dir="ltr"] th {
 .lang-switcher svg {
   opacity: 1;
   color: #10b981;
+}
+
+.z-navbar .lang-switcher {
+  background: transparent;
+  border-color: rgba(10, 10, 10, 0.12);
+  color: var(--z-ink);
+  text-shadow: none;
+  box-shadow: none;
+  font-weight: 800;
+}
+.z-navbar .lang-switcher:hover {
+  background: var(--z-orange-soft);
+  border-color: rgba(16, 185, 129, 0.45);
+  color: var(--z-orange);
+  transform: translateY(-1px);
+  box-shadow: none;
+}
+.z-navbar .lang-switcher svg {
+  color: var(--z-orange);
 }
 
 /* On light backgrounds (AuthPage, Footer, etc.) the green-on-green blend
@@ -7326,21 +7361,23 @@ html[dir="ltr"] .status-dot {
   gap: 10px;
 }
 .z-nav-logout-btn {
-  background: transparent;
+  background: var(--z-cream);
   color: var(--z-ink);
-  border: 1px solid var(--z-line);
+  border: 1px solid rgba(10, 10, 10, 0.12);
   padding: 8px 16px;
-  border-radius: 100px;
+  border-radius: 999px;
   font-family: var(--font-arabic);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 800;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 .z-nav-logout-btn:hover {
   background: var(--z-ink);
-  color: #fff;
+  color: var(--z-cream);
   border-color: var(--z-ink);
+  transform: translateY(-1px);
 }
 .z-nav-menu-icon {
   display: flex;
@@ -7357,14 +7394,14 @@ html[dir="ltr"] .status-dot {
 
 .z-nav-drawer {
   position: fixed;
-  top: 76px;
+  top: 90px;
   right: 32px;
   width: min(360px, calc(100% - 64px));
-  background: #fff;
-  border-radius: 24px;
-  padding: 28px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.12);
-  border: 1px solid var(--z-line);
+  background: var(--z-cream);
+  border-radius: 28px;
+  padding: 18px;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.14);
+  border: 1px solid rgba(10, 10, 10, 0.12);
   z-index: 99;
   display: flex;
   flex-direction: column;
@@ -7381,11 +7418,16 @@ html[dir="ltr"] .status-dot {
   font-weight: 600;
   color: var(--z-ink);
   text-decoration: none;
-  padding: 12px 0;
+  padding: 12px 14px;
+  border-radius: 18px;
   border-bottom: 1px solid var(--z-line);
+  transition: background 0.2s ease, color 0.2s ease;
 }
 .z-nav-drawer a:last-of-type { border-bottom: none; }
-.z-nav-drawer a:hover { color: var(--z-orange); }
+.z-nav-drawer a:hover {
+  color: var(--z-orange);
+  background: rgba(16, 185, 129, 0.08);
+}
 .z-nav-drawer-cta {
   margin-top: 12px;
   display: flex;
@@ -7404,7 +7446,7 @@ html[dir="ltr"] .status-dot {
   height: 32px;
   border-radius: 50%;
   background: var(--z-orange);
-  color: #fff;
+  color: var(--z-cream);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9205,6 +9247,11 @@ html[dir="ltr"] .status-dot {
   .z-nav-login-btn { display: none; }
   .z-nav-user-desktop { display: none; }
   .z-nav-menu-btn { display: flex; }
+  .z-nav-drawer {
+    top: 84px;
+    right: 16px;
+    width: min(360px, calc(100% - 32px));
+  }
   .z-concept-grid { grid-template-columns: 1fr; }
   .z-features-grid { grid-template-columns: 1fr; }
   .z-cases-grid { grid-template-columns: 1fr; }
@@ -9252,9 +9299,16 @@ html[dir="ltr"] .status-dot {
 @media (max-width: 640px) {
   .z-hero { padding: 90px 16px 0; }
   .z-section { padding: 50px 16px; }
-  .z-navbar { padding: 0; }
-  .z-nav-inner { padding: 12px 16px; }
-  .z-nav-logo { font-size: 16px; }
+  .z-navbar {
+    top: 12px;
+    width: calc(100% - 24px);
+    border-radius: 24px;
+  }
+  .z-nav-inner { padding: 8px; gap: 10px; }
+  .z-nav-logo { font-size: 15px; padding: 7px 10px; }
+  .z-nav-right { gap: 6px; }
+  .z-nav-menu-btn { padding: 9px 13px; font-size: 12px; }
+  .z-nav-drawer { top: 78px; right: 12px; width: calc(100% - 24px); }
 
   /* Hero */
   .z-hero-top { gap: 10px; margin-bottom: 16px; }

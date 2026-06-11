@@ -97,74 +97,88 @@
 
 /* ---------- Header ---------- */
 .dash-header {
-  background: rgba(10, 10, 10, 0.8);
-  -webkit-backdrop-filter: blur(24px) saturate(1.8);
-  backdrop-filter: blur(24px) saturate(1.8);
-  border-bottom: 1px solid var(--dash-border);
+  background: rgba(12, 14, 18, 0.86);
+  -webkit-backdrop-filter: blur(22px) saturate(1.45);
+  backdrop-filter: blur(22px) saturate(1.45);
+  border: 1px solid rgba(16, 185, 129, 0.18);
   position: sticky;
-  top: 0;
+  top: 16px;
+  width: min(calc(100% - 32px), 1280px);
+  margin: 16px auto 0;
   z-index: 100;
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+  border-radius: 28px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.02);
 }
 
 .dash-header::after {
   content: '';
   position: absolute;
-  bottom: -1px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--dash-accent-glow), rgba(139, 92, 246, 0.4), transparent);
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .dash-header-inner {
-  max-width: 1280px;
+  position: relative;
+  z-index: 1;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 16px 32px;
+  padding: 10px 12px 10px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 20px;
+  gap: 14px;
 }
 
 .dash-logo {
-  font-size: 22px;
-  font-weight: 900;
-  background: linear-gradient(135deg, #10b981, #34d399, #8b5cf6);
-  background-size: 200% 200%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 9px 15px;
+  border-radius: 999px;
+  font-size: 18px;
+  font-weight: 950;
+  color: var(--dash-text);
   text-decoration: none;
-  letter-spacing: 3px;
-  transition: all 0.3s ease;
-  animation: dashShimmer 4s ease infinite;
+  letter-spacing: 1.5px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: all 0.3s var(--dash-ease);
+}
+
+.dash-logo-accent {
+  color: var(--dash-accent);
 }
 
 .dash-logo:hover {
-  filter: brightness(1.2);
-  transform: scale(1.02);
+  transform: translateY(-1px);
+  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.16);
+  box-shadow: 0 10px 30px rgba(16, 185, 129, 0.12);
 }
 
 .dash-header-right {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
 }
 
 .dash-leaderboard-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.06));
-  border: 1px solid rgba(245, 158, 11, 0.25);
-  color: #f59e0b;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--dash-text);
   font-family: var(--font-arabic);
   font-size: 13px;
-  font-weight: 600;
-  padding: 8px 16px;
-  border-radius: 10px;
+  font-weight: 700;
+  padding: 9px 14px;
+  border-radius: 999px;
   cursor: pointer;
   transition: all 0.3s var(--dash-ease);
   position: relative;
@@ -175,16 +189,15 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), transparent);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.16), transparent);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
 
 .dash-leaderboard-btn:hover {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.1));
-  border-color: rgba(245, 158, 11, 0.4);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.2);
+  border-color: rgba(16, 185, 129, 0.38);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(16, 185, 129, 0.1);
 }
 
 .dash-leaderboard-btn:hover::before {
@@ -194,10 +207,10 @@
 .dash-user-badge {
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 8px 16px 8px 8px;
+  gap: 10px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.18);
+  padding: 6px 14px 6px 8px;
   border-radius: 999px;
   transition: all 0.3s var(--dash-ease);
   position: relative;
@@ -208,36 +221,37 @@
   position: absolute;
   inset: -1px;
   border-radius: 999px;
-  background: linear-gradient(135deg, var(--dash-accent), var(--dash-purple));
+  background: linear-gradient(135deg, var(--dash-accent), rgba(139, 92, 246, 0.45));
   opacity: 0;
   transition: opacity 0.3s ease;
   z-index: -1;
 }
 
 .dash-user-badge:hover {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
-  border-color: transparent;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.15);
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.38);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 28px rgba(16, 185, 129, 0.12);
 }
 
 .dash-user-badge:hover::before {
-  opacity: 0.5;
+  opacity: 0.35;
 }
 
 .dash-avatar {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #10b981, #34d399);
-  color: #ffffff;
+  background: var(--dash-ink, #0a0a0a);
+  color: var(--dash-text);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 800;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.08);
   position: relative;
 }
 
@@ -246,14 +260,14 @@
   position: absolute;
   inset: -2px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #10b981, #8b5cf6);
+  background: linear-gradient(135deg, var(--dash-accent), rgba(139, 92, 246, 0.45));
   z-index: -1;
   opacity: 0;
   transition: opacity 0.3s ease;
 }
 
 .dash-user-badge:hover .dash-avatar::after {
-  opacity: 0.6;
+  opacity: 0.45;
 }
 
 .dash-user-info {
@@ -265,10 +279,10 @@
 }
 
 .dash-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #f3f1ec;
-  max-width: 150px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--dash-text);
+  max-width: 145px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -276,33 +290,33 @@
 
 .dash-level {
   font-size: 11px;
-  font-weight: 700;
-  opacity: 0.9;
+  font-weight: 800;
+  opacity: 0.78;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
 }
 
 .dash-logout,
 .path-back-link {
   font-family: var(--font-arabic);
   font-size: 13px;
-  font-weight: 600;
-  color: rgba(243, 241, 236, 0.6);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+  font-weight: 800;
+  color: var(--dash-text);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   cursor: pointer;
-  padding: 8px 16px;
-  border-radius: 10px;
+  padding: 9px 15px;
+  border-radius: 999px;
   transition: all 0.3s var(--dash-ease);
 }
 
 .dash-logout:hover,
 .path-back-link:hover {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.3);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.15);
+  color: #ffffff;
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.36);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.12);
 }
 
 /* ---------- Main Container ---------- */

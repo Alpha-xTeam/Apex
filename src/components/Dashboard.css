@@ -22,12 +22,12 @@
 .dash-glow-orb {
   position: fixed;
   border-radius: 50%;
-  filter: blur(140px);
+  filter: blur(160px);
   z-index: 0;
   pointer-events: none;
-  opacity: 0.15;
+  opacity: 0.09;
   mix-blend-mode: screen;
-  animation: orbFloat 20s infinite alternate ease-in-out;
+  animation: orbFloat 24s infinite alternate ease-in-out;
 }
 .orb-1 {
   width: 500px;
@@ -65,8 +65,10 @@
 /* Two-column Dashboard Layout Grid */
 .dash-layout-grid {
   display: grid;
-  grid-template-columns: 2.2fr 1fr;
-  gap: 24px;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.85fr);
+  gap: 28px;
+  max-width: 1280px;
+  margin: 0 auto;
   position: relative;
   z-index: 1;
   align-items: start;
@@ -76,25 +78,27 @@
 .dash-main-content {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 28px;
+  min-width: 0;
 }
 
 .dash-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
+  min-width: 0;
 }
 
 /* Global Bento Card Base */
 .bento-card {
-  background: var(--bento-card-bg);
-  border: 1px solid var(--bento-border);
-  border-radius: var(--bento-radius);
-  padding: 28px;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: var(--bento-shadow);
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  background: rgba(12, 14, 18, 0.68);
+  border: 1px solid rgba(16, 185, 129, 0.13);
+  border-radius: 28px;
+  padding: 26px;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.36);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
 }
@@ -108,10 +112,10 @@
 }
 
 .bento-card:hover {
-  background: var(--bento-card-hover-bg);
-  border-color: var(--bento-border-hover);
-  transform: translateY(-4px);
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.7), 0 0 30px rgba(16, 185, 129, 0.05);
+  background: rgba(16, 18, 24, 0.78);
+  border-color: rgba(16, 185, 129, 0.26);
+  transform: translateY(-3px);
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.42), 0 0 28px rgba(16, 185, 129, 0.05);
 }
 
 /* Welcome Card */
@@ -119,8 +123,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(13, 13, 18, 0.6) 100%);
-  border-color: rgba(16, 185, 129, 0.2);
+  gap: 24px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.11) 0%, rgba(13, 13, 18, 0.62) 100%);
+  border-color: rgba(16, 185, 129, 0.22);
 }
 
 .welcome-info {
@@ -145,11 +150,12 @@
 }
 
 .welcome-card h1 {
-  font-size: 32px;
-  font-weight: 800;
+  font-size: clamp(26px, 3vw, 34px);
+  font-weight: 850;
   color: var(--bento-text-primary);
   margin: 0;
-  line-height: 1.25;
+  line-height: 1.35;
+  letter-spacing: -0.4px;
 }
 
 .welcome-card h1 span {
@@ -160,10 +166,10 @@
 }
 
 .welcome-card p {
-  color: var(--bento-text-secondary);
-  font-size: 15px;
-  line-height: 1.6;
-  max-width: 480px;
+  color: rgba(243, 241, 236, 0.72);
+  font-size: 15.5px;
+  line-height: 1.75;
+  max-width: 620px;
   margin: 0;
 }
 
@@ -177,10 +183,10 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 8px 16px;
-  border-radius: 14px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.18);
+  padding: 9px 15px;
+  border-radius: 999px;
 }
 
 .status-dot {
@@ -213,13 +219,14 @@
   flex-direction: column;
   justify-content: space-between;
   cursor: pointer;
+  gap: 18px;
 }
 
 .card-header-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
 .card-header-row h3 {
@@ -259,10 +266,11 @@
 
 /* Stats Summary Card */
 .stats-overview-card {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr;
   align-items: center;
-  justify-content: space-around;
-  padding: 24px;
+  gap: 18px;
+  padding: 22px;
 }
 
 .bento-stat-item {
@@ -325,8 +333,8 @@
 .tip-card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.01) 100%);
+  gap: 14px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.07), rgba(255, 255, 255, 0.015));
 }
 
 .tip-header-row {
