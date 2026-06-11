@@ -59,6 +59,21 @@ function makeHash(id: string) {
   return (hex + hex.split('').reverse().join('')).slice(0, 16).toUpperCase();
 }
 
+const getAuthHeaders = () => {
+  const rawSession = localStorage.getItem('cyberarena_session');
+  let token = '';
+  if (rawSession) {
+    try {
+      const parsed = JSON.parse(rawSession);
+      token = parsed.access_token || parsed.session?.access_token || '';
+    } catch {}
+  }
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  };
+};
+
 export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
   const { t, lang } = useI18n();
   const LEVELS = [
@@ -94,9 +109,10 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
+        const headers = getAuthHeaders();
         const res = await fetch(`${API_URL}/xp`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ action: 'get', user_id: user.id }),
         });
         const data = await res.json();
@@ -105,7 +121,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
 
         const certRes = await fetch(`${API_URL}/certificates`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ action: 'list', user_id: user.id }),
         });
         const certData = await certRes.json();
@@ -115,7 +131,10 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
         const prog: Record<string, { completions: number; required: number; ready: boolean }> = {};
         await Promise.all(CERT_CATEGORIES.map(async (c) => {
           try {
-            const r = await fetch(`${API_URL}/certificates/progress?user_id=${encodeURIComponent(user.id)}&category=${encodeURIComponent(c.key)}`);
+            const r = await fetch(
+              `${API_URL}/certificates/progress?user_id=${encodeURIComponent(user.id)}&category=${encodeURIComponent(c.key)}`,
+              { headers }
+            );
             const pd = await r.json();
             prog[c.key] = { completions: pd.completions || 0, required: pd.required || CERT_REQUIRED, ready: !!pd.ready };
           } catch {
@@ -164,9 +183,10 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
 
   const handleIssueCert = async (category: string) => {
     try {
+      const headers = getAuthHeaders();
       const res = await fetch(`${API_URL}/certificates`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ action: 'issue', user_id: user.id, category }),
       });
       const data = await res.json();
@@ -175,7 +195,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
         // refresh list
         const certRes = await fetch(`${API_URL}/certificates`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ action: 'list', user_id: user.id }),
         });
         const certData = await certRes.json();

@@ -1,0 +1,1325 @@
+/* =============================================
+   Dashboard Styles — dstyle.css (Enhanced)
+   ============================================= */
+
+/* ---------- Page ---------- */
+:root {
+  --dash-bg: #0a0a0a;
+  --dash-text: #f3f1ec;
+  --dash-text-dim: rgba(243, 241, 236, 0.55);
+  --dash-text-faint: rgba(243, 241, 236, 0.4);
+  --dash-accent: #10b981;
+  --dash-accent-soft: rgba(16, 185, 129, 0.1);
+  --dash-accent-glow: rgba(16, 185, 129, 0.4);
+  --dash-gold: #f59e0b;
+  --dash-gold-soft: rgba(245, 158, 11, 0.1);
+  --dash-purple: #8b5cf6;
+  --dash-purple-soft: rgba(139, 92, 246, 0.1);
+  --dash-red: #ef4444;
+  --dash-blue: #3b82f6;
+  --dash-surface: rgba(255, 255, 255, 0.04);
+  --dash-surface-hover: rgba(255, 255, 255, 0.07);
+  --dash-border: rgba(255, 255, 255, 0.08);
+  --dash-border-hover: rgba(255, 255, 255, 0.15);
+  --dash-radius: 20px;
+  --dash-radius-sm: 12px;
+  --dash-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --dash-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --dash-shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.dash-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 100% 60% at 50% -20%, rgba(16, 185, 129, 0.12), transparent),
+    radial-gradient(ellipse 80% 50% at 90% 110%, rgba(139, 92, 246, 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 10% 80%, rgba(245, 158, 11, 0.06), transparent),
+    var(--dash-bg);
+  color: var(--dash-text);
+  position: relative;
+  overflow-x: hidden;
+  font-family: var(--font-arabic);
+}
+
+/* Animated background grid */
+.dash-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black, transparent);
+}
+
+@keyframes dashFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes dashFadeInUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes dashSlideInLeft {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes dashSlideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes dashPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes dashShimmer {
+  from { background-position: 200% center; }
+  to { background-position: -200% center; }
+}
+
+@keyframes dashGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.2); }
+  50% { box-shadow: 0 0 40px rgba(16, 185, 129, 0.4); }
+}
+
+@keyframes dashFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* ---------- Header ---------- */
+.dash-header {
+  background: rgba(10, 10, 10, 0.8);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  backdrop-filter: blur(24px) saturate(1.8);
+  border-bottom: 1px solid var(--dash-border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+}
+
+.dash-header::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--dash-accent-glow), rgba(139, 92, 246, 0.4), transparent);
+}
+
+.dash-header-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.dash-logo {
+  font-size: 22px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #10b981, #34d399, #8b5cf6);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-decoration: none;
+  letter-spacing: 3px;
+  transition: all 0.3s ease;
+  animation: dashShimmer 4s ease infinite;
+}
+
+.dash-logo:hover {
+  filter: brightness(1.2);
+  transform: scale(1.02);
+}
+
+.dash-header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.dash-leaderboard-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.06));
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  color: #f59e0b;
+  font-family: var(--font-arabic);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s var(--dash-ease);
+  position: relative;
+  overflow: hidden;
+}
+
+.dash-leaderboard-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.dash-leaderboard-btn:hover {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.1));
+  border-color: rgba(245, 158, 11, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.2);
+}
+
+.dash-leaderboard-btn:hover::before {
+  opacity: 1;
+}
+
+.dash-user-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 8px 16px 8px 8px;
+  border-radius: 999px;
+  transition: all 0.3s var(--dash-ease);
+  position: relative;
+}
+
+.dash-user-badge::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--dash-accent), var(--dash-purple));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: -1;
+}
+
+.dash-user-badge:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+  border-color: transparent;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.15);
+}
+
+.dash-user-badge:hover::before {
+  opacity: 0.5;
+}
+
+.dash-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #34d399);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  position: relative;
+}
+
+.dash-avatar::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #8b5cf6);
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.dash-user-badge:hover .dash-avatar::after {
+  opacity: 0.6;
+}
+
+.dash-user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dash-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f3f1ec;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-level {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dash-logout,
+.path-back-link {
+  font-family: var(--font-arabic);
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(243, 241, 236, 0.6);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 10px;
+  transition: all 0.3s var(--dash-ease);
+}
+
+.dash-logout:hover,
+.path-back-link:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.15);
+}
+
+/* ---------- Main Container ---------- */
+.dash-main {
+  position: relative;
+  z-index: 1;
+}
+
+.dash-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: calc(56px + 70px) 32px 100px; /* Added top padding to account for sticky dash-header height */
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+
+/* ---------- Greeting ---------- */
+.dash-greeting {
+  animation: dashFadeIn 0.6s ease-out;
+  position: relative;
+}
+
+.dash-greeting h1 {
+  font-size: 32px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  color: #f3f1ec;
+  letter-spacing: -0.5px;
+  line-height: 1.3;
+}
+
+.dash-greeting h1 span {
+  background: linear-gradient(135deg, #10b981, #34d399);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.dash-greeting p {
+  font-size: 16px;
+  color: rgba(243, 241, 236, 0.6);
+  max-width: 680px;
+  line-height: 1.8;
+  margin: 0;
+}
+
+/* ---------- Stats Grid ---------- */
+.dash-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  animation: dashFadeInUp 0.7s var(--dash-ease);
+}
+
+.dash-stat-card {
+  position: relative;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius);
+  padding: 28px;
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  overflow: hidden;
+  transition: all 0.4s var(--dash-ease);
+}
+
+.dash-stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 20% 0%, rgba(16, 185, 129, 0.12), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.dash-stat-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--dash-accent), transparent);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.dash-stat-card:hover {
+  border-color: rgba(16, 185, 129, 0.4);
+  transform: translateY(-6px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 40px rgba(16, 185, 129, 0.1);
+}
+
+.dash-stat-card:hover::before,
+.dash-stat-card:hover::after {
+  opacity: 1;
+}
+
+.dash-stat-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.4s var(--dash-ease);
+}
+
+.dash-stat-card:hover .dash-stat-icon {
+  transform: scale(1.1) rotate(-5deg);
+}
+
+.dash-stat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.dash-stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: #f3f1ec;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+  background: linear-gradient(135deg, #f3f1ec, rgba(243, 241, 236, 0.8));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.dash-stat-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(243, 241, 236, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dash-stat-progress {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 12px;
+  position: relative;
+}
+
+.dash-stat-progress::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  animation: dashShimmer 2s infinite;
+}
+
+.dash-stat-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.dash-stat-progress-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: dashShimmer 1.5s infinite;
+}
+
+.dash-stat-progress-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(243, 241, 236, 0.5);
+  margin-top: 6px;
+}
+
+/* ---------- Section Header ---------- */
+.dash-section-header {
+  animation: dashFadeInUp 0.7s ease-out;
+  position: relative;
+  padding-right: 16px;
+}
+
+.dash-section-header::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 32px;
+  background: linear-gradient(180deg, var(--dash-accent), var(--dash-purple));
+  border-radius: 2px;
+}
+
+.dash-section-header h2 {
+  font-size: 24px;
+  font-weight: 800;
+  color: #f3f1ec;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.dash-section-header p {
+  font-size: 15px;
+  color: rgba(243, 241, 236, 0.6);
+  margin: 0;
+}
+
+/* ---------- Loading ---------- */
+.dash-loading {
+  text-align: center;
+  padding: 80px 20px;
+  color: rgba(243, 241, 236, 0.6);
+  font-size: 15px;
+  position: relative;
+}
+
+.dash-loading::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(16, 185, 129, 0.2);
+  border-top-color: var(--dash-accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* ---------- Team Cards ---------- */
+.dash-team-card {
+  position: relative;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow: hidden;
+  transition: all 0.4s var(--dash-ease);
+  animation: dashFadeInUp 0.8s var(--dash-ease);
+}
+
+.dash-team-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% -20%, var(--team-accent-soft, rgba(255, 255, 255, 0.06)), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+.dash-team-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--team-accent, #10b981), var(--dash-purple));
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.dash-team-card:hover {
+  border-color: var(--team-accent, rgba(255, 255, 255, 0.2));
+  transform: translateY(-8px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 0 60px var(--team-accent-soft, rgba(16, 185, 129, 0.1));
+}
+
+.dash-team-card:hover::before,
+.dash-team-card:hover::after {
+  opacity: 1;
+}
+
+.dash-team-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.dash-team-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--team-accent-soft, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--team-accent-soft, rgba(255, 255, 255, 0.08));
+  flex-shrink: 0;
+  transition: all 0.4s var(--dash-ease);
+  position: relative;
+}
+
+.dash-team-icon::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, var(--team-accent, #10b981), var(--dash-purple));
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: -1;
+}
+
+.dash-team-card:hover .dash-team-icon {
+  transform: scale(1.08) rotate(-3deg);
+  box-shadow: 0 12px 30px var(--team-accent-soft, rgba(16, 185, 129, 0.3));
+}
+
+.dash-team-card:hover .dash-team-icon::before {
+  opacity: 0.4;
+}
+
+.dash-team-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #f3f1ec;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.dash-team-subtitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(243, 241, 236, 0.6);
+  display: block;
+  margin-top: 4px;
+}
+
+.dash-team-desc {
+  font-size: 14px;
+  color: rgba(243, 241, 236, 0.6);
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* ---------- BlueVsRed Card ---------- */
+.bluevsred-card {
+  position: relative;
+  background: linear-gradient(160deg, rgba(59, 130, 246, 0.08), rgba(239, 68, 68, 0.08));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--dash-radius);
+  padding: 40px;
+  overflow: hidden;
+  transition: all 0.4s var(--dash-ease);
+  animation: dashFadeInUp 0.8s var(--dash-ease);
+}
+
+.bluevsred-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.15), transparent 50%),
+    radial-gradient(circle at 80% 50%, rgba(239, 68, 68, 0.15), transparent 50%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.bluevsred-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ef4444);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.bluevsred-card:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-8px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+.bluevsred-card:hover::before,
+.bluevsred-card:hover::after {
+  opacity: 1;
+}
+
+.bluevsred-card-inner {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.bluevsred-left,
+.bluevsred-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  text-align: center;
+  transition: transform 0.4s var(--dash-ease);
+}
+
+.bluevsred-card:hover .bluevsred-left {
+  transform: translateX(8px);
+}
+
+.bluevsred-card:hover .bluevsred-right {
+  transform: translateX(-8px);
+}
+
+.bluevsred-divider {
+  width: 2px;
+  height: 100px;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.bluevsred-divider::before {
+  content: 'VS';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--dash-bg);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(243, 241, 236, 0.6);
+  letter-spacing: 2px;
+}
+
+.bluevsred-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #f3f1ec;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.bluevsred-subtitle {
+  font-size: 14px;
+  color: rgba(243, 241, 236, 0.6);
+  line-height: 1.5;
+}
+
+.bluevsred-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding-top: 24px;
+  margin-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(243, 241, 236, 0.8);
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.bluevsred-card:hover .bluevsred-cta {
+  color: #f3f1ec;
+  gap: 14px;
+}
+
+/* ---------- 1v1 Card ---------- */
+.onevone-dash-card {
+  position: relative;
+  background: linear-gradient(160deg, rgba(16, 185, 129, 0.08), rgba(139, 92, 246, 0.06));
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  border-radius: var(--dash-radius);
+  padding: 32px;
+  overflow: hidden;
+  transition: all 0.4s var(--dash-ease);
+  animation: dashFadeInUp 0.8s var(--dash-ease);
+}
+
+.onevone-dash-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 20%, rgba(16, 185, 129, 0.12), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.onevone-dash-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #10b981, #8b5cf6);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.onevone-dash-card:hover {
+  border-color: rgba(16, 185, 129, 0.3);
+  transform: translateY(-8px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 0 60px rgba(16, 185, 129, 0.15);
+}
+
+.onevone-dash-card:hover::before,
+.onevone-dash-card:hover::after {
+  opacity: 1;
+}
+
+.onevone-dash-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.onevone-dash-pill {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(16, 185, 129, 0.9);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.06));
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  padding: 6px 14px;
+  border-radius: 999px;
+  transition: all 0.3s ease;
+}
+
+.onevone-dash-card:hover .onevone-dash-pill {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(16, 185, 129, 0.1));
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.onevone-dash-cta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #10b981;
+  margin-top: 12px;
+  transition: all 0.3s var(--dash-ease);
+}
+
+.dash-team-card:hover .onevone-dash-cta,
+.onevone-dash-card:hover .onevone-dash-cta {
+  gap: 12px;
+  color: #34d399;
+}
+
+/* ---------- Empty State ---------- */
+.dash-empty-state {
+  padding: 28px;
+  text-align: center;
+  color: rgba(243, 241, 236, 0.5);
+  font-size: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: var(--dash-radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ---------- Tips ---------- */
+.dash-tips {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 28px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.03));
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: var(--dash-radius);
+  animation: dashFadeInUp 0.9s var(--dash-ease);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s var(--dash-ease);
+}
+
+.dash-tips::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.15), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.dash-tips:hover {
+  border-color: rgba(245, 158, 11, 0.35);
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), 0 0 40px rgba(245, 158, 11, 0.1);
+}
+
+.dash-tips:hover::before {
+  opacity: 1;
+}
+
+.dash-tips-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.08));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f59e0b;
+  flex-shrink: 0;
+  transition: transform 0.4s var(--dash-ease);
+  position: relative;
+  z-index: 1;
+}
+
+.dash-tips:hover .dash-tips-icon {
+  transform: scale(1.1) rotate(-5deg);
+}
+
+.dash-tips-body {
+  position: relative;
+  z-index: 1;
+}
+
+.dash-tips-body h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f3f1ec;
+  margin-bottom: 8px;
+}
+
+.dash-tips-body p {
+  font-size: 14px;
+  color: rgba(243, 241, 236, 0.65);
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* ---------- Categories List ---------- */
+.dash-categories-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dash-category-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-family: var(--font-arabic);
+  font-size: 14px;
+  font-weight: 500;
+  color: #f3f1ec;
+  text-align: right;
+  transition: all 0.2s ease;
+}
+
+.dash-category-item:hover {
+  background: var(--team-accent-soft, rgba(255, 255, 255, 0.05));
+  border-color: var(--team-accent, rgba(16, 185, 129, 0.3));
+  transform: translateX(-2px);
+}
+
+.dash-category-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.dash-category-icon-sm {
+  color: var(--team-accent, rgba(243, 241, 236, 0.55));
+  flex-shrink: 0;
+}
+
+.dash-category-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--team-accent, rgba(243, 241, 236, 0.55));
+  background: var(--team-accent-soft, rgba(255, 255, 255, 0.05));
+  padding: 2px 10px;
+  border-radius: 999px;
+  min-width: 28px;
+  text-align: center;
+}
+
+/* ---------- Team Content (After selecting category) ---------- */
+.dash-team-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: dashFadeIn 0.3s ease-out;
+}
+
+.dash-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: rgba(243, 241, 236, 0.55);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 0;
+  font-family: var(--font-arabic);
+  align-self: flex-start;
+  transition: color 0.2s ease;
+}
+
+.dash-back-btn:hover {
+  color: #f3f1ec;
+}
+
+.dash-content-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--team-accent, #f3f1ec);
+  margin: 0;
+}
+
+.dash-challenges-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-left: 4px;
+}
+
+.dash-challenges-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dash-challenges-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dash-challenges-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+}
+
+.dash-challenge-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-family: var(--font-arabic);
+  text-align: right;
+  transition: all 0.2s ease;
+  gap: 12px;
+}
+
+.dash-challenge-item:hover {
+  background: var(--team-accent-soft, rgba(255, 255, 255, 0.05));
+  border-color: var(--team-accent, rgba(16, 185, 129, 0.3));
+}
+
+.dash-challenge-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.dash-challenge-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f3f1ec;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-challenge-meta {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(243, 241, 236, 0.55);
+}
+
+.dash-challenge-reward {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  color: var(--team-accent, rgba(243, 241, 236, 0.55));
+}
+
+.dash-challenge-xp {
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--team-accent-soft, rgba(255, 255, 255, 0.05));
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1024px) {
+  .dash-container {
+    padding: 40px 24px 80px;
+    gap: 40px;
+  }
+  
+  .dash-stats-grid {
+    gap: 16px;
+  }
+  
+  .bluevsred-card,
+  .onevone-dash-card,
+  .dash-team-card {
+    padding: 28px;
+  }
+}
+
+@media (max-width: 768px) {
+  .dash-header-inner {
+    padding: 14px 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .dash-header-right {
+    gap: 10px;
+  }
+  
+  .dash-logo {
+    font-size: 18px;
+    letter-spacing: 2px;
+  }
+  
+  .dash-container {
+    padding: 32px 20px 60px;
+    gap: 32px;
+  }
+  
+  .dash-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  
+  .dash-stat-card {
+    padding: 22px;
+  }
+  
+  .dash-stat-icon {
+    width: 44px;
+    height: 44px;
+  }
+  
+  .dash-stat-value {
+    font-size: 24px;
+  }
+  
+  .dash-greeting h1 {
+    font-size: 24px;
+  }
+  
+  .dash-greeting p {
+    font-size: 14px;
+  }
+  
+  .dash-section-header h2 {
+    font-size: 20px;
+  }
+  
+  .bluevsred-card {
+    padding: 28px 20px;
+  }
+  
+  .bluevsred-card-inner {
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .bluevsred-left,
+  .bluevsred-right {
+    padding: 16px;
+  }
+  
+  .bluevsred-divider {
+    width: 80%;
+    height: 2px;
+  }
+  
+  .bluevsred-divider::before {
+    padding: 6px 10px;
+    font-size: 10px;
+  }
+  
+  .bluevsred-title {
+    font-size: 18px;
+  }
+  
+  .dash-user-badge {
+    padding: 6px 12px 6px 6px;
+  }
+  
+  .dash-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+  
+  .dash-name {
+    max-width: 100px;
+    font-size: 13px;
+  }
+  
+  .dash-team-icon {
+    width: 64px;
+    height: 64px;
+  }
+  
+  .dash-tips {
+    padding: 22px;
+    gap: 16px;
+  }
+  
+  .dash-tips-icon {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dash-header-inner {
+    padding: 12px 16px;
+  }
+  
+  .dash-leaderboard-btn span {
+    display: none;
+  }
+  
+  .dash-leaderboard-btn {
+    padding: 8px 12px;
+  }
+  
+  .dash-logout {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+  
+  .dash-container {
+    padding: 24px 16px 50px;
+    gap: 28px;
+  }
+  
+  .dash-greeting h1 {
+    font-size: 20px;
+  }
+  
+  .dash-stat-card {
+    padding: 18px;
+    gap: 14px;
+  }
+  
+  .dash-stat-icon {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .dash-stat-value {
+    font-size: 22px;
+  }
+  
+  .bluevsred-card,
+  .onevone-dash-card,
+  .dash-team-card {
+    padding: 24px 18px;
+  }
+  
+  .bluevsred-title {
+    font-size: 16px;
+  }
+  
+  .bluevsred-subtitle {
+    font-size: 12px;
+  }
+  
+  .onevone-dash-meta {
+    gap: 8px;
+  }
+  
+  .onevone-dash-pill {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+}

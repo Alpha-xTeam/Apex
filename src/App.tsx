@@ -68,6 +68,8 @@ function App() {
   });
   const [user, setUser] = useState<{ id: string; name: string; email: string } | null>(storedUser);
   const [showIntro, setShowIntro] = useState<boolean>(() => !storedUser && !hasSeenIntro());
+  const [authChecked, setAuthChecked] = useState<boolean>(false);
+
   const [nav, setNav] = useState<{
     categoryId: string;
     pathId: string;
@@ -110,6 +112,81 @@ function App() {
     setPage('home');
   };
 
+  // Listen for Supabase OAuth session changes
+  useEffect(() => {
+    import('./lib/supabase').then(({ supabase }) => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          const u = session.user;
+          const name = u.user_metadata?.full_name || u.user_metadata?.name || u.email || '';
+          const token = session.access_token;
+          const userData = { id: u.id, email: u.email || '', name };
+          setUser(userData);
+          localStorage.setItem('cyberarena_session', JSON.stringify({
+            user: { id: u.id, email: u.email, user_metadata: u.user_metadata },
+            access_token: token,
+            provider: 'supabase',
+          }));
+          setPage('dashboard');
+        } else {
+          // Only clear if the session in localStorage is a Supabase session
+          const raw = localStorage.getItem('cyberarena_session');
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed.provider === 'supabase') {
+                localStorage.removeItem('cyberarena_session');
+                setUser(null);
+                setPage('home');
+              }
+            } catch {
+              localStorage.removeItem('cyberarena_session');
+              setUser(null);
+              setPage('home');
+            }
+          }
+        }
+        setAuthChecked(true);
+      }).catch(() => {
+        // Network error or Supabase unreachable — keep stored session if any
+        setAuthChecked(true);
+      });
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) {
+          const u = session.user;
+          const token = session.access_token;
+          const userData = { id: u.id, email: u.email || '', name: u.user_metadata?.full_name || u.user_metadata?.name || '' };
+          setUser(userData);
+          localStorage.setItem('cyberarena_session', JSON.stringify({
+            user: { id: u.id, email: u.email, user_metadata: u.user_metadata },
+            access_token: token,
+            provider: 'supabase',
+          }));
+          setPage('dashboard');
+        } else {
+          const raw = localStorage.getItem('cyberarena_session');
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed.provider === 'supabase') {
+                localStorage.removeItem('cyberarena_session');
+                setUser(null);
+                setPage('home');
+              }
+            } catch {
+              localStorage.removeItem('cyberarena_session');
+              setUser(null);
+              setPage('home');
+            }
+          }
+        }
+      });
+
+      return () => subscription.unsubscribe();
+    });
+  }, []);
+
   // Listen for global navigation events from anywhere in the app
   useEffect(() => {
     const handler = (e: Event) => {
@@ -130,6 +207,23 @@ function App() {
     setNav(prev => ({ ...prev, moduleId, moduleTitle, challengeId }));
     setPage('training-session');
   };
+
+  if (!authChecked) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#0a0a0a',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'rgba(243,241,236,0.4)',
+        fontSize: '14px',
+        fontFamily: 'var(--font-arabic)',
+      }}>
+        جاري التحميل...
+      </div>
+    );
+  }
 
   return (
     <>

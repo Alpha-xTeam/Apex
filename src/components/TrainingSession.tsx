@@ -71,6 +71,22 @@ import { BlueTeamIcon, RedTeamIcon, StoryIcon, TaskIcon } from './TeamIcons';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
 
+const authFetch = async (url: RequestInfo | URL, options: RequestInit = {}): Promise<Response> => {
+  const rawSession = localStorage.getItem('cyberarena_session');
+  let token = '';
+  if (rawSession) {
+    try {
+      const parsed = JSON.parse(rawSession);
+      token = parsed.access_token || parsed.session?.access_token || '';
+    } catch {}
+  }
+  const headers = {
+    ...options.headers,
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  };
+  return fetch(url, { ...options, headers });
+};
+
 interface TrainingData {
   id?: string;
   scenarioId?: string;
@@ -198,6 +214,10 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
   // --- Vulnerability Hunter Challenge States ---
   const [isVulnHunterChallenge, setIsVulnHunterChallenge] = useState(false);
   const [vulnHunterResult, setVulnHunterResult] = useState<{ success: boolean; feedback: string } | null>(null);
+
+  // --- Cryptography Solver Workspace States ---
+  const [cryptoInput, setCryptoInput] = useState('');
+  const [cryptoMethod, setCryptoMethod] = useState('base64');
 
   // Notepad state
   const [notepadTitle, setNotepadTitle] = useState('CyberArena_Readme.txt');
@@ -532,7 +552,7 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
 
     const apiFetchPromise = (async () => {
       try {
-        const res = await fetch(`${API_URL}/training/generate`, {
+        const res = await authFetch(`${API_URL}/training/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ module: moduleId || moduleTitle, path: pathId, category: categoryId, moduleId, teamRole, challengeId }),
@@ -845,7 +865,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         const userData = session.user || session;
         const userId = userData.id;
         if (userId) {
-          await fetch(`${API_URL}/xp`, {
+          await authFetch(`${API_URL}/xp`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'add_xp', user_id: userId, xp_amount: training.xpReward }),
@@ -853,7 +873,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         }
 
         if ((training.id || training.scenarioId) && !onChallengeSolved) {
-          fetch(`${API_URL}/training/solved`, {
+          authFetch(`${API_URL}/training/solved`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -889,7 +909,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
     setCodeFixResult(null);
 
     try {
-      const res = await fetch(`${API_URL}/training/evaluate-code-fix`, {
+      const res = await authFetch(`${API_URL}/training/evaluate-code-fix`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -927,7 +947,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         const userData = session.user || session;
         const userId = userData.id;
         if (userId) {
-          await fetch(`${API_URL}/xp`, {
+          await authFetch(`${API_URL}/xp`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -940,7 +960,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
 
         // Mark as solved
         if ((training.id || training.scenarioId) && !onChallengeSolved) {
-          fetch(`${API_URL}/training/solved`, {
+          authFetch(`${API_URL}/training/solved`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -977,7 +997,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
     setLogAnalysisResult(null);
 
     try {
-      const res = await fetch(`${API_URL}/training/evaluate-log-analysis`, {
+      const res = await authFetch(`${API_URL}/training/evaluate-log-analysis`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1016,7 +1036,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         const userData = session.user || session;
         const userId = userData.id;
         if (userId) {
-          await fetch(`${API_URL}/xp`, {
+          await authFetch(`${API_URL}/xp`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1028,7 +1048,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         }
 
         if ((training.id || training.scenarioId) && !onChallengeSolved) {
-          fetch(`${API_URL}/training/solved`, {
+          authFetch(`${API_URL}/training/solved`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1067,7 +1087,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
       const userData = session.user || session;
       const userId = userData.id;
 
-      const res = await fetch(`${API_URL}/training/evaluate-vulnerability-hunter`, {
+      const res = await authFetch(`${API_URL}/training/evaluate-vulnerability-hunter`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1103,7 +1123,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
 
         // Add XP
         if (userId) {
-          await fetch(`${API_URL}/xp`, {
+          await authFetch(`${API_URL}/xp`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1116,7 +1136,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
 
         // Mark as solved
         if ((training.id || training.scenarioId) && !onChallengeSolved) {
-          fetch(`${API_URL}/training/solved`, {
+          authFetch(`${API_URL}/training/solved`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1156,7 +1176,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
 
     try {
       const userCode = editorFiles['index.html'];
-      const res = await fetch(`${API_URL}/training/evaluate`, {
+      const res = await authFetch(`${API_URL}/training/evaluate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1187,7 +1207,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
         const userData = session.user || session;
         const userId = userData.id;
         if (userId) {
-          await fetch(`${API_URL}/xp`, {
+          await authFetch(`${API_URL}/xp`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'add_xp', user_id: userId, xp_amount: training.xpReward }),
@@ -1261,7 +1281,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
   const refreshWorkdirFiles = async () => {
     if (!training?.scenarioId) return;
     try {
-      const res = await fetch(`${API_URL}/training/terminal/list`, {
+      const res = await authFetch(`${API_URL}/training/terminal/list`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ teamRole, challengeId: training.scenarioId })
@@ -1292,7 +1312,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
     setNotepadSaving(true);
     setNotepadStatus('');
     try {
-      const res = await fetch(`${API_URL}/training/terminal/write`, {
+      const res = await authFetch(`${API_URL}/training/terminal/write`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1394,7 +1414,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
     setCmdHistory(prev => [...prev, echoLine, '... جاري التنفيذ في الساندبوكس ...', '']);
 
     try {
-      const res = await fetch(`${API_URL}/training/terminal`, {
+      const res = await authFetch(`${API_URL}/training/terminal`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1443,6 +1463,14 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
     pathId !== 'vulnerability-hunter' &&
     !categoryId.toLowerCase().includes('vulnerability hunter') &&
     (training as any)?.type !== 'vulnerability-hunter';
+  
+  const isCryptoChallenge =
+    pathId.toLowerCase().includes('crypto') ||
+    categoryId.toLowerCase().includes('crypto') ||
+    pathId === 'basics-crypto' ||
+    training?.type === 'crypto' ||
+    training?.type === 'cryptography';
+
   // Web exploitation challenges have been removed from the platform —
   // see AGENTS.md for the supported types. The browser/IDE view is
   // still used for code-fixing / log-analysis / etc.
@@ -1745,8 +1773,14 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
     );
   }
 
+  const themeClass = isSteganographyChallenge 
+    ? 'theme-stego' 
+    : isCryptoChallenge 
+      ? 'theme-crypto' 
+      : 'theme-default';
+
   return (
-    <div className={`dash-page session-page team-${teamRole}`}>
+    <div className={`dash-page session-page team-${teamRole} ${themeClass}`}>
       <header className="dash-header">
         <div className="dash-header-inner">
           <a href="/" className="dash-logo">CyberArena</a>
@@ -1784,160 +1818,288 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
             <div className="stego-download-workspace" style={{
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
               height: '100%',
-              padding: '40px',
-              background: 'radial-gradient(circle at center, #0f172a 0%, #020617 100%)',
+              padding: '24px',
+              background: 'radial-gradient(circle at center, #0b0f19 0%, #030712 100%)',
               color: '#fff',
               overflowY: 'auto'
             }} dir="rtl">
-              <div className="stego-card" style={{
-                maxWidth: '600px',
-                width: '100%',
-                background: 'rgba(15, 23, 42, 0.65)',
-                backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(99, 102, 241, 0.2)',
-                borderRadius: '24px',
-                padding: '32px',
-                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+              
+              {/* Forensics Lab Header */}
+              <div style={{
                 display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
-                gap: '24px',
-                textAlign: 'center'
+                justifyContent: 'space-between',
+                width: '100%',
+                marginBottom: '20px',
+                borderBottom: '1px solid rgba(99, 102, 241, 0.2)',
+                paddingBottom: '12px'
               }}>
-                <div className="stego-icon-wrapper" style={{
-                  position: 'relative',
-                  width: '96px',
-                  height: '96px',
-                  borderRadius: '20px',
-                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(244, 63, 94, 0.15))',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    backgroundColor: '#10b981',
+                    boxShadow: '0 0 10px #10b981',
+                    display: 'inline-block'
+                  }} />
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: '#e2e8f0', letterSpacing: '0.5px' }}>
+                    منصة التحليل الجنائي الرقمي <span style={{ color: '#818cf8', fontSize: '11px', fontFamily: 'monospace' }}>[FORENSICS_LAB_V2.5]</span>
+                  </h3>
+                </div>
+                <div style={{ fontSize: '11px', color: '#64748b', fontFamily: 'monospace' }}>
+                  STATUS: READY_FOR_ANALYSIS
+                </div>
+              </div>
+
+              {/* Grid Layout */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                gap: '20px',
+                width: '100%',
+                flex: 1
+              }}>
+                
+                {/* Right Panel: File Metadata & Preview */}
+                <div style={{
+                  background: 'rgba(15, 23, 42, 0.45)',
+                  backdropFilter: 'blur(16px)',
+                  border: '1px solid rgba(255, 255, 255, 0.05)',
+                  borderRadius: '16px',
+                  padding: '20px',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 8px 32px rgba(99, 102, 241, 0.15)'
+                  flexDirection: 'column',
+                  gap: '16px',
+                  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
                 }}>
-                  <FileArchive size={48} className="text-indigo-400" />
+                  <div style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Settings size={16} style={{ color: '#818cf8' }} />
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#94a3b8' }}>خصائص الملف الفنيّة</span>
+                  </div>
+
+                  {/* File Preview Container */}
                   <div style={{
-                    position: 'absolute',
-                    bottom: '-4px',
-                    right: '-4px',
-                    background: '#e11d48',
-                    color: '#fff',
-                    borderRadius: '8px',
-                    padding: '2px 8px',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    border: '2px solid #0f172a'
+                    width: '100%',
+                    height: '180px',
+                    background: '#070a13',
+                    border: '1px dashed rgba(99, 102, 241, 0.15)',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                    overflow: 'hidden'
                   }}>
                     {(() => {
                       const files = training?.files || {};
                       const filename = Object.keys(files)[0] || 'suspect.jpg';
-                      const ext = filename.split('.').pop()?.toUpperCase() || 'FILE';
-                      return ext;
+                      const base64Data = files[filename] || '';
+                      const isImage = /\.(jpg|jpeg|png|jfif|gif)$/i.test(filename);
+                      
+                      if (isImage && base64Data) {
+                        return (
+                          <>
+                            <div style={{
+                              position: 'absolute',
+                              inset: 0,
+                              background: `url(data:image/jpeg;base64,${base64Data}) center/cover no-repeat`,
+                              filter: 'blur(6px)',
+                              opacity: 0.15
+                            }} />
+                            <img 
+                              src={`data:image/jpeg;base64,${base64Data}`}
+                              alt="Forensic Target"
+                              style={{
+                                maxHeight: '160px',
+                                maxWidth: '90%',
+                                objectFit: 'contain',
+                                borderRadius: '8px',
+                                boxShadow: '0 8px 20px rgba(0,0,0,0.5)',
+                                zIndex: 2,
+                                border: '1px solid rgba(255,255,255,0.1)'
+                              }}
+                            />
+                            <div style={{
+                              position: 'absolute',
+                              bottom: '8px',
+                              left: '8px',
+                              background: 'rgba(2, 6, 23, 0.75)',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              color: '#a5b4fc',
+                              fontFamily: 'monospace',
+                              zIndex: 3
+                            }}>
+                              PREVIEW_ACTIVE
+                            </div>
+                          </>
+                        );
+                      }
+                      
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', zIndex: 2 }}>
+                          <FileArchive size={48} style={{ color: '#4f46e5' }} />
+                          <span style={{ fontSize: '12px', color: '#64748b' }}>معاينة الصورة غير متوفرة لهذا النوع من الملفات</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Metadata fields */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px' }}>
+                    {(() => {
+                      const files = training?.files || {};
+                      const filename = Object.keys(files)[0] || 'suspect.jpg';
+                      const size = training?.fileMetadata?.[filename]?.size || 0;
+                      let formattedSize = `${size} Bytes`;
+                      if (size > 1024 * 1024) formattedSize = `${(size / (1024 * 1024)).toFixed(2)} MB`;
+                      else if (size > 1024) formattedSize = `${(size / 1024).toFixed(1)} KB`;
+
+                      // Mock MD5/SHA256 based on filename & size for realism
+                      const mockMD5 = Array.from(filename + size).reduce((acc, char) => (acc + char.charCodeAt(0)).toString(16), '').padEnd(32, 'a').slice(0, 32);
+
+                      return (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '6px' }}>
+                            <span style={{ color: '#64748b' }}>الاسم البرمجي:</span>
+                            <span style={{ fontFamily: 'monospace', color: '#e2e8f0' }}>{filename}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '6px' }}>
+                            <span style={{ color: '#64748b' }}>الحجم الإجمالي:</span>
+                            <span style={{ fontWeight: 'bold', color: '#f1f5f9' }}>{formattedSize}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '6px' }}>
+                            <span style={{ color: '#64748b' }}>بصمة MD5:</span>
+                            <span style={{ fontFamily: 'monospace', color: '#a5b4fc', fontSize: '11px' }}>{mockMD5}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '6px' }}>
+                            <span style={{ color: '#64748b' }}>أسلوب الإخفاء المتوقع:</span>
+                            <span style={{ color: '#f43f5e', fontWeight: 600 }}>{((training as any)?.hiding_method || 'غير معروف').toUpperCase()}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Action Button */}
+                  <button
+                    onClick={() => {
+                      const files = training?.files || {};
+                      const filename = Object.keys(files)[0] || 'suspect.jpg';
+                      const base64Data = files[filename] || '';
+                      if (!base64Data) return;
+                      const byteCharacters = atob(base64Data);
+                      const byteNumbers = new Array(byteCharacters.length);
+                      for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                      }
+                      const byteArray = new Uint8Array(byteNumbers);
+                      const blob = new Blob([byteArray], { type: 'application/octet-stream' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = filename;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '10px',
+                      background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+                      color: '#fff',
+                      padding: '12px 20px',
+                      borderRadius: '10px',
+                      fontWeight: 'bold',
+                      fontSize: '14px',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(79, 72, 229, 0.3)',
+                      transition: 'all 0.2s',
+                      marginTop: 'auto'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.boxShadow = '0 6px 16px rgba(79, 72, 229, 0.45)';
+                      e.currentTarget.style.filter = 'brightness(1.1)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(79, 72, 229, 0.3)';
+                      e.currentTarget.style.filter = 'none';
+                    }}
+                  >
+                    <Download size={16} />
+                    <span>تنزيل ملف التحليل (.zip/.jpg)</span>
+                  </button>
+                </div>
+
+                {/* Left Panel: Hex Dump Terminal */}
+                <div style={{
+                  background: '#05070f',
+                  border: '1px solid rgba(99, 102, 241, 0.15)',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8)'
+                }}>
+                  <div style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Terminal size={16} style={{ color: '#10b981' }} />
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#10b981', fontFamily: 'monospace' }}>HEX_DUMP (xxd output)</span>
+                    </div>
+                    <span style={{ fontSize: '10px', color: '#475569', fontFamily: 'monospace' }}>FIRST 128 BYTES</span>
+                  </div>
+
+                  <div style={{
+                    flex: 1,
+                    background: '#020408',
+                    border: '1px solid rgba(255,255,255,0.03)',
+                    borderRadius: '10px',
+                    padding: '12px',
+                    fontFamily: 'monospace',
+                    fontSize: '11px',
+                    color: '#34d399',
+                    overflowX: 'auto',
+                    whiteSpace: 'pre',
+                    lineHeight: '1.6',
+                    direction: 'ltr',
+                    textAlign: 'left'
+                  }}>
+                    {(() => {
+                      const files = training?.files || {};
+                      const filename = Object.keys(files)[0] || 'suspect.jpg';
+                      const base64Data = files[filename] || '';
+                      if (!base64Data) return 'No hex dump available...';
+                      try {
+                        const binary = atob(base64Data.slice(0, 1000));
+                        const lines = [];
+                        for (let i = 0; i < Math.min(binary.length, 128); i += 16) {
+                          const chunk = binary.slice(i, i + 16);
+                          const hex = Array.from(chunk).map(c => c.charCodeAt(0).toString(16).padStart(2, '0').toUpperCase()).join(' ');
+                          const ascii = Array.from(chunk).map(c => {
+                            const code = c.charCodeAt(0);
+                            return (code >= 32 && code <= 126) ? c : '.';
+                          }).join('');
+                          const offset = i.toString(16).padStart(8, '0').toUpperCase();
+                          lines.push(`${offset}  ${hex.padEnd(47, ' ')}  |${ascii}|`);
+                        }
+                        return lines.join('\n');
+                      } catch (e) {
+                        return 'Error decoding binary stream...';
+                      }
                     })()}
                   </div>
                 </div>
 
-                <div>
-                  <h2 style={{ fontSize: '22px', fontWeight: 'bold', margin: '0 0 10px 0', color: '#f8fafc' }}>
-                    ملف التحدي الرقمي
-                  </h2>
-                  <p style={{ fontSize: '14px', color: '#94a3b8', margin: 0, lineHeight: 1.6 }}>
-                    أنت الآن في مختبر إخفاء المعلومات (Steganography).
-                    يتعين عليك تنزيل هذا الملف المرفق أدناه إلى جهازك الشخصي وفحصه محلياً
-                    باستخدام أدواتك الخاصة للبحث عن العلم المخفي.
-                  </p>
-                </div>
-
-                <div className="file-info-bar" style={{
-                  width: '100%',
-                  background: 'rgba(2, 6, 23, 0.4)',
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
-                  borderRadius: '12px',
-                  padding: '12px 16px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  fontSize: '13px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#cbd5e1' }}>
-                    <span style={{ color: '#64748b' }}>اسم الملف:</span>
-                    <strong style={{ fontFamily: 'monospace' }}>
-                      {(() => {
-                        const files = training?.files || {};
-                        return Object.keys(files)[0] || 'suspect.jpg';
-                      })()}
-                    </strong>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#cbd5e1' }}>
-                    <span style={{ color: '#64748b' }}>الحجم:</span>
-                    <strong>
-                      {(() => {
-                        const files = training?.files || {};
-                        const filename = Object.keys(files)[0] || 'suspect.jpg';
-                        const size = training?.fileMetadata?.[filename]?.size || 0;
-                        if (size > 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(2)} MB`;
-                        if (size > 1024) return `${(size / 1024).toFixed(1)} KB`;
-                        return `${size} Bytes`;
-                      })()}
-                    </strong>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => {
-                    const files = training?.files || {};
-                    const filename = Object.keys(files)[0] || 'suspect.jpg';
-                    const base64Data = files[filename] || '';
-                    if (!base64Data) return;
-                    const byteCharacters = atob(base64Data);
-                    const byteNumbers = new Array(byteCharacters.length);
-                    for (let i = 0; i < byteCharacters.length; i++) {
-                      byteNumbers[i] = byteCharacters.charCodeAt(i);
-                    }
-                    const byteArray = new Uint8Array(byteNumbers);
-                    const blob = new Blob([byteArray], { type: 'application/octet-stream' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                  }}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-                    color: '#fff',
-                    padding: '14px 28px',
-                    borderRadius: '12px',
-                    fontWeight: 'bold',
-                    fontSize: '15px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 16px rgba(99, 102, 241, 0.4)',
-                    transition: 'all 0.2s',
-                    width: '100%'
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(99, 102, 241, 0.6)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 4px 16px rgba(99, 102, 241, 0.4)';
-                  }}
-                >
-                  <Download size={18} />
-                  <span>تنزيل الملف المرفق</span>
-                </button>
               </div>
             </div>
           ) : showWebView ? (
