@@ -13,21 +13,21 @@
   overflow-x: hidden;
 }
 
-/* Premium Navbar (dash-header overrides) */
-.dash-header {
+/* Premium Navbar scoped to Blue vs Red page only */
+.bvr-page .dash-header {
   background: rgba(4, 4, 6, 0.7) !important;
   backdrop-filter: blur(20px) !important;
   -webkit-backdrop-filter: blur(20px) !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
   position: fixed !important;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
   z-index: 100;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
 }
 
-.dash-logo {
+.bvr-page .dash-logo {
   font-size: 22px !important;
   font-weight: 950 !important;
   color: #ffffff !important;
@@ -41,7 +41,7 @@
   transition: opacity 0.3s ease;
 }
 
-.dash-logo:hover {
+.bvr-page .dash-logo:hover {
   opacity: 0.85;
 }
 

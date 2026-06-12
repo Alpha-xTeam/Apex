@@ -1,21 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../dstyle.css';
 import './Dashboard.css';
 import {
   Zap,
   GraduationCap,
   Lightbulb,
-  ChevronLeft,
   Trophy,
   Swords,
-  Shield,
-  Target,
   Sparkles,
-  TrendingUp,
-  Lock,
-  User,
-  ArrowRight,
   ArrowLeft,
+  Target,
+  Shield,
 } from 'lucide-react';
 import { BlueTeamIcon, RedTeamIcon } from './TeamIcons';
 import { useI18n } from '../i18n/I18nContext';
@@ -53,26 +48,6 @@ function getNextLevelXp(xp: number, levels: { minXp: number }[]) {
   return levels[levels.length - 1].minXp;
 }
 
-function getProgressToNext(xp: number, levels: { minXp: number }[]) {
-  const currentLevelXp = levels.filter(l => xp >= l.minXp).pop()?.minXp || 0;
-  const nextLevelXp = getNextLevelXp(xp, levels);
-  if (nextLevelXp === currentLevelXp) return 100;
-  return ((xp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100;
-}
-
-function useStaggeredAnimation(count: number, delay: number = 100) {
-  const [visible, setVisible] = useState<boolean[]>(new Array(count).fill(false));
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      for (let i = 0; i < count; i++) {
-        setTimeout(() => setVisible(v => { const n = [...v]; n[i] = true; return n; }), i * delay);
-      }
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [count, delay]);
-  return visible;
-}
-
 export const Dashboard: React.FC<DashboardProps> = ({ user, onViewProfile, onViewLeaderboard, onLogout, onOpenOneVOne, onOpenBlueVsRed }) => {
   const { t } = useI18n();
   const LEVELS = useLevels(t);
@@ -80,14 +55,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onViewProfile, onVie
   const [completed, setCompleted] = useState(0);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
-  const greetingRef = useRef<HTMLDivElement>(null);
-  const statsRef = useRef<HTMLDivElement>(null);
-  const teamsRef = useRef<HTMLDivElement>(null);
-  const tipsRef = useRef<HTMLDivElement>(null);
-
-  // Staggered animations
-  const statCardsVisible = useStaggeredAnimation(3, 120);
-  const teamCardsVisible = useStaggeredAnimation(2, 150);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -109,7 +76,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onViewProfile, onVie
           }
         }
 
-        // Fallback: try Supabase's own localStorage key
         if (!token) {
           try {
             const supabaseKey = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
@@ -157,19 +123,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onViewProfile, onVie
 
   return (
     <div className="dash-page">
-      {/* Dynamic Background Glows */}
       <div className="dash-glow-orb orb-1" />
       <div className="dash-glow-orb orb-2" />
       <div className="dash-glow-orb orb-3" />
 
-      <header className="dash-header">
-        <div className="dash-header-inner">
-          <a href="/" className="dash-logo">
-            <span className="dash-logo-accent">Cyber</span>Arena
+      <header className="dash-header z-navbar">
+        <div className="dash-header-inner z-nav-inner">
+          <a href="/" className="dash-logo z-nav-logo" aria-label="CyberArena">
+            <span className="dash-logo-text">CyberArena</span>
+            <span className="dash-logo-dot" aria-hidden="true" />
           </a>
-          <div className="dash-header-right">
+          <div className="dash-header-right z-nav-right">
+            <div className="dash-nav-status">
+              <span className="dash-status-dot" />
+              <span>SECURE DASHBOARD</span>
+            </div>
             <LanguageSwitcher />
-            <button onClick={onViewLeaderboard} className="dash-leaderboard-btn">
+            <button onClick={onViewLeaderboard} className="dash-leaderboard-btn z-nav-login-btn">
               <Trophy size={14} />
               <span>{t.dashboard.leaderboard}</span>
             </button>
@@ -186,67 +156,90 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onViewProfile, onVie
       </header>
 
       <main className="dash-main">
-        <div className="dash-container dash-layout-grid">
-          
-          {/* LEFT COLUMN: Main Content */}
-          <div className="dash-main-content">
-            
-            {/* Welcome Banner */}
-            <section className="bento-card welcome-card">
-              <div className="welcome-info">
-                <div className="welcome-tag">
-                  <Sparkles size={12} className="text-emerald-400" />
-                  <span>AGENT STATUS: ACTIVE</span>
-                </div>
-                <h1>{t.dashboard.greeting}، <span>{user.name}</span> 👋</h1>
-                <p>{t.dashboard.greetingSub}</p>
-              </div>
-              <div className="welcome-system-status">
-                <div className="status-indicator">
-                  <span className="status-dot pulsing" />
-                  <span className="status-text">SECURE GATEWAY</span>
-                </div>
-              </div>
-            </section>
+        <div className="dash-container">
 
-            {/* Game / Challenge Modes */}
-            <section className="modes-section">
-              <div className="dash-section-header">
-                <h2>{t.dashboard.chooseTeam}</h2>
-                <p>{t.dashboard.chooseTeamSub}</p>
+          {/* ───── Top Hero ───── */}
+          <section className="dash-hero">
+            <div className="dash-hero-content">
+              <div className="dash-hero-tag">
+                <Sparkles size={12} />
+                <span>SYSTEM ONLINE</span>
               </div>
+              <h1 className="dash-hero-title">
+                {t.dashboard.greeting}، <span>{user.name}</span>
+              </h1>
+              <p className="dash-hero-sub">{t.dashboard.greetingSub}</p>
+            </div>
+            <div className="dash-hero-badge">
+              <Target size={14} />
+              <span>{t.dashboard.chooseTeam}</span>
+            </div>
+          </section>
+
+          {/* ───── Quick Stats Strip ───── */}
+          <section className="dash-stats-strip">
+            <div className="strip-card" onClick={onViewProfile}>
+              <div className="strip-card-icon" style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981' }}>
+                <Zap size={18} />
+              </div>
+              <div className="strip-card-body">
+                <span className="strip-card-value">{xp.toLocaleString()}</span>
+                <span className="strip-card-label">{t.dashboard.xpLabel}</span>
+              </div>
+            </div>
+            <div className="strip-card" onClick={onViewProfile}>
+              <div className="strip-card-icon" style={{ background: 'rgba(139,92,246,0.12)', color: '#8b5cf6' }}>
+                <GraduationCap size={18} />
+              </div>
+              <div className="strip-card-body">
+                <span className="strip-card-value">{completed}</span>
+                <span className="strip-card-label">{t.dashboard.completedLabel}</span>
+              </div>
+            </div>
+            <div className="strip-card strip-level" onClick={onViewProfile}>
+              <div className="strip-level-bar">
+                <div className="strip-level-fill" style={{ width: `${xpProgress}%`, background: `linear-gradient(90deg, ${level.color}, #a7f3d0)` }} />
+              </div>
+              <div className="strip-level-info">
+                <span className="strip-level-name" style={{ color: level.color }}>{level.name}</span>
+                <span className="strip-level-xp">{xp.toLocaleString()} / {nextLevelXp.toLocaleString()} XP</span>
+              </div>
+            </div>
+          </section>
+
+          {/* ───── Main Grid ───── */}
+          <div className="dash-layout-grid">
+
+            {/* ─── LEFT: Modes ─── */}
+            <div className="dash-main-content">
 
               {fetchError && (
-                <div className="dash-empty-state">
-                  {fetchError}
-                </div>
+                <div className="dash-error-banner">{fetchError}</div>
               )}
 
               {loading ? (
                 <div className="dash-loading">{t.dashboard.loading}</div>
               ) : (
                 <div className="modes-grid">
-                  
-                  {/* Blue vs Red Arena Mode */}
-                  <div className="mode-card bluevsred-bento" onClick={onOpenBlueVsRed}>
-                    <div className="card-glare" />
+
+                  {/* Blue vs Red Card */}
+                  <div className="mode-card mode-card-bvr" onClick={onOpenBlueVsRed}>
+                    <div className="mode-card-glow" />
                     <div className="mode-card-header">
-                      <span className="mode-tag blue-red-tag">CAMP PRACTICE</span>
+                      <span className="mode-tag tag-bvr">CAMP PRACTICE</span>
                     </div>
                     <div className="mode-card-body">
-                      <div className="teams-comparison">
-                        <div className="team-side blue-side">
-                          <BlueTeamIcon size={48} />
+                      <div className="bvr-teams">
+                        <div className="bvr-team bvr-blue">
+                          <BlueTeamIcon size={44} />
                           <h4>{t.dashboard.blueTitle}</h4>
                           <p>{t.dashboard.blueSubtitle}</p>
                         </div>
-                        
-                        <div className="vs-midline">
-                          <span className="vs-badge">VS</span>
+                        <div className="bvr-vs">
+                          <span>VS</span>
                         </div>
-                        
-                        <div className="team-side red-side">
-                          <RedTeamIcon size={48} />
+                        <div className="bvr-team bvr-red">
+                          <RedTeamIcon size={44} />
                           <h4>{t.dashboard.redTitle}</h4>
                           <p>{t.dashboard.redSubtitle}</p>
                         </div>
@@ -254,108 +247,89 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onViewProfile, onVie
                     </div>
                     <div className="mode-card-footer">
                       <span>{t.dashboard.blueVsRedCta || 'استعرض التحديات'}</span>
-                      <ArrowLeft className="cta-arrow" size={16} />
+                      <ArrowLeft size={16} />
                     </div>
                   </div>
 
-                  {/* 1v1 PvP Lobby Mode */}
+                  {/* 1v1 PvP Card */}
                   {onOpenOneVOne && (
-                    <div className="mode-card onevone-bento" onClick={onOpenOneVOne}>
-                      <div className="card-glare" />
+                    <div className="mode-card mode-card-pvp" onClick={onOpenOneVOne}>
+                      <div className="mode-card-glow" />
                       <div className="mode-card-header">
-                        <span className="mode-tag onevone-tag">PvP CHALLENGE</span>
-                        <div className="live-match-badge">
-                          <span className="live-dot" />
+                        <span className="mode-tag tag-pvp">PvP CHALLENGE</span>
+                        <div className="pvp-live">
+                          <span className="pvp-live-dot" />
                           <span>LIVE</span>
                         </div>
                       </div>
                       <div className="mode-card-body">
-                        <div className="onevone-showcase">
-                          <div className="swords-icon-glow">
-                            <Swords size={40} />
+                        <div className="pvp-showcase">
+                          <div className="pvp-icon-ring">
+                            <Swords size={38} />
                           </div>
-                          <div className="onevone-details">
+                          <div className="pvp-text">
                             <h3>{t.dashboard.oneVOneTitle}</h3>
                             <p>{t.dashboard.oneVOneDesc}</p>
                           </div>
                         </div>
-                        <div className="onevone-pills-row">
-                          <span className="onevone-pill">{t.dashboard.oneVOnePill1}</span>
-                          <span className="onevone-pill">{t.dashboard.oneVOnePill2}</span>
-                          <span className="onevone-pill">{t.dashboard.oneVOnePill3}</span>
+                        <div className="pvp-pills">
+                          <span>{t.dashboard.oneVOnePill1}</span>
+                          <span>{t.dashboard.oneVOnePill2}</span>
+                          <span>{t.dashboard.oneVOnePill3}</span>
                         </div>
                       </div>
                       <div className="mode-card-footer">
                         <span>{t.dashboard.oneVOneCta}</span>
-                        <ArrowLeft className="cta-arrow" size={16} />
+                        <ArrowLeft size={16} />
                       </div>
                     </div>
                   )}
 
                 </div>
               )}
-            </section>
-          </div>
+            </div>
 
-          {/* RIGHT COLUMN: Sidebar (Stats & Info) */}
-          <div className="dash-sidebar">
-            
-            {/* User Level Card */}
-            <section className="bento-card progress-card" onClick={onViewProfile}>
-              <div className="card-header-row">
-                <h3>{t.dashboard.levelLabel}</h3>
-                <span className="level-badge" style={{ color: level.color, backgroundColor: `${level.color}15` }}>
-                  {level.name}
-                </span>
-              </div>
-              
-              <div className="progress-bar-container">
-                <div className="dash-stat-progress">
-                  <div className="dash-stat-progress-fill" style={{ width: `${xpProgress}%`, background: `linear-gradient(90deg, ${level.color}, #a7f3d0)` }} />
+            {/* ─── RIGHT: Sidebar ─── */}
+            <aside className="dash-sidebar">
+              <section className="sd-card sd-profile" onClick={onViewProfile}>
+                <div className="sd-avatar-ring">
+                  <span className="sd-avatar">{initial}</span>
                 </div>
-                <div className="progress-labels">
+                <div className="sd-profile-info">
+                  <span className="sd-name">{user.name || user.email}</span>
+                  <span className="sd-level" style={{ color: level.color }}>{level.name}</span>
+                </div>
+                <Shield size={16} className="sd-shield" />
+              </section>
+
+              <section className="sd-card sd-progress">
+                <div className="sd-progress-header">
+                  <span className="sd-label">{t.dashboard.levelLabel}</span>
+                  <span className="sd-level-badge" style={{ color: level.color, background: `${level.color}15` }}>
+                    {level.name}
+                  </span>
+                </div>
+                <div className="sd-bar-track">
+                  <div className="sd-bar-fill" style={{ width: `${xpProgress}%`, background: `linear-gradient(90deg, ${level.color}, #a7f3d0)` }} />
+                </div>
+                <div className="sd-bar-labels">
                   <span>{xp.toLocaleString()} XP</span>
-                  <span className="faint-label">{nextLevelXp.toLocaleString()} XP</span>
+                  <span>{nextLevelXp.toLocaleString()} XP</span>
                 </div>
-              </div>
-            </section>
+              </section>
 
-            {/* Stats Overview */}
-            <section className="bento-card stats-overview-card">
-              <div className="bento-stat-item">
-                <div className="bento-stat-icon-wrapper xp-wrapper">
-                  <Zap size={18} />
+              <section className="sd-card sd-tip">
+                <div className="sd-tip-header">
+                  <div className="sd-tip-icon">
+                    <Lightbulb size={16} />
+                  </div>
+                  <h3>{t.dashboard.tipTitle}</h3>
                 </div>
-                <div className="bento-stat-info">
-                  <span className="bento-stat-value">{xp.toLocaleString()}</span>
-                  <span className="bento-stat-label">{t.dashboard.xpLabel}</span>
-                </div>
-              </div>
-              <div className="bento-stat-divider" />
-              <div className="bento-stat-item">
-                <div className="bento-stat-icon-wrapper completed-wrapper">
-                  <GraduationCap size={18} />
-                </div>
-                <div className="bento-stat-info">
-                  <span className="bento-stat-value">{completed}</span>
-                  <span className="bento-stat-label">{t.dashboard.completedLabel}</span>
-                </div>
-              </div>
-            </section>
-
-            {/* Daily Tip Panel */}
-            <section className="bento-card tip-card">
-              <div className="tip-header-row">
-                <div className="tip-bulb-icon">
-                  <Lightbulb size={18} />
-                </div>
-                <h3>{t.dashboard.tipTitle}</h3>
-              </div>
-              <p>{t.dashboard.tipBody}</p>
-            </section>
+                <p>{t.dashboard.tipBody}</p>
+              </section>
+            </aside>
 
           </div>
-
         </div>
       </main>
     </div>

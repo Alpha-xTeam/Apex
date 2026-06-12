@@ -46,10 +46,8 @@ const CHEATSHEET: Record<string, string> = {
 };
 import {
   Terminal,
-  Cpu,
   Loader2,
   CheckCircle,
-  Flame,
   Globe,
   Lock,
   Eye,
@@ -65,7 +63,10 @@ import {
   Power,
   Download,
   FileArchive,
-  ArrowRight
+  ArrowRight,
+  Shield,
+  Crosshair,
+  Swords,
 } from 'lucide-react';
 import { BlueTeamIcon, RedTeamIcon, StoryIcon, TaskIcon } from './TeamIcons';
 
@@ -1554,126 +1555,59 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
 
   if (loading || !training) {
     return (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100vh',
-          padding: '24px',
-          backgroundColor: '#030712',
-          color: '#ffffff',
-          fontFamily: 'var(--font-arabic)',
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-        dir="rtl"
-      >
-        {/* Animated decorative glow effects */}
-        <div style={{
-          position: 'absolute',
-          top: '-160px',
-          right: '-160px',
-          width: '320px',
-          height: '320px',
-          backgroundColor: 'rgba(99, 102, 241, 0.1)',
-          borderRadius: '50%',
-          filter: 'blur(80px)',
-          pointerEvents: 'none'
-        }} />
-        <div style={{
-          position: 'absolute',
-          bottom: '-160px',
-          left: '-160px',
-          width: '320px',
-          height: '320px',
-          backgroundColor: 'rgba(79, 70, 229, 0.1)',
-          borderRadius: '50%',
-          filter: 'blur(80px)',
-          pointerEvents: 'none'
-        }} />
-
-        <div
-          style={{
-            maxWidth: '576px',
-            width: '100%',
-            padding: '32px',
-            borderRadius: '24px',
-            border: '1px solid #1f2937',
-            backgroundColor: 'rgba(17, 24, 39, 0.45)',
-            backdropFilter: 'blur(24px)',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-            position: 'relative',
-            zIndex: 2,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Cpu style={{ color: '#818cf8' }} size={24} />
-              <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#e5e7eb', margin: 0 }}>
-                جاري تهيئة بيئة التحدي السيبراني...
-              </h2>
-            </div>
-            <Flame style={{ color: '#f59e0b', marginRight: 'auto' }} size={20} />
-          </div>
-
-          {/* Large dynamic percent display */}
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '4px', margin: '24px 0' }}>
-            <span style={{ fontSize: '48px', fontWeight: '800', color: '#818cf8' }}>
-              {simulatedPercent}
+      <div className="tl-page">
+        <div className="tl-card" style={{
+          '--tl-accent': teamRole === 'blue' ? '#3b82f6' : '#ef4444',
+        } as React.CSSProperties}>
+          <div className="tl-header">
+            <span className="tl-team">
+              {teamRole === 'blue' ? <Shield size={13} /> : <Crosshair size={13} />}
+              {teamRole === 'blue' ? t.trainingPath.labPrep.metaSecure : t.trainingPath.labPrep.metaAi}
             </span>
-            <span style={{ fontSize: '20px', fontWeight: '500', color: '#6b7280' }}>%</span>
+            <span className="tl-meta">
+              {t.trainingPath.labPrep.stepLabel(Math.min(simulatedStep || 1, 4), 4)}
+              <span className="tl-meta-dot" />
+              {simulatedPercent}%
+            </span>
           </div>
 
-          {/* Progress bar container */}
-          <div style={{ width: '100%', height: '10px', backgroundColor: '#030712', borderRadius: '9999px', overflow: 'hidden', marginBottom: '16px', border: '1px solid #1f2937' }}>
-            <div
-              style={{
-                height: '100%',
-                background: 'linear-gradient(90deg, #6366f1, #a855f7, #ec4899)',
-                width: `${simulatedPercent}%`,
-                transition: 'width 0.3s ease-out',
-                boxShadow: '0 0 12px rgba(99, 102, 241, 0.5)',
-              }}
-            />
+          <div className="tl-visual">
+            <div className="tl-icon-ring">
+              <svg className="tl-ring-svg" viewBox="0 0 96 96">
+                <circle className="tl-ring-bg" cx="48" cy="48" r="42" />
+                <circle className="tl-ring-fg" cx="48" cy="48" r="42"
+                  strokeDasharray={`${264}`}
+                  strokeDashoffset={`${264 - (simulatedPercent / 100) * 264}`}
+                />
+              </svg>
+              <div className="tl-icon-box">
+                <Swords size={24} />
+              </div>
+            </div>
+
+            <div className="tl-percent">
+              {simulatedPercent}<span className="tl-percent-unit">%</span>
+            </div>
+
+            <div className="tl-title-text">{simulatedTitle}</div>
           </div>
 
-          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-            <p style={{ color: '#d1d5db', fontSize: '14px', fontWeight: '500', margin: 0 }}>{simulatedTitle}</p>
-          </div>
-
-          {/* Simulated initialization checklist */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', borderTop: '1px solid rgba(31, 41, 55, 0.8)', paddingTop: '24px', fontSize: '14px' }}>
-            {[
-              { id: 1, label: 'Loading scenario from store' },
-              { id: 2, label: 'Building full challenge with AI' },
-              { id: 3, label: 'Setting up interactive lab and files' },
-              { id: 4, label: 'Final security check' }
-            ].map(step => {
-              const active = simulatedStep >= step.id;
+          <div className="tl-steps">
+            {t.trainingPath.labPrep.steps.map((label: string, idx: number) => {
+              const state = simulatedStep > idx ? 'completed' : simulatedStep === idx ? 'active' : 'pending';
               return (
-                <div key={step.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div
-                    style={{
-                      width: '20px',
-                      height: '20px',
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '12px',
-                      backgroundColor: active ? '#6366f1' : '#030712',
-                      color: active ? '#ffffff' : '#6b7280',
-                      border: active ? 'none' : '1px solid #1f2937',
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    {active ? '✓' : step.id}
+                <div key={idx} className={`tl-step ${state}`}>
+                  <div className="tl-step-dot">
+                    {state === 'completed' ? '✓' : state === 'active' ? '●' : ''}
                   </div>
-                  <span style={{ color: active ? '#e5e7eb' : '#6b7280', fontWeight: active ? '500' : '400' }}>
-                    {step.label}
-                  </span>
+                  <div className="tl-step-body">
+                    <span className="tl-step-label">{label}</span>
+                    <span className="tl-step-status">
+                      {state === 'completed' ? t.trainingPath.labPrep.stepStatus[2]
+                        : state === 'active' ? t.trainingPath.labPrep.stepStatus[1]
+                        : t.trainingPath.labPrep.stepStatus[0]}
+                    </span>
+                  </div>
                 </div>
               );
             })}
@@ -1686,7 +1620,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
   // Code Fixing Challenge: render CodeFixEditor component
   if (isCodeFixChallenge && training) {
     return (
-      <div className="dash-page session-page team-blue">
+      <div className="dash-page session-page team-blue theme-codefix">
         <CodeFixEditor
           challenge={{
             id: training.id || '',
@@ -1715,7 +1649,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
   // Vulnerability Hunter Challenge: render VulnerabilityHunterEditor component
   if (isVulnHunterChallenge && training) {
     return (
-      <div className="dash-page session-page team-blue">
+      <div className="dash-page session-page team-blue theme-vulnhunter">
         <VulnerabilityHunterEditor
           challenge={{
             id: training.id || '',
@@ -1745,7 +1679,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
   // Log Analysis Challenge: render LogAnalysisEditor component
   if (isLogAnalysisChallenge && training) {
     return (
-      <div className="dash-page session-page team-blue">
+      <div className="dash-page session-page team-blue theme-loganalysis">
         <LogAnalysisEditor
           challenge={{
             id: training.id || '',
