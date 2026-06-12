@@ -253,19 +253,9 @@ export const BlueVsRed: React.FC<BlueVsRedProps> = ({ onSelectChallenge, onBack 
 
   return (
     <div className="bvr-page" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-      {/* Restored the exact original header classes and structure */}
-      <header className="dash-header">
-        <div className="dash-header-inner">
-          <a href="/" className="dash-logo">CyberArena</a>
-          <div className="dash-header-right">
-            <LanguageSwitcher />
-            <button onClick={onBack} className="dash-back-to-dash">
-              {lang === 'ar' ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-              <span>{t.dashboard.backToDashboard || 'العودة للوحة التحكم'}</span>
-            </button>
-          </div>
-        </div>
-      </header>
+      <button onClick={onBack} className="bvr-back-float" title={t.dashboard.backToDashboard || 'العودة للوحة التحكم'}>
+        {lang === 'ar' ? <ChevronRight size={22} /> : <ChevronLeft size={22} />}
+      </button>
 
       {fetchError && (
         <div className="bvr-error-alert">

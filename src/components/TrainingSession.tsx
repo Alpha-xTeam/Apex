@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import CodeFixEditor from './CodeFixEditor';
 import LogAnalysisEditor from './LogAnalysisEditor';
 import VulnerabilityHunterEditor from './VulnerabilityHunterEditor';
+import WebExploitEditor from './WebExploitEditor';
 import { useI18n } from './../i18n/I18nContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { Sidebar } from './Sidebar';
 
 // Read-only cheat sheet for the Swiss Tools window.
 // Only tools that appear in the current challenge's `toolsWhitelist` are shown.
@@ -215,6 +217,10 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
   // --- Vulnerability Hunter Challenge States ---
   const [isVulnHunterChallenge, setIsVulnHunterChallenge] = useState(false);
   const [vulnHunterResult, setVulnHunterResult] = useState<{ success: boolean; feedback: string } | null>(null);
+
+  // --- Web Exploitation Challenge States ---
+  const [isWebExploitChallenge, setIsWebExploitChallenge] = useState(false);
+  const [webExploitResult, setWebExploitResult] = useState<{ secured: boolean; feedback: string } | null>(null);
 
   // --- Cryptography Solver Workspace States ---
   const [cryptoInput, setCryptoInput] = useState('');
@@ -492,6 +498,7 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
       setIsLogAnalysisChallenge(teamRole === 'blue' && ft.type === 'log-analysis');
       setIsVulnHunterChallenge(teamRole === 'blue' && ft.type === 'vulnerability-hunter');
       setIsSteganographyChallenge(ft.type === 'steganography');
+      setIsWebExploitChallenge(ft.type === 'web-exploitation');
       setSimulatedStep(5);
       setSimulatedPercent(100);
       setSimulatedTitle('Lab fully prepared!');
@@ -539,6 +546,7 @@ export const TrainingSession: React.FC<TrainingSessionProps> = ({
           setIsLogAnalysisChallenge(teamRole === 'blue' && ft.type === 'log-analysis');
           setIsVulnHunterChallenge(teamRole === 'blue' && ft.type === 'vulnerability-hunter');
           setIsSteganographyChallenge(ft.type === 'steganography');
+          setIsWebExploitChallenge(ft.type === 'web-exploitation');
           setSimulatedStep(5);
           setSimulatedPercent(100);
           setSimulatedTitle('Lab fully prepared!');
@@ -803,6 +811,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
           teamRole === 'blue' && ft.type === 'vulnerability-hunter'
         );
         setIsSteganographyChallenge(ft.type === 'steganography');
+        setIsWebExploitChallenge(ft.type === 'web-exploitation');
         setLoading(false);
       } else {
         setError('Failed to receive cyber lab contents.');
@@ -1154,6 +1163,91 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
     } catch (err: any) {
       setVulnHunterResult({
         success: false,
+        feedback: 'عذراً، فشل الاتصال بخادم التقييم. حاول مرة أخرى.\n' + (err?.message || ''),
+      });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  // --- Web Exploitation Submit ---
+  const handleWebExploitSubmit = async (payload: string) => {
+    if (!training) return;
+    setIsVerifying(true);
+    setWebExploitResult(null);
+
+    try {
+      const raw = localStorage.getItem('cyberarena_session') || '{}';
+      const session = JSON.parse(raw);
+      const userData = session.user || session;
+      const userId = userData.id;
+
+      const res = await authFetch(`${API_URL}/training/evaluate-web-exploit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          challengeId: training.scenarioId || training.id,
+          userId: userId || undefined,
+          payload,
+          teamRole: 'red',
+        }),
+      });
+
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(`HTTP ${res.status}: ${t}`);
+      }
+
+      const data = await res.json();
+      const evaluation = data?.evaluation;
+      if (!evaluation || typeof evaluation !== 'object') {
+        throw new Error('Invalid response from server: missing evaluation object.');
+      }
+      const secured = !!evaluation.secured;
+      setWebExploitResult({
+        secured,
+        feedback: evaluation.feedback || (secured ? 'تم الاستغلال بنجاح!' : 'إجابة خاطئة.'),
+      });
+
+      if (secured) {
+        setIsCorrect(true);
+        setShowResult(true);
+
+        // Notify the 1v1 wrapper (if any) so the server can claim the win
+        onChallengeSolved?.(payload);
+
+        // Add XP
+        if (userId) {
+          await authFetch(`${API_URL}/xp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'add_xp',
+              user_id: userId,
+              xp_amount: training.xpReward,
+            }),
+          });
+        }
+
+        // Mark as solved
+        if ((training.id || training.scenarioId) && !onChallengeSolved) {
+          authFetch(`${API_URL}/training/solved`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              scenarioId: training.scenarioId || training.id,
+              teamRole: 'red',
+              module: training.type || moduleId || moduleTitle,
+              path: pathId,
+              category: categoryId,
+              difficulty: training.difficulty || 'متوسط',
+            }),
+          }).catch(err => console.error('Error reporting solved:', err));
+        }
+      }
+    } catch (err: any) {
+      setWebExploitResult({
+        secured: false,
         feedback: 'عذراً، فشل الاتصال بخادم التقييم. حاول مرة أخرى.\n' + (err?.message || ''),
       });
     } finally {
@@ -1676,6 +1770,37 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
     );
   }
 
+  // Web Exploitation Challenge: render WebExploitEditor component
+  if (isWebExploitChallenge && training) {
+    return (
+      <div className="dash-page session-page team-red theme-webexp">
+        <WebExploitEditor
+          challenge={{
+            id: training.id || '',
+            scenarioId: training.scenarioId || '',
+            title: training.title,
+            story: training.story,
+            task_outline: training.task,
+            vulnerability_type: (training as any).vulnerability_type || '',
+            vulnerability_class: (training as any).vulnerability_class || '',
+            vulnerability_description: (training as any).vulnerability_description || '',
+            http_request: (training as any).http_request || '',
+            http_response: (training as any).http_response || '',
+            flag_preview: (training as any).flag_preview || '',
+            difficulty: training.difficulty,
+            xp_reward: training.xpReward,
+            hints: (training as any).hints || [],
+          }}
+          onSubmit={handleWebExploitSubmit}
+          onBack={onBack}
+          isVerifying={isVerifying}
+          result={webExploitResult}
+          inOneVOne={!!onChallengeSolved}
+        />
+      </div>
+    );
+  }
+
   // Log Analysis Challenge: render LogAnalysisEditor component
   if (isLogAnalysisChallenge && training) {
     return (
@@ -1715,35 +1840,35 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
 
   return (
     <div className={`dash-page session-page team-${teamRole} ${themeClass}`}>
-      <header className="dash-header">
-        <div className="dash-header-inner">
-          <a href="/" className="dash-logo">CyberArena</a>
-          <div className="dash-header-right">
+      <Sidebar
+        bottom={
+          <>
             <LanguageSwitcher />
-            <div className="session-top-bar">
-              <span className="team-role-badge" style={{ color: teamRole === 'blue' ? '#3b82f6' : '#ef4444' }}>
-                {teamRole === 'blue' ? (
-                  <BlueTeamIcon size={24} />
-                ) : (
-                  <RedTeamIcon size={24} />
-                )}
-                <span>{teamRole === 'blue' ? t.oneVOne.teamBlueFull : t.oneVOne.teamRedFull}</span>
-              </span>
-              <span className="session-badge">{moduleTitle}</span>
-              <span className={`session-diff ${training.difficulty === 'مبتدئ' ? 'easy' : training.difficulty === 'متوسط' ? 'medium' : 'hard'}`}>
-                {training.difficulty}
-              </span>
-              <span className="session-xp">+{training.xpReward} XP</span>
-            </div>
             <button onClick={onBack} className="path-back-link">
-              <ArrowRight size={14} />
-              <span>{t.oneVOne.back}</span>
+              <ArrowRight size={18} />
             </button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
-      <main className="session-split">
+      <div className="session-top-bar">
+        <span className="team-role-badge" style={{ color: teamRole === 'blue' ? '#3b82f6' : '#ef4444' }}>
+          {teamRole === 'blue' ? (
+            <BlueTeamIcon size={24} />
+          ) : (
+            <RedTeamIcon size={24} />
+          )}
+          <span>{teamRole === 'blue' ? t.oneVOne.teamBlueFull : t.oneVOne.teamRedFull}</span>
+        </span>
+        <span className="session-badge">{moduleTitle}</span>
+        <span className={`session-diff ${training.difficulty === 'مبتدئ' ? 'easy' : training.difficulty === 'متوسط' ? 'medium' : 'hard'}`}>
+          {training.difficulty}
+        </span>
+        <span className="session-xp">+{training.xpReward} XP</span>
+      </div>
+
+      <div className="dash-main" style={{ paddingLeft: 92, paddingRight: 12, paddingTop: 24, height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <main className="session-split">
         {/* LEFT WORKSPACE: WEB PREVIEW + VS CODE OR WINDOWS DESKTOP SIMULATOR */}
         <div className="session-left">
 
@@ -2882,6 +3007,7 @@ INSERT INTO products (name, price, is_active) VALUES ('بيانات سرية ف�
           </div>
         </div>
       </main>
+      </div>
     </div>
   );
 };

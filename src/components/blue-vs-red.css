@@ -4,76 +4,13 @@
 
 /* Page layout adjustments */
 .bvr-page {
-  min-height: 100vh;
+  height: 100vh;
   background: #020203;
   color: #f3f1ec;
   font-family: var(--font-arabic), system-ui, sans-serif;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
-}
-
-/* Premium Navbar scoped to Blue vs Red page only */
-.bvr-page .dash-header {
-  background: rgba(4, 4, 6, 0.7) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  z-index: 100;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-}
-
-.bvr-page .dash-logo {
-  font-size: 22px !important;
-  font-weight: 950 !important;
-  color: #ffffff !important;
-  letter-spacing: 1.5px !important;
-  text-transform: uppercase;
-  background: linear-gradient(90deg, #00f0ff, #ff003c) !important;
-  -webkit-background-clip: text !important;
-  background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  text-shadow: none !important;
-  transition: opacity 0.3s ease;
-}
-
-.bvr-page .dash-logo:hover {
-  opacity: 0.85;
-}
-
-/* Style the unstyled Back to Dashboard button */
-.dash-back-to-dash {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 8px !important;
-  padding: 8px 18px !important;
-  font-size: 13px !important;
-  font-weight: 700 !important;
-  font-family: var(--font-arabic), system-ui, sans-serif !important;
-  color: #ffffff !important;
-  background: linear-gradient(135deg, rgba(0, 82, 255, 0.12), rgba(255, 0, 60, 0.12)) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 99px !important;
-  cursor: pointer !important;
-  outline: none !important;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
-}
-
-.dash-back-to-dash:hover {
-  background: linear-gradient(135deg, rgba(0, 82, 255, 0.25), rgba(255, 0, 60, 0.25)) !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3), 0 0 15px rgba(255, 255, 255, 0.05) !important;
-}
-
-.dash-back-to-dash:active {
-  transform: translateY(1px) !important;
+  overflow: hidden;
 }
 
 /* Split screen container */
@@ -81,11 +18,41 @@
   display: flex;
   flex: 1;
   width: 100%;
-  margin-top: 65px; /* Offset the fixed header */
-  min-height: calc(100vh - 65px);
   position: relative;
   overflow: hidden;
   transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Floating back button */
+.bvr-back-float {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(4, 4, 6, 0.85);
+  color: #6b6b80;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(12px);
+}
+
+.bvr-back-float:hover {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.15);
+  transform: scale(1.06);
+}
+
+html[dir="rtl"] .bvr-back-float {
+  left: auto;
+  right: 20px;
 }
 
 @media (max-width: 1024px) {
@@ -102,10 +69,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding: 80px 40px;
-  min-height: calc(100vh - 65px);
-  overflow-y: auto;
+  justify-content: center;
+  padding: 0 40px;
+  overflow: hidden;
   transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 1;
   opacity: 1;
@@ -114,8 +80,8 @@
 @media (max-width: 1024px) {
   .bvr-half {
     min-height: auto;
-    padding: 60px 24px;
-    overflow-y: visible;
+    padding: 0 24px;
+    overflow: hidden;
   }
 }
 
@@ -943,7 +909,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: calc(100vh - 65px);
+  min-height: 100vh;
   gap: 16px;
   color: rgba(243, 241, 236, 0.6);
   font-size: 14px;

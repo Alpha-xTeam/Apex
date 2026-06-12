@@ -3,6 +3,7 @@ import { Lock, ChevronLeft, Loader2, ArrowRight } from 'lucide-react';
 import { PathIcon } from './TeamIcons';
 import { useI18n } from '../i18n/I18nContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { Sidebar } from './Sidebar';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
 
@@ -98,18 +99,16 @@ export const TrainingPath: React.FC<TrainingPathProps> = ({ categoryId, pathId, 
 
   return (
     <div className="dash-page" style={{ '--accent': accent, '--accent-soft': accentSoft } as React.CSSProperties}>
-      <header className="dash-header">
-        <div className="dash-header-inner">
-          <a href="/" className="dash-logo">CyberArena</a>
-          <div className="dash-header-right">
+      <Sidebar
+        bottom={
+          <>
             <LanguageSwitcher />
             <button onClick={onBack} className="path-back-link">
-              <ArrowRight size={14} />
-              <span>{t.trainingPath.backToHome}</span>
+              <ArrowRight size={18} />
             </button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <main className="dash-main">
         <div className="dash-container">

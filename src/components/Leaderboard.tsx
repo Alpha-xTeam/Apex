@@ -3,6 +3,7 @@ import { ArrowRight, Target, Flame, Users, TrendingUp, Crown, Medal } from 'luci
 import { LeaderboardHeroIcon, SparkleIcon } from './TeamIcons';
 import { useI18n } from '../i18n/I18nContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { Sidebar } from './Sidebar';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
 
@@ -141,20 +142,17 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
       <div className="lb-bg-orb lb-bg-orb-2" />
       <div className="lb-bg-orb lb-bg-orb-3" />
 
-      <header className="dash-header">
-        <div className="dash-header-inner">
-          <a href="/" className="dash-logo" onClick={(e) => { e.preventDefault(); onBack(); }}>
-            CyberArena
-          </a>
-          <div className="dash-header-right">
+      <Sidebar
+        onLogoClick={(e) => { e.preventDefault(); onBack(); }}
+        bottom={
+          <>
             <LanguageSwitcher />
             <button onClick={onBack} className="path-back-link">
-              <ArrowRight size={14} />
-              <span>{t.leaderboard.backToHome}</span>
+              <ArrowRight size={18} />
             </button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <main className="dash-main">
         <div className="dash-container">

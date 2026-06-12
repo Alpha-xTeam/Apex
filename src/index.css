@@ -678,6 +678,169 @@
 
 
 /* ==========================================================================
+   Web Exploitation (Red Team / Offensive Security) Page Theme
+   ========================================================================== */
+.theme-webexp {
+  background: radial-gradient(ellipse at center, #0d0808 0%, #070404 100%) !important;
+  position: relative;
+}
+
+.theme-webexp::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #dc2626, #ef4444, transparent);
+  z-index: 100;
+  pointer-events: none;
+}
+
+.theme-webexp::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle at center, rgba(220, 38, 38, 0.06) 0%, transparent 70%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.theme-webexp .session-badge {
+  background: rgba(220, 38, 38, 0.12) !important;
+  border: 1px solid rgba(220, 38, 38, 0.35) !important;
+  color: #fca5a5 !important;
+  text-shadow: 0 0 8px rgba(220, 38, 38, 0.3);
+}
+
+.theme-webexp .session-story {
+  border: 1px solid rgba(220, 38, 38, 0.18) !important;
+  background: rgba(220, 38, 38, 0.03) !important;
+  border-radius: 12px !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-webexp .session-story::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(180deg, #dc2626, #f87171);
+}
+
+.theme-webexp .session-task-box {
+  border: 1px solid rgba(239, 68, 68, 0.18) !important;
+  background: rgba(239, 68, 68, 0.03) !important;
+  border-radius: 12px !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-webexp .session-task-box::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(180deg, #ef4444, #fca5a5);
+}
+
+.theme-webexp .session-right {
+  border-inline-start: 1px solid rgba(220, 38, 38, 0.15) !important;
+  background: linear-gradient(180deg, rgba(13, 8, 8, 0.96) 0%, rgba(7, 4, 4, 0.98) 100%) !important;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5) !important;
+}
+
+.theme-webexp .session-answer-input {
+  border: 1px solid rgba(220, 38, 38, 0.25) !important;
+  background: rgba(10, 5, 5, 0.85) !important;
+  color: #86efac !important;
+  border-radius: 10px !important;
+  font-family: 'IBM Plex Mono', monospace;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5) !important;
+}
+
+.theme-webexp .session-answer-input:focus {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 12px rgba(220, 38, 38, 0.25), inset 0 2px 6px rgba(0, 0, 0, 0.5) !important;
+  outline: none;
+}
+
+.theme-webexp .session-submit {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.35) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 10px !important;
+  font-weight: 700 !important;
+}
+
+.theme-webexp .session-submit:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.5) !important;
+  transform: translateY(-1px);
+}
+
+.theme-webexp .session-submit:disabled {
+  background: rgba(255, 255, 255, 0.03) !important;
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.04) !important;
+  color: #4c4c5a !important;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.theme-webexp .session-result {
+  border: 1px solid rgba(220, 38, 38, 0.25) !important;
+  background: rgba(12, 6, 6, 0.95) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 10px 30px rgba(220, 38, 38, 0.15) !important;
+}
+
+.theme-webexp .session-result.success {
+  border-color: rgba(34, 197, 94, 0.4) !important;
+  box-shadow: 0 10px 30px rgba(34, 197, 94, 0.2) !important;
+}
+
+.theme-webexp .session-result.fail {
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  box-shadow: 0 10px 30px rgba(239, 68, 68, 0.15) !important;
+}
+
+.theme-webexp .session-hint-card {
+  border: 1px solid rgba(220, 38, 38, 0.08) !important;
+  background: rgba(220, 38, 38, 0.02) !important;
+  border-radius: 10px !important;
+  border-inline-start: 3px solid #dc2626 !important;
+}
+
+.theme-webexp .session-hint-btn {
+  border: 1px dashed rgba(220, 38, 38, 0.2) !important;
+  color: #dc2626 !important;
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  background: none !important;
+}
+
+.theme-webexp .session-hint-btn:hover {
+  background: rgba(220, 38, 38, 0.03) !important;
+}
+
+.theme-webexp .session-http-code {
+  border: 1px solid rgba(220, 38, 38, 0.06) !important;
+  background: rgba(7, 4, 4, 0.8) !important;
+  border-radius: 10px !important;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+
+/* ==========================================================================
    Loading Panel (tl-*) — Challenge Environment Preparation
    ========================================================================== */
 .tl-page {

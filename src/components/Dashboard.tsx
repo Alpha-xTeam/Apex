@@ -15,6 +15,7 @@ import {
 import { BlueTeamIcon, RedTeamIcon } from './TeamIcons';
 import { useI18n } from '../i18n/I18nContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { Sidebar } from './Sidebar';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
 
@@ -127,33 +128,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onViewProfile, onVie
       <div className="dash-glow-orb orb-2" />
       <div className="dash-glow-orb orb-3" />
 
-      <header className="dash-header z-navbar">
-        <div className="dash-header-inner z-nav-inner">
-          <a href="/" className="dash-logo z-nav-logo" aria-label="CyberArena">
-            <span className="dash-logo-text">CyberArena</span>
-            <span className="dash-logo-dot" aria-hidden="true" />
-          </a>
-          <div className="dash-header-right z-nav-right">
-            <div className="dash-nav-status">
+      <Sidebar
+        bottom={
+          <>
+            <div className="dash-nav-status" title="SYSTEM ONLINE">
               <span className="dash-status-dot" />
-              <span>SECURE DASHBOARD</span>
             </div>
             <LanguageSwitcher />
-            <button onClick={onViewLeaderboard} className="dash-leaderboard-btn z-nav-login-btn">
-              <Trophy size={14} />
-              <span>{t.dashboard.leaderboard}</span>
-            </button>
-            <div className="dash-user-badge" onClick={onViewProfile}>
+            <div className="dash-user-badge" onClick={onViewProfile} title={`${user.name || user.email} — ${level.name}`}>
               <div className="dash-avatar">{initial}</div>
-              <div className="dash-user-info">
-                <span className="dash-name">{user.name || user.email}</span>
-                <span className="dash-level" style={{ color: level.color }}>{level.name}</span>
-              </div>
             </div>
-            <button onClick={onLogout} className="dash-logout">{t.dashboard.logout}</button>
-          </div>
-        </div>
-      </header>
+            <button onClick={onLogout} className="dash-logout" />
+          </>
+        }
+      >
+        <button className="dash-nav-item active" title={t.dashboard.greeting || 'الرئيسية'}>
+          <Shield size={18} />
+        </button>
+        <button className="dash-nav-item" onClick={onOpenBlueVsRed} title={t.dashboard.blueVsRedTitle || 'التدريب'}>
+          <Zap size={18} />
+        </button>
+        {onOpenOneVOne && (
+          <button className="dash-nav-item" onClick={onOpenOneVOne} title={t.dashboard.oneVOneTitle || '1v1'}>
+            <Swords size={18} />
+          </button>
+        )}
+        <button className="dash-nav-item" onClick={onViewLeaderboard} title={t.dashboard.leaderboard}>
+          <Trophy size={18} />
+        </button>
+      </Sidebar>
 
       <main className="dash-main">
         <div className="dash-container">

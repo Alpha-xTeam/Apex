@@ -381,7 +381,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
   // The server-side /api/onevone/matches/{id}/submit re-evaluates and (atomically)
   // claims the win via the onevone_claim_win RPC.
   type SubmissionPayload =
-    | string
+    | string  // crypto flag or web exploitation payload
     | { fixedCode: string }
     | { attackType: string; attackerIp: string; timestamp: string; ioc: string; explanation?: string }
     | { vulnerabilityType: string };

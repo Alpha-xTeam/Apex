@@ -17,13 +17,11 @@
 ## Stack
 - **Frontend**: React 19 + TypeScript + Vite
 - **Backend**: Python 3.11+ (FastAPI, httpx, uvicorn, cryptography) — Dockerfile pins `python:3.11-slim`
-- **Primary AI**: Cloudflare Workers AI (default `@cf/qwen/qwen2.5-coder-32b-instruct`)
-- **Secondary AI**: Groq API (default `llama-3.1-8b-instant` via `GROQ_MODEL`)
-- **Tertiary AI**: NVIDIA integrate API (default `deepseek-ai/deepseek-v4-pro`
-  via `NVIDIA_MODEL`) — used only when Cloudflare and Groq are unreachable
-- **Quaternary AI** (log-analysis feedback only): Mistral API
-  (`mistral-large-latest` via `MISTRAL_MODEL`) — used by
-  `evaluate_log_analysis` to grade free-text explanations in Arabic
+- **Primary AI**: Mistral API (`mistral-large-latest` via `MISTRAL_MODEL`)
+- **Secondary AI**: Cloudflare Workers AI (multi-model cycling)
+- **Tertiary AI**: Groq API (default `llama-3.1-8b-instant` via `GROQ_MODEL`)
+- **Quaternary AI**: NVIDIA integrate API (default `deepseek-ai/deepseek-v4-pro` via `NVIDIA_MODEL`)
+- **Quintenary AI**: Curated seeds (safety net when all AI tiers fail)
 - **Database**: Supabase PostgreSQL
 - **Language**: Arabic (RTL) with English (LTR) toggle; site is Arabic-first,
   every UI string lives in `src/i18n/translations.ts`
@@ -33,16 +31,16 @@
 |---|---|
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_ANON_KEY` | Anon key (read) — used by backend for DB writes too |
-| `CLOUDFLARE_API_TOKEN` | Primary AI |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account id for Workers AI |
-| `CLOUDFLARE_MODEL` | Primary model (default `@cf/qwen/qwen2.5-coder-32b-instruct`) |
-| `GROQ_API_KEY` | Secondary AI |
-| `GROQ_MODEL` | Optional model override (default `llama-3.1-8b-instant`) |
-| `NVIDIA_API_KEY` | Tertiary AI |
-| `NVIDIA_MODEL` | Optional model override (default `deepseek-ai/deepseek-v4-pro`) |
-| `MISTRAL_API_KEY` | Quaternary AI (log-analysis feedback only) |
+| `MISTRAL_API_KEY` | **Primary AI** — Mistral runs first in every generator |
 | `MISTRAL_MODEL` | Optional model override (default `mistral-large-latest`) |
 | `MISTRAL_API_URL` | Mistral endpoint (default `https://api.mistral.ai/v1/chat/completions`) |
+| `CLOUDFLARE_API_TOKEN` | Secondary AI (fallback when Mistral fails) |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account id for Workers AI |
+| `CLOUDFLARE_MODEL` | Secondary model (default `@cf/meta/llama-3.3-70b-instruct-fp8-fast`) |
+| `GROQ_API_KEY` | Tertiary AI |
+| `GROQ_MODEL` | Optional model override (default `llama-3.1-8b-instant`) |
+| `NVIDIA_API_KEY` | Quaternary AI |
+| `NVIDIA_MODEL` | Optional model override (default `deepseek-ai/deepseek-v4-pro`) |
 | `VITE_API_URL` | Frontend → backend base URL (default `http://localhost:8090/api`) |
 
 **Rule:** every secret MUST live in `.env`. Never hardcode keys, tokens, or
@@ -86,25 +84,38 @@ backend/
   registers itself for the teams it actually serves (e.g. crypto
   currently serves red only). Don't blindly add both teams.
 
-## AI Generation — Three-Tier Fallback (mandatory pattern)
+## AI Generation — Five-Tier Fallback (mandatory pattern)
 
 Every generator follows this exact flow per slot:
 
 ```
-1. Try PRIMARY AI (Cloudflare Workers AI) → on success: parse + validate + insert
+1. Try PRIMARY AI (Mistral)                → on success: parse + validate + insert
+                                           → on any error: goto 2
+2. Try SECONDARY AI (Cloudflare Workers)   → on success: parse + validate + insert
                                            → on 429/timeout/4xx/exception: try next CF model
-                                           → all CF models exhausted: goto 2
-2. Try SECONDARY AI (Groq)                 → on success: parse + validate + insert
-                                           → on any error: goto 3
-3. Try TERTIARY AI (NVIDIA/DeepSeek)       → on success: parse + validate + insert
+                                           → all CF models exhausted: goto 3
+3. Try TERTIARY AI (Groq)                 → on success: parse + validate + insert
                                            → on any error: goto 4
-4. Use curated seed                        → build + insert (safety net)
+4. Try QUATERNARY AI (NVIDIA/DeepSeek)    → on success: parse + validate + insert
+                                           → on any error: goto 5
+5. Use curated seed                        → build + insert (safety net)
 ```
 
-### Tier 1: Cloudflare Workers AI (PRIMARY) — Multi-Model Cycling
+### Tier 1: Mistral (PRIMARY)
 
-Cloudflare is the primary AI. The code cycles through **7 model candidates**
-in order until one returns a successful response:
+Mistral is the primary AI. Every generator tries Mistral first before
+falling back. The default model is `mistral-large-latest`.
+
+**Timeout: 30 seconds.** Uses `response_format: {"type": "json_object"}`
+with auto-fallback if rejected.
+
+On any error (429, timeout, parse failure, HTTP error) → fall through to
+Cloudflare. **Do not retry Mistral** — move to the next tier immediately.
+
+### Tier 2: Cloudflare Workers AI (SECONDARY) — Multi-Model Cycling
+
+Cloudflare is the secondary AI. When Mistral fails, the code cycles through
+**7 model candidates** in order until one returns a successful response:
 
 ```python
 CLOUDFLARE_MODEL_FALLBACKS = [
@@ -130,20 +141,20 @@ refill for the full default 90s.
 exception → try the next model in the list. Do **not** retry the same
 model.
 
-### Tier 2: Groq (SECONDARY)
+### Tier 3: Groq (TERTIARY)
 
 Used only when **all** Cloudflare models fail. Single model: default
 `llama-3.1-8b-instant`. Also uses `response_format: {"type": "json_object"}`
 with auto-fallback if rejected. 90s timeout.
 
-### Tier 3: NVIDIA integrate API / DeepSeek (TERTIARY)
+### Tier 4: NVIDIA integrate API / DeepSeek (QUATERNARY)
 
-Used only when both Cloudflare and Groq fail. Single model: default
+Used only when Mistral, Cloudflare, AND Groq all fail. Single model: default
 `deepseek-ai/deepseek-v4-pro`. Same `response_format` strategy. 90s timeout.
 
-### Tier 4: Curated Seeds (Safety Net)
+### Tier 5: Curated Seeds (Safety Net)
 
-When all three AI tiers fail, the generator falls back to hand-crafted
+When all four AI tiers fail, the generator falls back to hand-crafted
 seed challenges stored in code. Seeds must be:
 - Complete, runnable, 30-60 line programs
 - Have a clear, exploitable vulnerability
@@ -154,19 +165,21 @@ seed challenges stored in code. Seeds must be:
 
 For challenges that need multi-round parsing (e.g. `code_fixing_generator`),
 the orchestrator runs up to **3 rounds** per slot, each going through the
-full CF → Groq → NVIDIA chain:
+full Mistral → Cloudflare → Groq → NVIDIA chain:
 
 - **Round 1:** normal Arabic prompt
 - **Round 2:** stricter "raw JSON only" English prompt
 - **Round 3:** ultra-minimal English instruction
 
 If any round produces a parseable + valid challenge, return immediately.
-If all 3 rounds × all 3 providers fail, fall back to seed.
+If all 3 rounds × all 4 providers fail, fall back to seed.
 
 ### Why this exact order:
 
 - AI is the soul of the platform — every slot should attempt AI first.
-- Cloudflare is primary because: (a) generous free tier, (b) lowest
+- Mistral is primary because the user explicitly requested it to run
+  first for all challenge generation.
+- Cloudflare is secondary because: (a) generous free tier, (b) low
   per-token cost, (c) supports `response_format` on 70B+ models.
 - A 429 is a hard per-minute quota. **Never** route a 429 to the next
   provider in the same tier (it likely shares backend infra and will 429
@@ -225,6 +238,7 @@ The two are **never** the same string (with the trivial exception of
 | `code_fixing_challenges`          | `code-fixing`        | `web-security`, `systems-security`                                   |
 | `log_analysis_challenges`         | `log-analysis`       | `log-analysis`                                                       |
 | `vulnerability_hunter_challenges` | `vulnerability-hunter` | `secure-coding`, `web-security`, `cryptography`                    |
+| `web_exploitation_challenges`     | `web-exploitation`     | `xss`, `sqli`, `csrf`, `ssrf`, `idor`, `lfi`, `xxe`, `cmdi`, `auth`, `upload` |
 
 The constraints live in
 `CyberArena/db/schema/011_challenge_type_normalization.sql` and are
@@ -261,18 +275,20 @@ things:
    silently routed a code-fixing row whose DB `module` was
    `web-security` to the wrong editor.
 
-The front-end then picks the editor by:
+The front-end then picks the editor by checking the first matching
+condition (order matters — crypto must be last to avoid masking):
 
 ```ts
 const isCodeFix        = teamRole === 'blue' && type === 'code-fixing';
 const isLogAnalysis    = teamRole === 'blue' && type === 'log-analysis';
 const isVulnHunter     = teamRole === 'blue' && type === 'vulnerability-hunter';
-const isCrypto         = challengeType === 'crypto' || type === 'crypto';
+const isWebExploit     = teamRole === 'red' && type === 'web-exploitation';
+const isCrypto         = (type === 'crypto' || type === 'cryptography');
 ```
 
 The dashboard list endpoint (`GET /api/training/list`) projects the
 DB row to the same shape via `app.services.challenge_loader`'s
-`map_*_row_to_training` functions. **All five mappers now hard-code
+`map_*_row_to_training` functions. **All six mappers now hard-code
 `type` to the canonical value** (e.g. `map_code_fixing_row_to_training`
 always returns `"type": "code-fixing"`); the old behaviour of
 reading `row.get("module")` is gone.
@@ -296,7 +312,7 @@ functions are the canonical examples; copy their style.
 
 ### Rules for new challenge types
 
-When adding a sixth challenge type:
+When adding a new challenge type:
 
 1. Create the table with a `module` column constrained to the new
    canonical value, a `topic` column, and the standard per-type
@@ -344,6 +360,11 @@ and `flag_preview`. The blue-team tables (code-fixing / log-analysis
 `vulnerability_description`, `language`, …) instead of the flag
 columns because the validation is structured, not a single hash.
 
+The **web-exploitation** table (red team) stores a full web attack
+scenario with `http_request`, `http_response`, `vulnerability_type`,
+`vulnerability_class`, `vulnerability_description`, `flag_preview`,
+and `flag_hash`. Answer verification is flag-based, same as crypto.
+
 - **Flag format**: `CyberArena{<64-hex>}` — `flag_hash = sha256(flag_preview)`
 - **Anti-patterns enforced** in `ScenarioSpec.validate()`:
   - No algorithm names in `task_outline` (no AES/RSA/MD5/SHA/HMAC/XOR/...)
@@ -356,6 +377,10 @@ columns because the validation is structured, not a single hash.
 | POST | `/api/xp` | Get / Add XP (proxied to `cyberarena-xp`) |
 | POST | `/api/training/generate` | Load a cached challenge by id |
 | POST | `/api/training/evaluate` | Evaluate a code fix (blue team) |
+| POST | `/api/training/evaluate-web-exploit` | Evaluate a web exploit payload (red team) |
+| POST | `/api/training/evaluate-code-fix` | AI evaluate code fix (blue) |
+| POST | `/api/training/evaluate-log-analysis` | Match + AI feedback |
+| POST | `/api/training/evaluate-vulnerability-hunter` | AI evaluate vuln name |
 | GET  | `/api/training/list` | List cached challenges for a team |
 | POST | `/api/training/terminal` | Run a command in the simulated terminal |
 | POST | `/api/training/terminal/write` | Write/edit a file in the student's workdir |
@@ -390,10 +415,10 @@ Server-Sent Events.
    **and** `_check_red_answer` (red team). The verifier returns
    `bool`. The current dispatch is:
    ```python
-   if challenge_type == "crypto":
-       correct = _check_red_answer(...)        # string flag
-   elif challenge_type in ("code-fixing", "log-analysis", "vulnerability-hunter"):
-       correct = await _ai_check_blue_answer(...)  # structured payload
+    if challenge_type in ("crypto", "web-exploitation"):
+        correct = _check_red_answer(...)        # string flag / payload
+    elif challenge_type in ("code-fixing", "log-analysis", "vulnerability-hunter"):
+        correct = await _ai_check_blue_answer(...)  # structured payload
    ```
    New blue types go into the second branch with their own payload
    shape; new red types go into the first with a flag string. **Do
@@ -416,6 +441,7 @@ follow:
 1. **Call `onChallengeSolved?.(payload)` exactly once per successful
    solve.** `payload` is whatever the verifier expects:
    - `crypto` (red team): the flag **string**
+   - `web-exploitation` (red team): the exploit payload **string** (flag or payload text)
    - `code-fixing` (blue team): `{ fixedCode: string }`
    - `log-analysis` (blue team):
      `{ attackType, attackerIp, timestamp, ioc, explanation? }`
@@ -492,6 +518,8 @@ purely navigation.
 
 - [ ] Table created in Supabase + mapped in `_load_challenge_row`
 - [ ] `get_match_challenge` returns the right `TrainingData` shape
+- [ ] `_scenario_table_for` maps the new type to its DB table
+- [ ] `_pick_challenge` includes the new type's table in candidates
 - [ ] `_ai_check_blue_answer` (blue) **or** `_check_red_answer` (red)
       handles the new type's payload
 - [ ] `onevone_claim_win` doesn't need changes (already type-agnostic)
@@ -526,7 +554,7 @@ purely navigation.
 │  1. AI generates the FULL challenge (text + file content).           │
 │  2. Generator uploads the file to the right Storage bucket:          │
 │       - log-analysis    → "log-analysis-files"  bucket              │
-│       - crypto / code-fixing / vulnerability-hunter →               │
+│       - crypto / code-fixing / vulnerability-hunter / web-exploitation → │
 │         "challenge-files" bucket (or inlined in the row jsonb)       │
 │  3. Generator inserts a single row into the per-type table:          │
 │       module = canonical challenge type                              │
@@ -545,6 +573,7 @@ purely navigation.
 │     and produces the complete TrainingData payload:                  │
 │       - vulnerable_code, language, vulnerability_type, …             │
 │       - log_url (built from storage_path + SUPABASE_URL)             │
+│       - http_request / http_response (web-exploitation)              │
 │       - files (decoded base64), htmlPreview                          │
 │       - hard-coded "type": "code-fixing" / "log-analysis" / …        │
 │  3. attach_scenario_metadata pins type / id / topic / difficulty /   │

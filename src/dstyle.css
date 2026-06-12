@@ -110,7 +110,7 @@
   50% { transform: translateY(-6px); }
 }
 
-/* ---------- Header ---------- */
+/* ---------- Sidebar (was header) ---------- */
 .dash-header {
   position: fixed !important;
   /* Visual isolation: hardcode dashboard header theme to avoid clashes */
@@ -122,13 +122,15 @@
   --dash-h-accent-strong-soft: rgba(16, 185, 129, 0.10);
   --dash-h-accent-dot-ring: rgba(16, 185, 129, 0.15);
   top: 18px !important;
-  left: 50% !important;
+  left: 18px !important;
   right: auto !important;
-  transform: translateX(-50%) !important;
-  width: min(calc(100% - 32px), 1320px) !important;
+  bottom: 18px !important;
+  transform: none !important;
+  width: 72px !important;
   margin: 0 !important;
   z-index: 100 !important;
-  border-radius: 30px !important;
+  border-radius: 24px !important;
+  overflow: hidden;
 
   background: var(--dash-h-bg) !important;
   border: 1px solid rgba(255, 255, 255, 0.06) !important;
@@ -151,22 +153,28 @@
   position: relative;
   z-index: 1;
   width: 100%;
-  padding: 10px 12px 10px 16px;
+  height: 100%;
+  padding: 14px 0;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
   direction: ltr !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
 }
+.dash-header-inner::-webkit-scrollbar { display: none; }
 
 .dash-logo {
   display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  padding: 8px 14px;
-  border-radius: 999px;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 14px;
   font-family: var(--font-arabic);
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 900;
   letter-spacing: -0.03em;
   color: var(--dash-h-bg) !important;
@@ -177,12 +185,13 @@
   white-space: nowrap;
   direction: ltr;
   unicode-bidi: isolate;
-  box-shadow: 0 10px 24px rgba(10, 10, 10, 0.14);
+  box-shadow: 0 6px 16px rgba(10, 10, 10, 0.2);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
 }
 
 .dash-logo-text {
-  display: inline-block;
+  display: none;
 }
 
 .dash-logo-dot {
@@ -195,63 +204,169 @@
 }
 
 .dash-logo:hover {
-  transform: translateY(-1px);
+  transform: scale(1.08);
   background: linear-gradient(135deg, var(--z-ink, #0a0a0a), #151515);
-  box-shadow: 0 14px 30px rgba(10, 10, 10, 0.18);
+  box-shadow: 0 10px 24px rgba(10, 10, 10, 0.25);
 }
 
 .dash-header-right {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   direction: ltr;
+  width: 100%;
+}
+
+/* ---------- Nav Items ---------- */
+.dash-nav-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.dash-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+}
+
+.dash-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 40px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: #6b6b80;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dash-nav-item > svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.dash-nav-item:hover {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  transform: scale(1.06);
+}
+
+.dash-nav-item.active {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.dash-nav-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding-top: 8px;
+  margin-top: 4px;
+  width: 100%;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Style LanguageSwitcher to match nav items inside sidebar */
+.dash-nav-bottom .lang-switcher {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 40px;
+  padding: 0;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 12px !important;
+  color: #6b6b80 !important;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  text-shadow: none !important;
+  font-size: 0;
+}
+
+.dash-nav-bottom .lang-switcher > svg {
+  width: 18px;
+  height: 18px;
+}
+
+.dash-nav-bottom .lang-switcher:hover {
+  background: rgba(16, 185, 129, 0.08) !important;
+  border-color: rgba(16, 185, 129, 0.15) !important;
+  color: #10b981 !important;
+  transform: scale(1.06);
+}
+
+.dash-nav-bottom .lang-switcher span {
+  display: none;
+}
+
+.dash-nav-spacer {
+  min-height: 8px;
 }
 
 .dash-nav-status {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: var(--dash-h-accent-soft);
-  border: 1px solid var(--dash-h-accent-dot-ring);
-  color: var(--dash-h-ink);
+  justify-content: center;
+  width: 44px;
+  height: 8px;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+}
 
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
+.dash-nav-status span:last-child {
+  display: none;
 }
 
 .dash-status-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--dash-h-accent-strong);
-  box-shadow: 0 0 0 4px var(--dash-h-accent-dot-ring);
-
-  animation: z-pulse 1.6s ease-out infinite;
+  background: #10b981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.65);
+  animation: dashPulse 2s ease-in-out infinite;
 }
 
 .dash-leaderboard-btn {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   background: var(--dash-h-accent-soft);
   border: 1px solid var(--dash-h-accent-dot-ring);
   color: var(--dash-h-ink);
 
   font-family: var(--font-arabic);
-  font-size: 13px;
+  font-size: 0;
   font-weight: 800;
-  padding: 9px 16px;
-  border-radius: 999px;
+  border-radius: 12px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
   white-space: nowrap;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dash-leaderboard-btn span {
+  display: none;
 }
 
 .dash-leaderboard-btn::before {
@@ -263,10 +378,11 @@
   transition: opacity 0.25s ease;
 }
 
-.dash-leaderboard-btn > svg,
-.dash-leaderboard-btn > span {
+.dash-leaderboard-btn > svg {
   position: relative;
   z-index: 1;
+  width: 18px;
+  height: 18px;
 }
 
 .dash-leaderboard-btn:hover {
@@ -274,7 +390,7 @@
   background: rgba(16, 185, 129, 0.08);
   color: var(--dash-h-ink);
 
-  transform: translateY(-1px);
+  transform: scale(1.08);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
 }
 
@@ -285,23 +401,22 @@
 .dash-user-badge {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 5px 12px 5px 6px;
-  border-radius: 999px;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0;
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
+  width: 44px;
+  height: 40px;
 }
 
 .dash-user-badge:hover {
-  background: var(--dash-h-accent-strong-soft);
-
-  border-color: var(--dash-h-accent-dot-ring);
-
-  transform: translateY(-1px);
-  box-shadow: 0 10px 24px rgba(10, 10, 10, 0.08);
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.15);
+  transform: scale(1.06);
 }
 
 .dash-avatar {
@@ -319,65 +434,119 @@
   flex-shrink: 0;
   border: none;
   box-shadow: none;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dash-user-badge:hover .dash-avatar {
+  transform: scale(1.08);
 }
 
 .dash-user-info {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-width: 0;
+  display: none;
 }
 
 .dash-name {
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--dash-h-ink);
-
-  max-width: 145px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: none;
 }
 
 .dash-level {
-  font-size: 11px;
-  font-weight: 800;
-  opacity: 0.78;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
+  display: none;
 }
 
 .dash-logout,
 .path-back-link {
   font-family: var(--font-arabic);
-  font-size: 13px;
+  font-size: 0;
   font-weight: 800;
-  color: var(--dash-h-bg);
-  background: var(--dash-h-ink);
+  color: #6b6b80;
+  background: transparent;
+  border: 1px solid transparent;
 
-  border: none;
   cursor: pointer;
-  padding: 9px 18px;
-  border-radius: 999px;
+  width: 44px;
+  height: 40px;
+  border-radius: 12px;
   white-space: nowrap;
-  box-shadow: 0 10px 24px rgba(10, 10, 10, 0.14);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.dash-logout:hover,
+.dash-logout::after {
+  content: '⏻';
+  font-size: 18px;
+}
+
+.dash-logout:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.15);
+  transform: scale(1.06);
+}
+
 .path-back-link:hover {
   color: #ffffff;
   background: var(--z-orange, #f59e0b);
-  transform: translateY(-1px);
+  transform: scale(1.08);
   box-shadow: 0 6px 16px rgba(245, 158, 11, 0.25);
+}
+
+/* ─── Override sidebar for 1v1 arena and lobby pages ─── */
+.onevone-arena-header.dash-header,
+.onevone-page .dash-header {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: auto !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 52px;
+  flex-direction: row !important;
+  border-radius: 0 !important;
+  padding: 4px 16px;
+}
+.onevone-arena-header .dash-header-inner,
+.onevone-page .dash-header-inner {
+  flex-direction: row !important;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  overflow: visible;
+}
+.onevone-arena-header .dash-header-right,
+.onevone-page .dash-header-right {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+}
+.onevone-arena-header .dash-logo,
+.onevone-page .dash-logo {
+  font-size: 16px !important;
+}
+.onevone-arena-header .dash-logo-dot,
+.onevone-page .dash-logo-dot {
+  display: none;
+}
+.onevone-page .dash-main {
+  padding-left: 12px;
+}
+
+.profile-main {
+  padding-left: 92px;
+  padding-right: 12px;
 }
 
 /* ---------- Main Container ---------- */
 .dash-main {
   position: relative;
   z-index: 1;
-  padding-top: 88px;
+  padding-top: 24px;
+  padding-left: 92px;
+  padding-right: 12px;
 }
 
 .dash-container {

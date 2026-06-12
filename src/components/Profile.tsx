@@ -23,6 +23,7 @@ import {
 import { ShieldMark } from './ShieldMark';
 import { useI18n } from '../i18n/I18nContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { Sidebar } from './Sidebar';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
 
@@ -217,32 +218,26 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
   };
 
   return (
-    <div className="profile-page" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="profile-page dash-page" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <div className="profile-grid-bg" aria-hidden="true" />
       <div className="profile-glow profile-glow-1" aria-hidden="true" />
       <div className="profile-glow profile-glow-2" aria-hidden="true" />
       <div className="profile-scanline" aria-hidden="true" />
 
-      <header className="dash-header">
-        <div className="dash-header-inner">
-          <a href="/" className="dash-logo">CyberArena</a>
-          <div className="dash-header-right">
-            <LanguageSwitcher />
-            <div className="profile-status-pill">
-              <span className="profile-status-dot" />
-              <span>{t.profile.secureConn}</span>
+      <Sidebar
+        bottom={
+          <>
+            <div className="dash-nav-status" title={t.profile.secureConn}>
+              <span className="dash-status-dot" />
             </div>
-            <button onClick={onBack} className="dash-back-pill">
-              <ChevronLeft size={16} />
-              <span>{t.profile.backToDashboard}</span>
+            <LanguageSwitcher />
+            <button onClick={onBack} className="path-back-link">
+              <ChevronLeft size={18} />
             </button>
-            <button onClick={onLogout} className="dash-logout">
-              <LogOut size={14} />
-              <span>{t.profile.logout}</span>
-            </button>
-          </div>
-        </div>
-      </header>
+            <button onClick={onLogout} className="dash-logout" />
+          </>
+        }
+      />
 
       <main className="profile-main">
         <div className="profile-container">
