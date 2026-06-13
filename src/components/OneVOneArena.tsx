@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Clock, Trophy, Swords, Loader2, ChevronLeft, X, Crosshair, Shield } from 'lucide-react';
+import { Clock, Trophy, Swords, ChevronLeft, X } from 'lucide-react';
 import { TrainingSession } from './TrainingSession';
 import { OneVOneRoomCard } from './OneVOneRoomCard';
 import { BlueTeamIcon, RedTeamIcon } from './TeamIcons';
 import { Sidebar } from './Sidebar';
+import './OneVOne.css';
 import { useI18n } from '../i18n/I18nContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
@@ -46,8 +47,6 @@ interface Match {
   challenge_type: string;
 }
 
-// Subset of TrainingSession's TrainingData — the existing component
-// already handles a flexible shape; we just type the fields we read.
 type TrainingData = Record<string, unknown> & {
   id?: string;
   scenarioId?: string;
@@ -93,7 +92,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
   const [training, setTraining] = useState<TrainingData | null>(null);
   const [loadingTraining, setLoadingTraining] = useState(false);
   const [error, setError] = useState('');
-  const [countdown, setCountdown] = useState<number | null>(null); // 3..2..1
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [winnerName, setWinnerName] = useState<string | null>(null);
   const [draw, setDraw] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
@@ -110,15 +109,12 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
   const eventSourceRef = useRef<EventSource | null>(null);
   const tickRef = useRef<number | null>(null);
   const matchIdRef = useRef<string | null>(null);
-  // Keep the latest players in a ref so the SSE handler (which is wired once
-  // and stays open) can resolve the winner's display name without forcing
-  // the EventSource to be torn down and re-created on every player update.
   const playersRef = useRef<Player[]>(players);
 
   const isOwner = String(room.owner_user_id) === String(user.id);
   const teamColor = room.team_role === 'red' ? '#ef4444' : '#3b82f6';
+  const isOvertime = match?.state === 'overtime';
 
-  // ---- 1) Load match + players + full room, then subscribe to SSE ----
   useEffect(() => {
     let cancelled = false;
     const init = async () => {
@@ -127,16 +123,12 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         if (!res.ok) throw new Error(t.oneVOne.loadRoomErr);
         const data = await res.json();
         if (cancelled) return;
-        console.log('[1v1] init room', { code, hasRoom: !!data.room, hasMatch: !!data.match, match: data.match, players: data.players });
         if (data.room) setLocalRoom(data.room as Room);
         setPlayers(data.players || []);
         playersRef.current = data.players || [];
         if (data.match) {
           setMatch(data.match);
           matchIdRef.current = data.match.id;
-          console.log('[1v1] init: matchIdRef set to', data.match.id, 'state=', data.match.state);
-        } else {
-          console.log('[1v1] init: no match yet (room is in waiting)');
         }
       } catch (e) {
         const err = e as { message?: string };
@@ -147,25 +139,16 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
     return () => { cancelled = true; matchIdRef.current = null; };
   }, [code]);
 
-  // ---- 2) SSE for live state ----
-  // NOTE: This effect opens the EventSource ONCE per room code and keeps it
-  // open. We deliberately do NOT include `players` (or any frequently-
-  // changing state) in the dependency array — re-creating the EventSource on
-  // every player update used to cause `match_finished` events to be dropped
-  // for the loser, which is exactly the bug we are fixing. Players/match are
-  // mirrored into refs that the handler reads on demand.
   useEffect(() => {
     const es = new EventSource(`${API_URL}/onevone/rooms/${code}/stream`);
     eventSourceRef.current = es;
     es.onmessage = (e) => {
       try {
         const evt = JSON.parse(e.data);
-        console.log('[1v1] SSE event', evt.type, evt);
         if (evt.type === 'snapshot' || evt.type === 'tick') {
           if (evt.match) {
             setMatch(evt.match);
             matchIdRef.current = evt.match.id;
-            console.log('[1v1] matchIdRef <-', evt.match.id, 'state=', evt.match.state);
           }
           if (evt.players) {
             setPlayers(evt.players);
@@ -174,7 +157,6 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         } else if (evt.type === 'state' && evt.match) {
           setMatch(evt.match);
           matchIdRef.current = evt.match.id;
-          console.log('[1v1] matchIdRef <-', evt.match.id, 'state=', evt.match.state);
         } else if (evt.type === 'players' && evt.players) {
           setPlayers(evt.players);
           playersRef.current = evt.players;
@@ -186,10 +168,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
           });
         } else if (evt.type === 'match_started' && evt.matchId) {
           matchIdRef.current = evt.matchId;
-          console.log('[1v1] matchIdRef <-', evt.matchId, '(match_started)');
         } else if (evt.type === 'match_finished') {
-          // Resolve the winner's display name from the LATEST players list
-          // (ref-based, so we don't capture a stale array).
           let resolvedWinnerName: string | null = null;
           if (evt.winner) {
             const w = playersRef.current.find((p) => p.user_id === evt.winner);
@@ -198,11 +177,6 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
           setWinnerName(resolvedWinnerName);
           setDraw(!evt.winner);
           setShowResultModal(true);
-          // CRITICAL: synchronously transition local match state to 'finished'
-          // so the render branch switches to the Finished view IMMEDIATELY
-          // (no waiting for the next 1s tick). Without this the loser keeps
-          // seeing the playing UI for up to 1s, and if the SSE connection
-          // hiccups at the same time the modal never appears.
           setMatch((prev) => {
             if (!prev) return prev;
             const next: Match = {
@@ -220,7 +194,6 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
     return () => { es.close(); };
   }, [code]);
 
-  // ---- 3) Countdown 3..2..1 once the match enters "countdown" state ----
   useEffect(() => {
     if (!match) return;
     if (match.state !== 'countdown') {
@@ -241,7 +214,6 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
     return () => clearInterval(t);
   }, [match?.state]);
 
-  // ---- 4) Local 1s tick for the timer display ----
   useEffect(() => {
     if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
     if (!match) return;
@@ -265,13 +237,6 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
     return () => { if (tickRef.current) clearInterval(tickRef.current); };
   }, [match?.state, match?.ends_at, match?.overtime_ends_at, match?.main_duration_s]);
 
-  // ---- 5) When match enters "ready" / "playing" / "overtime", fetch the
-  //        challenge. Auto-retries up to 4 times with exponential backoff
-  //        (1s, 2s, 4s, 8s) so a transient network blip or a slow Supabase
-  //        read doesn't leave this client stuck on "waiting for opponent".
-  //        Note: a successful /challenge ALSO marks the player as ready
-  //        on the server (see get_match_challenge in onevone.py), so the
-  //        /ready POST below is now just a safety net. ----
   useEffect(() => {
     if (!match) return;
     if (!['ready', 'playing', 'overtime'].includes(match.state)) return;
@@ -290,14 +255,11 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (cancelled) return;
-        console.log('[1v1] challenge loaded for match', match.id, '— training keys:', data.training ? Object.keys(data.training) : 'no .training field');
         setTraining(data.training);
         setLoadingTraining(false);
       } catch (e) {
-        console.warn('[1v1] challenge fetch attempt', n, 'failed:', e);
         if (cancelled) return;
         if (n < 4) {
-          // exponential backoff: 1s, 2s, 4s, 8s
           const delay = 1000 * Math.pow(2, n);
           await new Promise((r) => setTimeout(r, delay));
           return attempt(n + 1);
@@ -312,9 +274,6 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
     return () => { cancelled = true; };
   }, [match?.id, match?.state, training, loadingTraining, user.id]);
 
-  // ---- 6) Once the challenge is loaded, signal /ready so the server can
-  //          start the match timer. This guards against the race where a fast
-  //          loader wins before the slow loader has even seen the challenge. ----
   useEffect(() => {
     if (!match) return;
     if (match.state !== 'ready') return;
@@ -328,12 +287,11 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: user.id }),
         });
-      } catch { /* ignore — server's 90s timeout will handle no-show */ }
+      } catch { /* ignore */ }
     })();
   }, [match?.id, match?.state, training, loadingTraining, hasSignaledReady, user.id]);
 
   const handleLeave = async () => {
-    console.log('[1v1] handleLeave: clearing matchIdRef', { prev: matchIdRef.current });
     matchIdRef.current = null;
     try {
       await fetch(`${API_URL}/onevone/rooms/${code}/leave`, {
@@ -360,11 +318,9 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         throw new Error(err.detail || t.oneVOne.startErr);
       }
       const data = await res.json();
-      console.log('[1v1] startMatch response', { status: res.status, data });
       if (data.match) {
         setMatch(data.match);
         matchIdRef.current = data.match.id;
-        console.log('[1v1] matchIdRef <-', data.match.id, '(after start)');
       }
     } catch (e) {
       const err = e as { message?: string };
@@ -374,32 +330,16 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
     }
   };
 
-  // ---- 1v1 submit: forwarded from TrainingSession's onChallengeSolved ----
-  // For Red team: payload is a flag string.
-  // For Blue code-fixing: payload is { fixedCode }.
-  // For Blue log-analysis: payload is { attackType, attackerIp, timestamp, ioc, explanation? }.
-  // For Blue vulnerability-hunter: payload is { vulnerabilityType }.
-  // The server-side /api/onevone/matches/{id}/submit re-evaluates and (atomically)
-  // claims the win via the onevone_claim_win RPC.
   type SubmissionPayload =
-    | string  // crypto flag or web exploitation payload
+    | string
     | { fixedCode: string }
     | { attackType: string; attackerIp: string; timestamp: string; ioc: string; explanation?: string }
     | { vulnerabilityType: string };
 
   const handleChallengeSolved = async (payload: SubmissionPayload) => {
-    if (!match || !matchIdRef.current) {
-      console.warn('[1v1] handleChallengeSolved aborted: missing match or matchIdRef', { match: !!match, matchIdRef: matchIdRef.current });
-      return;
-    }
-    if (match.state !== 'playing' && match.state !== 'overtime') {
-      console.warn('[1v1] handleChallengeSolved aborted: match not active', { state: match.state, matchId: matchIdRef.current });
-      return;
-    }
-    if (isSubmitting1v1) {
-      console.warn('[1v1] handleChallengeSolved aborted: already submitting');
-      return;
-    }
+    if (!match || !matchIdRef.current) return;
+    if (match.state !== 'playing' && match.state !== 'overtime') return;
+    if (isSubmitting1v1) return;
     setIsSubmitting1v1(true);
     setSubmitError('');
     try {
@@ -410,14 +350,12 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         submission: payload,
         clientVerdict: isBlueTeam ? true : undefined,
       });
-      console.log('[1v1] handleChallengeSolved: POST', url, { userId: user.id, isBlueTeam, payload, body });
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,
       });
       const raw = await res.text();
-      console.log('[1v1] submit response', { status: res.status, ok: res.ok, raw });
       let data: { won?: boolean; correct?: boolean; winner_id?: string } = {};
       try { data = raw ? JSON.parse(raw) : {}; } catch { data = {}; }
       if (data.won) {
@@ -435,29 +373,22 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         matchIdRef.current = null;
       } else {
         setSubmitError(`خادم الـ 1v1 رفض التسليم (HTTP ${res.status}). حاول مرة أخرى.`);
-        console.warn('[1v1] submit rejected by server', { status: res.status, data, raw });
       }
-    } catch (err) {
-      console.error('[1v1] submit fetch error', err);
+    } catch {
       setSubmitError('تعذّر الاتصال بخادم الـ 1v1. أعد المحاولة.');
     } finally {
       setIsSubmitting1v1(false);
     }
   };
 
-  // Wrap TrainingSession.onBack so an accidental back-click during an active
-  // 1v1 match doesn't immediately call /leave. We require an explicit leave
-  // (via the result modal) to keep the leave flow intentional.
   const handleTrainingBack = () => {
     if (match && (match.state === 'playing' || match.state === 'overtime')) {
-      // still active — route through the result modal's "return" instead
       setShowResultModal(true);
       return;
     }
     handleLeave();
   };
 
-  // ---- Render ----
   if (error) {
     return (
       <div className="onevone-page">
@@ -469,16 +400,15 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
           }
         />
         <main className="dash-main">
-          <div className="dash-container">
+          <div className="ov1-arena-error-wrap">
             <div className="onevone-error">{error}</div>
-            <button className="dash-back-pill" onClick={onBack}><ChevronLeft size={14} /> {t.oneVOne.back}</button>
+            <button className="ov1-back-btn" onClick={onBack}><ChevronLeft size={14} /> {t.oneVOne.back}</button>
           </div>
         </main>
       </div>
     );
   }
 
-  // Pre-match waiting (no match yet — owner hasn't started, or match is in countdown/ready)
   if (!match || match.state === 'waiting' || match.state === 'countdown' || match.state === 'ready') {
     const isCountingDown = match?.state === 'countdown';
     const isReadyPhase = match?.state === 'ready';
@@ -502,7 +432,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
           }
         />
         <main className="dash-main">
-          <div className="dash-container" style={{ maxWidth: 720 }}>
+          <div className="ov1-arena-waiting">
             {localRoom && (
               <OneVOneRoomCard
                 room={localRoom}
@@ -518,8 +448,10 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
               />
             )}
             {isCountingDown && (
-              <div className="onevone-countdown">
-                <span>{countdown ?? 3}</span>
+              <div className="ov1-countdown-overlay">
+                <div className="ov1-countdown-inner">
+                  <span className="ov1-countdown-number">{countdown ?? 3}</span>
+                </div>
               </div>
             )}
           </div>
@@ -528,15 +460,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
     );
   }
 
-  // Playing / overtime / ready-with-loaded-challenge
-  // (we want the challenge to render as soon as it's available, even if the
-  // server is still waiting for the opponent to signal /ready)
   if (['ready', 'playing', 'overtime'].includes(match.state)) {
-    // When `training` is still null (parent fetch in flight / failed /
-    // Vite HMR served a stale component), still render TrainingSession
-    // — it can recover on its own via `oneVOneContext` (it will fetch
-    // the challenge from the 1v1 endpoint with exponential backoff).
-    // The match header + result modal still mount around it.
     if (!training) {
       return (
         <div className="onevone-page onevone-arena-active">
@@ -572,6 +496,9 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
       );
     }
 
+    const selfPlayer = players.find((p) => p.user_id === user.id);
+    const oppPlayer = players.find((p) => p.user_id !== user.id);
+
     return (
       <div className="onevone-page onevone-arena-active">
         <Sidebar
@@ -592,34 +519,31 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
           }
         />
 
-        <div className="onevone-game-bar" style={{ '--team-accent': teamColor } as React.CSSProperties}>
-          <div className="ogb-left">
-            <span className="ogb-pill" style={{ borderColor: `${teamColor}55`, color: teamColor }}>
-              {room.team_role === 'red' ? <RedTeamIcon size={13} /> : <BlueTeamIcon size={13} />}
+        <div className="ov1-game-strip" style={{ '--team-accent': teamColor } as React.CSSProperties}>
+          <div className="ov1-gs-left">
+            <span className="ov1-gs-pill" style={{ borderColor: `${teamColor}55`, color: teamColor }}>
+              {room.team_role === 'red' ? <RedTeamIcon size={12} /> : <BlueTeamIcon size={12} />}
               {room.team_role === 'red' ? t.oneVOne.teamRedFull : t.oneVOne.teamBlueFull}
             </span>
-            <span className="ogb-pill" style={{ borderColor: 'rgba(255,255,255,0.18)', color: '#f3f1ec' }}>
-              <Swords size={13} /> {t.oneVOne.home}
-            </span>
           </div>
-          <div className="ogb-center">
+          <div className="ov1-gs-center">
             {players.length >= 2 && (
-              <div className="ogb-hud">
-                <span className="ogb-player is-self">
-                  <span className="ogb-dot" />
-                  {players.find((p) => p.user_id === user.id)?.display_name || t.oneVOne.you}
+              <div className="ov1-gs-hud">
+                <span className="ov1-gs-player ov1-gs-self">
+                  <span className="ov1-gs-dot" />
+                  {selfPlayer?.display_name || t.oneVOne.you}
                 </span>
-                <span className="ogb-vs">{t.oneVOne.vs}</span>
-                <span className="ogb-player">
-                  <span className="ogb-dot" />
-                  {players.find((p) => p.user_id !== user.id)?.display_name || t.oneVOne.genericOpponent}
+                <span className="ov1-gs-vs">{t.oneVOne.vs}</span>
+                <span className="ov1-gs-player">
+                  <span className="ov1-gs-dot" />
+                  {oppPlayer?.display_name || t.oneVOne.genericOpponent}
                 </span>
               </div>
             )}
           </div>
-          <div className="ogb-right">
-            <div className="ogb-timer" style={{ color: isOvertime ? '#f59e0b' : teamColor, borderColor: `${isOvertime ? '#f59e0b' : teamColor}55` }}>
-              <Clock size={14} />
+          <div className="ov1-gs-right">
+            <div className="ov1-gs-timer" style={{ color: isOvertime ? '#f59e0b' : teamColor, borderColor: `${isOvertime ? '#f59e0b' : teamColor}55` }}>
+              <Clock size={13} />
               <span>{phaseLabel}</span>
               <strong className="mono">{String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:{String(secondsLeft % 60).padStart(2, '0')}</strong>
             </div>
@@ -627,59 +551,12 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         </div>
 
         {submitError && (
-          <div
-            role="alert"
-            style={{
-              position: 'sticky',
-              top: 0,
-              zIndex: 50,
-              background: 'rgba(244, 63, 94, 0.12)',
-              border: '1px solid rgba(244, 63, 94, 0.35)',
-              color: '#fda4af',
-              padding: '10px 16px',
-              borderRadius: 8,
-              margin: '12px auto',
-              maxWidth: 720,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              fontSize: 14,
-            }}
-          >
-            <span style={{ flex: 1 }}>{submitError}</span>
-            <button
-              type="button"
-              onClick={() => setSubmitError('')}
-              style={{
-                background: 'transparent',
-                border: '1px solid rgba(244, 63, 94, 0.45)',
-                color: '#fda4af',
-                padding: '4px 10px',
-                borderRadius: 6,
-                cursor: 'pointer',
-                fontSize: 12,
-              }}
-            >
-              إغلاق
-            </button>
+          <div className="ov1-submit-error">
+            <span>{submitError}</span>
+            <button type="button" onClick={() => setSubmitError('')}>{t.oneVOne.cancel}</button>
           </div>
         )}
 
-        {/* Reuse the existing TrainingSession as-is. We wrap its submit
-            by passing a custom submit prop. Since TrainingSession doesn't
-            accept a custom submit fn directly, we intercept via a hidden
-            form below the iframe. To keep this simple and avoid touching
-            TrainingSession internals, the inline 1v1 submit form is rendered
-            beneath the iframe by TrainingSession itself. The 1v1 wrapper
-            listens for the postMessage from TrainingSession's result panel
-            and then forwards to the 1v1 endpoint.
-
-            For the initial integration, we render a second action bar that
-            sends the player's CURRENT answer (collected from the
-            notepad / fixed-code editor) to the 1v1 endpoint when the user
-            explicitly clicks "تسليم في 1v1". The full UX is described in
-            the README; the key requirement — same challenge, same data,
-            server-validated winner — is already satisfied. */}
         <TrainingSession
           moduleTitle={training.title || t.oneVOne.moduleTitle}
           categoryId={training.type || ''}
@@ -687,7 +564,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
           moduleId={training.type || ''}
           teamRole={room.team_role}
           challengeId={training.scenarioId || training.id}
-          initialTraining={training}
+          initialTraining={training as any}
           oneVOneContext={{ matchId: match.id, userId: user.id }}
           onBack={handleTrainingBack}
           onChallengeSolved={handleChallengeSolved}
@@ -706,10 +583,6 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
     );
   }
 
-  // Finished (and we didn't catch it via SSE for some reason)
-  // Derive the winner's display name from the latest players list (ref) when
-  // the SSE `match_finished` payload was missed — ensures the loser still
-  // sees "X فاز" instead of a blank modal.
   let resolvedWinnerName = winnerName;
   if (!resolvedWinnerName && match.winner_user_id) {
     const w = playersRef.current.find((p) => p.user_id === match.winner_user_id);
@@ -737,7 +610,7 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         }
       />
       <main className="dash-main">
-        <div className="dash-container" style={{ maxWidth: 720 }}>
+        <div className="ov1-arena-final">
           <OneVOneResultModal
             open={true}
             winnerName={resolvedWinnerName}
@@ -775,16 +648,17 @@ const OneVOneResultModal: React.FC<{
       ? t.oneVOne.winSub
       : t.oneVOne.loseSub;
   return (
-    <div className="onevone-modal-overlay" onClick={onClose}>
-      <div className="onevone-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="onevone-modal-icon" style={{ color: draw ? '#f59e0b' : isWinner ? '#10b981' : '#ef4444' }}>
-          {draw ? <Swords size={36} /> : isWinner ? <Trophy size={36} /> : <X size={36} />}
+    <div className="ov1-modal-overlay" onClick={onClose}>
+      <div className="ov1-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="ov1-modal-glow" style={{ background: draw ? 'rgba(245,158,11,0.15)' : isWinner ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)' }} />
+        <div className="ov1-modal-icon" style={{ color: draw ? '#f59e0b' : isWinner ? '#10b981' : '#ef4444' }}>
+          {draw ? <Swords size={32} /> : isWinner ? <Trophy size={32} /> : <X size={32} />}
         </div>
-        <h2>{title}</h2>
-        <p>{sub}</p>
-        <small className="mono" style={{ color: 'rgba(243,241,236,0.45)' }}>{t.oneVOne.reason} {reason}</small>
-        <div className="onevone-modal-actions">
-          <button className="onevone-primary-btn" onClick={onLeave} style={{ '--btn-accent': '#10b981' } as React.CSSProperties}>
+        <h2 className="ov1-modal-title">{title}</h2>
+        <p className="ov1-modal-sub">{sub}</p>
+        <small className="mono ov1-modal-reason">{t.oneVOne.reason} {reason}</small>
+        <div className="ov1-modal-actions">
+          <button className="ov1-modal-btn" onClick={onLeave}>
             {t.oneVOne.backToDashboard}
           </button>
         </div>

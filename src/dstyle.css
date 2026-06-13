@@ -691,100 +691,17 @@
   margin-top: 6px;
 }
 
-/* ─── 1v1 Game Bar (top of main content, during match) ─── */
-.onevone-game-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 20px;
-  background: rgba(26, 26, 26, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-.ogb-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.ogb-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border: 1px solid;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-.ogb-center {
-  display: flex;
-  align-items: center;
-}
-.ogb-hud {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14px;
-}
-.ogb-player {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: rgba(243, 241, 236, 0.8);
-}
-.ogb-player.is-self {
-  color: #f3f1ec;
-  font-weight: 600;
-}
-.ogb-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: rgba(243, 241, 236, 0.3);
-  flex-shrink: 0;
-}
-.ogb-player.is-self .ogb-dot {
-  background: var(--team-accent, #10b981);
-}
-.ogb-vs {
-  color: rgba(243, 241, 236, 0.3);
-  font-weight: 600;
-  font-size: 12px;
-}
-.ogb-right {
-  display: flex;
-  align-items: center;
-}
-.ogb-timer {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border: 1px solid;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-.ogb-timer strong {
-  font-family: 'IBM Plex Mono', 'Courier New', monospace;
-  font-size: 15px;
-  letter-spacing: 0.5px;
-}
-
-/* ─── Lobby home: center hero on full page width (compensate for sidebar) ─── */
+/* ─── 1v1 Legacy aliases (kept for backward compat if any other file references them) ─── */
+.onevone-game-bar,
+.ogb-left,
+.ogb-pill,
+.ogb-center,
+.ogb-hud,
+.ogb-player,
+.ogb-dot,
+.ogb-vs,
+.ogb-right,
+.ogb-timer,
 .lobby-home-wrap {
-  text-align: center;
-  width: 100%;
-}
-.lobby-home-wrap .lobby-hero,
-.lobby-home-wrap .lobby-grid {
-  text-align: center;
-  max-width: 900px;
-  margin-left: auto;
-  margin-right: auto;
+  /* Intentionally empty — the new 1v1 styles live in index.css */
 }

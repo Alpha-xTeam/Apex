@@ -112,6 +112,21 @@ function App() {
     setPage('home');
   };
 
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
+
+  const saveOAuthAvatar = async (u: any, token: string) => {
+    const avUrl = u.user_metadata?.avatar_url || u.user_metadata?.picture || '';
+    if (avUrl) {
+      try {
+        await fetch(`${API_URL}/profile/avatar-url`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ url: avUrl }),
+        });
+      } catch {}
+    }
+  };
+
   // Listen for Supabase OAuth session changes
   useEffect(() => {
     import('./lib/supabase').then(({ supabase }) => {
@@ -127,6 +142,7 @@ function App() {
             access_token: token,
             provider: 'supabase',
           }));
+          saveOAuthAvatar(u, token);
           setPage('dashboard');
         } else {
           // Only clear if the session in localStorage is a Supabase session
@@ -163,6 +179,7 @@ function App() {
             access_token: token,
             provider: 'supabase',
           }));
+          saveOAuthAvatar(u, token);
           setPage('dashboard');
         } else {
           const raw = localStorage.getItem('cyberarena_session');

@@ -56,6 +56,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onViewProfile, onVie
   const LEVELS = useLevels(t);
   const [xp, setXp] = useState(0);
   const [completed, setCompleted] = useState(0);
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
 
@@ -109,6 +110,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onViewProfile, onVie
           setXp(xpData.xp);
           setCompleted(xpData.completed_trainings || 0);
         }
+
+        // Fetch avatar
+        try {
+          const avRes = await fetch(`${API_URL}/profile`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          const avData = await avRes.json();
+          if (avData.avatar_url) setAvatarUrl(avData.avatar_url);
+        } catch {}
       } catch (err) {
         console.error('Error fetching dashboard data', err);
         setFetchError(err instanceof Error ? err.message : t.dashboard.fetchError);
@@ -140,7 +150,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onViewProfile, onVie
             </div>
             <LanguageSwitcher />
             <div className="dash-user-badge" onClick={onViewProfile} title={`${user.name || user.email} — ${level.name}`}>
-              <div className="dash-avatar">{initial}</div>
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+              ) : (
+                <div className="dash-avatar">{initial}</div>
+              )}
             </div>
             <button onClick={onLogout} className="dash-logout" />
           </>
@@ -308,16 +322,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onViewProfile, onVie
                 {/* ─── RIGHT: Sidebar ─── */}
                 <aside className="db-sidebar">
 
-                  <div className="db-side-card db-side-profile" onClick={onViewProfile}>
-                    <div className="db-side-profile-left">
-                      <div className="db-side-avatar">{initial}</div>
-                      <div className="db-side-profile-info">
-                        <span className="db-side-name">{user.name || user.email}</span>
-                        <span className="db-side-level" style={{ color: level.color }}>{level.name}</span>
+                    <div className="db-side-card db-side-profile" onClick={onViewProfile}>
+                      <div className="db-side-profile-left">
+                        {avatarUrl ? (
+                          <img src={avatarUrl} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                        ) : (
+                          <div className="db-side-avatar">{initial}</div>
+                        )}
+                        <div className="db-side-profile-info">
+                          <span className="db-side-name">{user.name || user.email}</span>
+                          <span className="db-side-level" style={{ color: level.color }}>{level.name}</span>
+                        </div>
                       </div>
+                      <Shield size={16} className="db-side-shield" />
                     </div>
-                    <Shield size={16} className="db-side-shield" />
-                  </div>
 
                   <div className="db-side-card db-side-progress">
                     <div className="db-side-progress-top">

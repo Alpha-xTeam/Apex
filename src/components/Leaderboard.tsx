@@ -13,6 +13,7 @@ interface LeaderboardUser {
   name: string;
   xp: number;
   completed_trainings: number;
+  avatar_url?: string;
 }
 
 interface LeaderboardProps {
@@ -290,8 +291,8 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
                       <Medal size={14} />
                       <span>2</span>
                     </div>
-                    <div className="lb-podium-avatar-v2" style={{ background: getAvatarGradient(top3[1].id) }}>
-                      {getInitial(top3[1].name)}
+                    <div className="lb-podium-avatar-v2" style={{ width: 68, height: 68, borderRadius: '50%', background: top3[1].avatar_url ? 'transparent' : getAvatarGradient(top3[1].id), display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                      {top3[1].avatar_url ? <img src={top3[1].avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : getInitial(top3[1].name)}
                     </div>
                     <h3 className="lb-podium-name-v2">{top3[1].name}</h3>
                     <div className="lb-podium-xp-v2">
@@ -315,8 +316,8 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
                       <Crown size={14} />
                       <span>1</span>
                     </div>
-                    <div className="lb-podium-avatar-v2 lb-podium-avatar-1" style={{ background: getAvatarGradient(top3[0].id), boxShadow: '0 0 32px rgba(251, 191, 36, 0.5)' }}>
-                      {getInitial(top3[0].name)}
+                    <div className="lb-podium-avatar-v2 lb-podium-avatar-1" style={{ width: 84, height: 84, borderRadius: '50%', background: top3[0].avatar_url ? 'transparent' : getAvatarGradient(top3[0].id), boxShadow: top3[0].avatar_url ? '0 0 32px rgba(251, 191, 36, 0.5)' : '0 0 32px rgba(251, 191, 36, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                      {top3[0].avatar_url ? <img src={top3[0].avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : getInitial(top3[0].name)}
                     </div>
                     <h3 className="lb-podium-name-v2">{top3[0].name}</h3>
                     <div className="lb-podium-xp-v2">
@@ -337,8 +338,8 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
                       <Medal size={14} />
                       <span>3</span>
                     </div>
-                    <div className="lb-podium-avatar-v2" style={{ background: getAvatarGradient(top3[2].id) }}>
-                      {getInitial(top3[2].name)}
+                    <div className="lb-podium-avatar-v2" style={{ width: 68, height: 68, borderRadius: '50%', background: top3[2].avatar_url ? 'transparent' : getAvatarGradient(top3[2].id), display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                      {top3[2].avatar_url ? <img src={top3[2].avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : getInitial(top3[2].name)}
                     </div>
                     <h3 className="lb-podium-name-v2">{top3[2].name}</h3>
                     <div className="lb-podium-xp-v2">
@@ -378,8 +379,8 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser, onBack })
                           style={{ animationDelay: `${idx * 40}ms` }}
                         >
                           <div className="lb-list-rank-v2">#{user.rank}</div>
-                          <div className="lb-list-avatar-v2" style={{ background: getAvatarGradient(user.id) }}>
-                            {getInitial(user.name)}
+                          <div className="lb-list-avatar-v2" style={{ width: 44, height: 44, borderRadius: '50%', background: user.avatar_url ? 'transparent' : getAvatarGradient(user.id), display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                            {user.avatar_url ? <img src={user.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : getInitial(user.name)}
                             {isMe && <span className="lb-list-online-dot" />}
                           </div>
                           <div className="lb-list-info-v2">

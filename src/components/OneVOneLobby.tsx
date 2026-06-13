@@ -4,6 +4,7 @@ import { BlueTeamIcon, RedTeamIcon } from './TeamIcons';
 import { useI18n } from '../i18n/I18nContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { Sidebar } from './Sidebar';
+import './OneVOne.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
 
@@ -51,7 +52,7 @@ interface OneVOneLobbyProps {
 }
 
 export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, onBack }) => {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [mode, setMode] = useState<'home' | 'create' | 'join'>('home');
 
   const [teamRole, setTeamRole] = useState<'red' | 'blue'>('red');
@@ -194,7 +195,7 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
     const playerTwo = players[1];
 
     return (
-      <div className="onevone-page">
+      <div dir={t._rawLang === 'ar' ? 'rtl' : 'ltr'} className="onevone-page">
         <Sidebar
           top={
             <button className="dash-nav-item" onClick={() => { setCreatedRoom(null); setPlayers([]); setMode('home'); }} title={t.oneVOne.back}>
@@ -217,62 +218,76 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
           }
         />
         <main className="dash-main">
-          <div className="dash-container" style={{ maxWidth: 780 }}>
-            <section className="room-ready" style={{ '--team-accent': meta.color } as React.CSSProperties}>
-              <div className="room-ready-top">
-                <div className="room-ready-icon" style={{ background: meta.soft, color: meta.color }}>
-                  <Swords size={28} />
-                </div>
-                <div className="room-ready-info">
-                  <span className="room-ready-tag" style={{ color: meta.color, borderColor: `${meta.color}33` }}>
-                    {isOwner ? t.oneVOne.ownerTag : t.oneVOne.joinedHint}
-                  </span>
-                  <h2>{t.oneVOne.leaveTitle}</h2>
+          <div className="ov1-waiting-room" style={{ '--team-accent': meta.color } as React.CSSProperties}>
+            <div className="ov1-wr-header">
+              <div className="ov1-wr-glow" />
+              <div className="ov1-wr-icon-wrap">
+                <div className="ov1-wr-icon" style={{ background: meta.soft, color: meta.color }}>
+                  <Swords size={26} />
                 </div>
               </div>
-              <div className="room-ready-code">
-                <span className="room-ready-code-label">{t.oneVOne.roomCode}</span>
-                <div className="room-ready-code-row">
-                  <code className="room-ready-code-value">{createdRoom.code}</code>
-                  <button className="room-ready-copy" onClick={handleCopy}>
-                    {copied ? <><Check size={15} /> {t.oneVOne.copied}</> : <><Copy size={15} /> {t.oneVOne.copy}</>}
-                  </button>
-                </div>
-                <span className="room-ready-code-hint">{t.oneVOne.shareCodeHint}</span>
-              </div>
-              <div className="room-ready-players">
-                <div className={`room-ready-player-card ${playerOne ? 'filled' : 'empty'}`}>
-                  <div className="rrp-avatar">{getInitial(playerOne?.display_name || '?')}</div>
-                  <div className="rrp-body">
-                    <span className="rrp-name">{playerOne?.display_name || '—'}</span>
-                    <span className="rrp-role">{t.oneVOne.ownerTag}</span>
-                    <span className="rrp-status">{playerOne ? t.oneVOne.ready : t.oneVOne.waitingOwner}</span>
-                  </div>
-                </div>
-                <div className="room-ready-vs">{t.oneVOne.vs}</div>
-                <div className={`room-ready-player-card ${playerTwo ? 'filled' : 'empty'}`}>
-                  <div className="rrp-avatar">{getInitial(playerTwo?.display_name || '?')}</div>
-                  <div className="rrp-body">
-                    <span className="rrp-name">{playerTwo?.display_name || '—'}</span>
-                    <span className="rrp-role">{t.oneVOne.opponentTag}</span>
-                    <span className="rrp-status">{playerTwo ? t.oneVOne.ready : t.oneVOne.waitingForOpponent}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="room-ready-footer">
-                <div className="rrf-chip"><Clock size={13} /> {createdRoom.main_duration_s ? `${Math.floor(createdRoom.main_duration_s / 60)} ${t.oneVOne.minute}` : ''}</div>
-                <div className="rrf-chip"><ListChecks size={13} /> {createdRoom.challenge_source === 'random' ? t.oneVOne.sourceRandom : t.oneVOne.sourceManual}</div>
-              </div>
-              {isOwner && (
-                <button className="room-ready-start" onClick={handleStartMatch} disabled={!opponentJoined || starting} style={{ '--btn-accent': meta.color } as React.CSSProperties}>
-                  {starting ? <><Loader2 size={16} className="onevone-spin" /> {t.oneVOne.startBtnLoading}</>
-                    : opponentJoined ? <><Swords size={16} /> {t.oneVOne.startBtn}</>
-                    : <span>{t.oneVOne.waitingForOpponent}</span>}
+              <span className="ov1-wr-tag" style={{ color: meta.color, borderColor: `${meta.color}33` }}>
+                {isOwner ? t.oneVOne.ownerTag : t.oneVOne.joinedHint}
+              </span>
+              <h2 className="ov1-wr-title">{t.oneVOne.leaveTitle}</h2>
+            </div>
+
+            <div className="ov1-wr-code-section">
+              <span className="ov1-wr-code-label">{t.oneVOne.roomCode}</span>
+              <div className="ov1-wr-code-display">
+                <code className="ov1-wr-code-value">{createdRoom.code}</code>
+                <button className="ov1-wr-copy-btn" onClick={handleCopy}>
+                  {copied ? <><Check size={14} /> {t.oneVOne.copied}</> : <><Copy size={14} /> {t.oneVOne.copy}</>}
                 </button>
-              )}
-              {!isOwner && <div className="room-ready-wait">{t.oneVOne.waitingForOwnerToStart}</div>}
-              {startError && <div className="onevone-error">{startError}</div>}
-            </section>
+              </div>
+              <span className="ov1-wr-code-hint">{t.oneVOne.shareCodeHint}</span>
+            </div>
+
+            <div className="ov1-wr-players">
+              <div className={`ov1-wr-player ${playerOne ? 'active' : 'empty'}`}>
+                <div className="ov1-wr-player-avatar" style={{ background: `linear-gradient(135deg, ${meta.color}, ${meta.color}88)` }}>
+                  {getInitial(playerOne?.display_name || '?')}
+                </div>
+                <div className="ov1-wr-player-info">
+                  <span className="ov1-wr-player-name">{playerOne?.display_name || '—'}</span>
+                  <span className="ov1-wr-player-role">{t.oneVOne.ownerTag}</span>
+                </div>
+                <span className={`ov1-wr-player-status ${playerOne ? 'ready' : ''}`}>{playerOne ? t.oneVOne.ready : t.oneVOne.waitingOwner}</span>
+              </div>
+
+              <div className="ov1-wr-vs">
+                <div className="ov1-wr-vs-line" />
+                <span className="ov1-wr-vs-text">{t.oneVOne.vs}</span>
+                <div className="ov1-wr-vs-line" />
+              </div>
+
+              <div className={`ov1-wr-player ${playerTwo ? 'active' : 'empty'}`}>
+                <div className="ov1-wr-player-avatar" style={{ background: playerTwo ? `linear-gradient(135deg, ${meta.color}, ${meta.color}88)` : 'rgba(255,255,255,0.06)' }}>
+                  {getInitial(playerTwo?.display_name || '?')}
+                </div>
+                <div className="ov1-wr-player-info">
+                  <span className="ov1-wr-player-name">{playerTwo?.display_name || '—'}</span>
+                  <span className="ov1-wr-player-role">{t.oneVOne.opponentTag}</span>
+                </div>
+                <span className={`ov1-wr-player-status ${playerTwo ? 'ready' : ''}`}>{playerTwo ? t.oneVOne.ready : t.oneVOne.waitingForOpponent}</span>
+              </div>
+            </div>
+
+            <div className="ov1-wr-meta-row">
+              <div className="ov1-wr-meta-chip"><Clock size={12} /> {createdRoom.main_duration_s ? `${Math.floor(createdRoom.main_duration_s / 60)} ${t.oneVOne.minute}` : ''}</div>
+              <div className="ov1-wr-meta-chip"><ListChecks size={12} /> {createdRoom.challenge_source === 'random' ? t.oneVOne.sourceRandom : t.oneVOne.sourceManual}</div>
+            </div>
+
+            {isOwner ? (
+              <button className="ov1-wr-start-btn" onClick={handleStartMatch} disabled={!opponentJoined || starting}>
+                {starting ? <><Loader2 size={16} className="onevone-spin" /> {t.oneVOne.startBtnLoading}</>
+                  : opponentJoined ? <><Swords size={16} /> {t.oneVOne.startBtn}</>
+                  : <span>{t.oneVOne.waitingForOpponent}</span>}
+              </button>
+            ) : (
+              <div className="ov1-wr-wait-msg">{t.oneVOne.waitingForOwnerToStart}</div>
+            )}
+            {startError && <div className="onevone-error">{startError}</div>}
           </div>
         </main>
       </div>
@@ -280,7 +295,7 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
   }
 
   return (
-    <div className="onevone-page">
+    <div dir={t._rawLang === 'ar' ? 'rtl' : 'ltr'} className="onevone-page">
       <Sidebar
         top={
           <button className="dash-nav-item" onClick={onBack} title={t.oneVOne.back}>
@@ -299,177 +314,170 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
 
       <main className="dash-main">
           {mode === 'home' && (
-            <div className="lobby-home-wrap">
-<div className="lobby-hero">
-  <div className="lobby-kicker">
-    <Swords size={13} /> {t.oneVOne.kicker}
-  </div>
-  <div className="lobby-hero-content">
-    <h1>{t.oneVOne.heroTitle}</h1>
-    <p>{t.oneVOne.heroSub}</p>
-  </div>
-</div>
+            <div className="ov1-lobby">
+              <div className="ov1-lobby-bg-orb ov1-lobby-bg-orb--1" />
+              <div className="ov1-lobby-bg-orb ov1-lobby-bg-orb--2" />
 
-              <div className="lobby-grid">
-                <button className="lobby-card" onClick={() => setMode('create')}
-                  style={{ '--accent': '#10b981', '--accent-bg': 'rgba(16,185,129,0.06)' } as React.CSSProperties}>
-                  <span className="lc-badge">{t.oneVOne.sourceRandom} / {t.oneVOne.sourceManual}</span>
-                  <Plus size={22} className="lc-icon" />
-                  <h3 className="lc-title">{t.oneVOne.createRoom}</h3>
-                  <p className="lc-desc">{t.oneVOne.createRoomSub}</p>
-                  <span className="lc-action">{t.oneVOne.creatingBtn} <ArrowRight size={13} /></span>
+              <div className="ov1-lobby-header">
+                <div className="ov1-lobby-badge"><Swords size={12} /> {t.oneVOne.kicker}</div>
+                <h1 className="ov1-lobby-title">{t.oneVOne.heroTitle}</h1>
+                <p className="ov1-lobby-subtitle">{t.oneVOne.heroSub}</p>
+              </div>
+
+              <div className="ov1-lobby-actions">
+                <button className="ov1-action-card ov1-action-card--create" onClick={() => setMode('create')}>
+                  <div className="ov1-ac-icon-wrap"><Plus size={24} /></div>
+                  <div className="ov1-ac-text">
+                    <h3>{t.oneVOne.createRoom}</h3>
+                    <p>{t.oneVOne.createRoomSub}</p>
+                  </div>
+                  <div className="ov1-ac-badge">{t.oneVOne.sourceRandom} / {t.oneVOne.sourceManual}</div>
+                  <div className="ov1-ac-arrow"><ArrowRight size={16} /></div>
                 </button>
-                <button className="lobby-card" onClick={() => setMode('join')}
-                  style={{ '--accent': '#3b82f6', '--accent-bg': 'rgba(59,130,246,0.06)' } as React.CSSProperties}>
-                  <span className="lc-badge">{t.oneVOne.roomCode} • {t.oneVOne.startBtn}</span>
-                  <LogIn size={22} className="lc-icon" />
-                  <h3 className="lc-title">{t.oneVOne.joinWithCode}</h3>
-                  <p className="lc-desc">{t.oneVOne.joinWithCodeSub}</p>
-                  <span className="lc-action">{t.oneVOne.joinBtn} <ArrowRight size={13} /></span>
-                </button>
-              </div>
-            </div>
-          )}
 
-        <div className="dash-container" style={{ maxWidth: 900 }}>
-
-          {mode === 'create' && (
-            <div className="create-panel" style={{ '--accent': teamMeta.color, '--accent-soft': teamMeta.soft } as React.CSSProperties}>
-              <div className="cp-head">
-                <div className="cp-head-left">
-                  <div className="cp-head-icon"><Swords size={20} /></div>
-                  <div>
-                    <h2>{t.oneVOne.roomSettings}</h2>
-                    <p>{t.oneVOne.sourceHint}</p>
-                  </div>
-                </div>
-                <button className="cp-close" onClick={() => { setMode('home'); setCreateError(''); }}><X size={16} /></button>
-              </div>
-
-              <div className="cp-summary">
-                <div className="cp-summary-item">
-                  <span className="cps-label">{t.oneVOne.yourTeam}</span>
-                  <span className="cps-value" style={{ color: teamMeta.color }}>
-                    {teamRole === 'red' ? <RedTeamIcon size={12} /> : <BlueTeamIcon size={12} />}
-                    {teamRole === 'red' ? t.oneVOne.teamRed : t.oneVOne.teamBlue}
-                  </span>
-                </div>
-                <div className="cp-summary-dot" />
-                <div className="cp-summary-item">
-                  <span className="cps-label">{t.oneVOne.matchLength}</span>
-                  <span className="cps-value">{durationMin} {t.oneVOne.minutes}</span>
-                </div>
-                <div className="cp-summary-dot" />
-                <div className="cp-summary-item">
-                  <span className="cps-label">{t.oneVOne.sourceMode}</span>
-                  <span className="cps-value">{challengeMode === 'random' ? t.oneVOne.sourceRandom : t.oneVOne.sourceManual}</span>
-                </div>
-              </div>
-
-              <div className="cp-section">
-                <label className="cp-label">{t.oneVOne.yourTeam}</label>
-                <div className="cp-team-grid">
-                  <button className={`cp-team-btn ${teamRole === 'red' ? 'active' : ''}`}
-                    onClick={() => setTeamRole('red')}
-                    style={{ '--c': '#ef4444', '--cs': 'rgba(239,68,68,0.1)' } as React.CSSProperties}>
-                    <RedTeamIcon size={36} />
-                    <span className="ct-title">{t.oneVOne.teamRedFull}</span>
-                    <span className="ct-desc">{t.oneVOne.redDesc}</span>
-                    {teamRole === 'red' && <span className="ct-check">✓</span>}
-                  </button>
-                  <button className={`cp-team-btn ${teamRole === 'blue' ? 'active' : ''}`}
-                    onClick={() => setTeamRole('blue')}
-                    style={{ '--c': '#3b82f6', '--cs': 'rgba(59,130,246,0.1)' } as React.CSSProperties}>
-                    <BlueTeamIcon size={36} />
-                    <span className="ct-title">{t.oneVOne.teamBlueFull}</span>
-                    <span className="ct-desc">{t.oneVOne.blueDesc}</span>
-                    {teamRole === 'blue' && <span className="ct-check">✓</span>}
-                  </button>
-                </div>
-              </div>
-
-              <div className="cp-row">
-                <div className="cp-field">
-                  <label><Clock size={12} /> {t.oneVOne.matchLength}</label>
-                  <div className="cp-duration-grid">
-                    {DURATION_OPTIONS.map((opt) => (
-                      <button key={opt.minutes} className={`cp-duration-btn ${durationMin === opt.minutes ? 'active' : ''}`}
-                        onClick={() => setDurationMin(opt.minutes)}>
-                        <strong>{opt.minutes}</strong>
-                        <span>{t.oneVOne.minutes}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="cp-field">
-                  <label>{t.oneVOne.sourceMode}</label>
-                  <div className="cp-source-grid">
-                    <button className={`cp-source-btn ${challengeMode === 'random' ? 'active' : ''}`}
-                      onClick={() => { setChallengeMode('random'); setPickedChallenge(null); setActiveCategory(null); }}>
-                      <Shuffle size={14} /> {t.oneVOne.sourceRandom}
-                    </button>
-                    <button className={`cp-source-btn ${challengeMode === 'manual' ? 'active' : ''}`}
-                      onClick={() => setChallengeMode('manual')}>
-                      <ListChecks size={14} /> {t.oneVOne.sourceManual}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {challengeMode === 'manual' && (
-                <ChallengeBrowser
-                  challenges={availableChallenges} loading={loadingChallenges} teamRole={teamRole}
-                  activeCategory={activeCategory} setActiveCategory={setActiveCategory}
-                  pickedChallenge={pickedChallenge} setPickedChallenge={setPickedChallenge}
-                />
-              )}
-
-              {createError && <div className="onevone-error">{createError}</div>}
-
-              <button className="cp-submit" onClick={handleCreate}
-                disabled={creating || (challengeMode === 'manual' && !pickedChallenge?.id)}>
-                {creating ? <><Loader2 size={16} className="onevone-spin" /> {t.oneVOne.creatingLoading}</>
-                  : <><Swords size={16} /> {t.oneVOne.creatingBtn}</>}
-              </button>
-            </div>
-          )}
-
-          {mode === 'join' && (
-            <div className="create-panel join-panel">
-              <div className="cp-head">
-                <div className="cp-head-left">
-                  <div className="cp-head-icon" style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981' }}>
-                    <DoorOpen size={20} />
-                  </div>
-                  <div>
-                    <h2>{t.oneVOne.joinTitle}</h2>
+                <button className="ov1-action-card ov1-action-card--join" onClick={() => setMode('join')}>
+                  <div className="ov1-ac-icon-wrap"><LogIn size={24} /></div>
+                  <div className="ov1-ac-text">
+                    <h3>{t.oneVOne.joinWithCode}</h3>
                     <p>{t.oneVOne.joinWithCodeSub}</p>
                   </div>
-                </div>
-                <button className="cp-close" onClick={() => { setMode('home'); setJoinError(''); }}><X size={16} /></button>
+                  <div className="ov1-ac-badge">{t.oneVOne.roomCode}</div>
+                  <div className="ov1-ac-arrow"><ArrowRight size={16} /></div>
+                </button>
               </div>
-
-              <div className="join-area">
-                <label className="join-label">{t.oneVOne.roomCode}</label>
-                <div className="join-input-box">
-                  <div className="join-glow" />
-                  <input className="join-input" type="text" maxLength={6} placeholder={t.oneVOne.codePh}
-                    value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} />
-                </div>
-                <span className="join-hint">{t.oneVOne.codeHint}</span>
-              </div>
-
-              {joinError && <div className="onevone-error">{joinError}</div>}
-
-              <button className="cp-submit" onClick={handleJoin} disabled={joining || joinCode.length < 4}
-                style={{ '--accent': '#10b981' } as React.CSSProperties}>
-                {joining ? <><Loader2 size={16} className="onevone-spin" /> {t.oneVOne.joiningLoading}</>
-                  : <><DoorOpen size={16} /> {t.oneVOne.joinBtn}</>}
-              </button>
             </div>
           )}
 
-        </div>
+        {mode === 'create' && (
+          <div className="ov1-create-panel" style={{ '--accent': teamMeta.color, '--accent-soft': teamMeta.soft } as React.CSSProperties}>
+            <button className="ov1-cp-close" onClick={() => { setMode('home'); setCreateError(''); }}><X size={16} /></button>
+
+            <div className="ov1-cp-header">
+              <div className="ov1-cp-header-icon"><Swords size={20} /></div>
+              <div>
+                <h2>{t.oneVOne.roomSettings}</h2>
+                <p>{t.oneVOne.sourceHint}</p>
+              </div>
+            </div>
+
+            <div className="ov1-cp-summary">
+              <div className="ov1-cp-sum-item">
+                <span className="ov1-cp-sum-label">{t.oneVOne.yourTeam}</span>
+                <span className="ov1-cp-sum-value" style={{ color: teamMeta.color }}>
+                  {teamRole === 'red' ? <RedTeamIcon size={11} /> : <BlueTeamIcon size={11} />}
+                  {teamRole === 'red' ? t.oneVOne.teamRed : t.oneVOne.teamBlue}
+                </span>
+              </div>
+              <div className="ov1-cp-sum-dot" />
+              <div className="ov1-cp-sum-item">
+                <span className="ov1-cp-sum-label">{t.oneVOne.matchLength}</span>
+                <span className="ov1-cp-sum-value">{durationMin} {t.oneVOne.minutes}</span>
+              </div>
+              <div className="ov1-cp-sum-dot" />
+              <div className="ov1-cp-sum-item">
+                <span className="ov1-cp-sum-label">{t.oneVOne.sourceMode}</span>
+                <span className="ov1-cp-sum-value">{challengeMode === 'random' ? t.oneVOne.sourceRandom : t.oneVOne.sourceManual}</span>
+              </div>
+            </div>
+
+            <div className="ov1-cp-section">
+              <label className="ov1-cp-label">{t.oneVOne.yourTeam}</label>
+              <div className="ov1-cp-team-grid">
+                <button className={`ov1-cp-team-btn ${teamRole === 'red' ? 'active' : ''}`}
+                  onClick={() => setTeamRole('red')}>
+                  <RedTeamIcon size={32} />
+                  <span className="ov1-cp-team-title">{t.oneVOne.teamRedFull}</span>
+                  <span className="ov1-cp-team-desc">{t.oneVOne.redDesc}</span>
+                  {teamRole === 'red' && <span className="ov1-cp-team-check" style={{ background: '#ef4444' }}>✓</span>}
+                </button>
+                <button className={`ov1-cp-team-btn ${teamRole === 'blue' ? 'active' : ''}`}
+                  onClick={() => setTeamRole('blue')}>
+                  <BlueTeamIcon size={32} />
+                  <span className="ov1-cp-team-title">{t.oneVOne.teamBlueFull}</span>
+                  <span className="ov1-cp-team-desc">{t.oneVOne.blueDesc}</span>
+                  {teamRole === 'blue' && <span className="ov1-cp-team-check" style={{ background: '#3b82f6' }}>✓</span>}
+                </button>
+              </div>
+            </div>
+
+            <div className="ov1-cp-row">
+              <div className="ov1-cp-field">
+                <label className="ov1-cp-label"><Clock size={12} /> {t.oneVOne.matchLength}</label>
+                <div className="ov1-cp-duration-grid">
+                  {DURATION_OPTIONS.map((opt) => (
+                    <button key={opt.minutes} className={`ov1-cp-dur-btn ${durationMin === opt.minutes ? 'active' : ''}`}
+                      onClick={() => setDurationMin(opt.minutes)}>
+                      <strong>{opt.minutes}</strong>
+                      <span>{t.oneVOne.minutes}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="ov1-cp-field">
+                <label className="ov1-cp-label">{t.oneVOne.sourceMode}</label>
+                <div className="ov1-cp-source-grid">
+                  <button className={`ov1-cp-src-btn ${challengeMode === 'random' ? 'active' : ''}`}
+                    onClick={() => { setChallengeMode('random'); setPickedChallenge(null); setActiveCategory(null); }}>
+                    <Shuffle size={13} /> {t.oneVOne.sourceRandom}
+                  </button>
+                  <button className={`ov1-cp-src-btn ${challengeMode === 'manual' ? 'active' : ''}`}
+                    onClick={() => setChallengeMode('manual')}>
+                    <ListChecks size={13} /> {t.oneVOne.sourceManual}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {challengeMode === 'manual' && (
+              <ChallengeBrowser
+                challenges={availableChallenges} loading={loadingChallenges} teamRole={teamRole}
+                activeCategory={activeCategory} setActiveCategory={setActiveCategory}
+                pickedChallenge={pickedChallenge} setPickedChallenge={setPickedChallenge}
+              />
+            )}
+
+            {createError && <div className="onevone-error">{createError}</div>}
+
+            <button className="ov1-cp-submit" onClick={handleCreate}
+              disabled={creating || (challengeMode === 'manual' && !pickedChallenge?.id)}>
+              {creating ? <><Loader2 size={16} className="onevone-spin" /> {t.oneVOne.creatingLoading}</>
+                : <><Swords size={16} /> {t.oneVOne.creatingBtn}</>}
+            </button>
+          </div>
+        )}
+
+        {mode === 'join' && (
+          <div className="ov1-join-panel">
+            <button className="ov1-cp-close" onClick={() => { setMode('home'); setJoinError(''); }}><X size={16} /></button>
+
+            <div className="ov1-cp-header">
+              <div className="ov1-cp-header-icon" style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981' }}>
+                <DoorOpen size={20} />
+              </div>
+              <div>
+                <h2>{t.oneVOne.joinTitle}</h2>
+                <p>{t.oneVOne.joinWithCodeSub}</p>
+              </div>
+            </div>
+
+            <div className="ov1-join-input-area">
+              <label className="ov1-join-label">{t.oneVOne.roomCode}</label>
+              <div className="ov1-join-input-wrap">
+                <input className="ov1-join-input" type="text" maxLength={6} placeholder={t.oneVOne.codePh}
+                  value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} />
+              </div>
+              <span className="ov1-join-hint">{t.oneVOne.codeHint}</span>
+            </div>
+
+            {joinError && <div className="onevone-error">{joinError}</div>}
+
+            <button className="ov1-cp-submit" onClick={handleJoin} disabled={joining || joinCode.length < 4}>
+              {joining ? <><Loader2 size={16} className="onevone-spin" /> {t.oneVOne.joiningLoading}</>
+                : <><DoorOpen size={16} /> {t.oneVOne.joinBtn}</>}
+            </button>
+          </div>
+        )}
+
       </main>
     </div>
   );
@@ -492,31 +500,30 @@ const ChallengeBrowser: React.FC<ChallengeBrowserProps> = ({
   challenges.forEach((c) => { const cat = c.category || t.oneVOne.categoryFallback; if (!groups[cat]) groups[cat] = []; groups[cat].push(c); });
   const categoryNames = Object.keys(groups).sort();
 
-  if (loading) return <div className="cb-empty"><Loader2 size={16} className="onevone-spin" /><span>{t.oneVOne.loadingTeam}</span></div>;
-  if (categoryNames.length === 0) return <div className="cb-empty"><Lock size={16} /><span>{t.oneVOne.noChallenges}</span></div>;
+  if (loading) return <div className="ov1-cb-empty"><Loader2 size={16} className="onevone-spin" /><span>{t.oneVOne.loadingTeam}</span></div>;
+  if (categoryNames.length === 0) return <div className="ov1-cb-empty"><Lock size={16} /><span>{t.oneVOne.noChallenges}</span></div>;
 
   if (activeCategory) {
     const items = groups[activeCategory] || [];
     return (
-      <div className="cb">
-        <div className="cb-head">
-          <button className="cb-back" onClick={() => { setActiveCategory(null); setPickedChallenge(null); }}>
+      <div className="ov1-cb">
+        <div className="ov1-cb-header">
+          <button className="ov1-cb-back" onClick={() => { setActiveCategory(null); setPickedChallenge(null); }}>
             <ArrowRight size={12} /> {t.oneVOne.backToCategories}
           </button>
-          <span className="cb-title">{activeCategory}</span>
-          <span className="cb-count">{items.length}</span>
+          <span className="ov1-cb-title">{activeCategory}</span>
+          <span className="ov1-cb-count">{items.length}</span>
         </div>
-        <div className="cb-items">
+        <div className="ov1-cb-list">
           {items.map((c) => {
             const picked = pickedChallenge?.id === c.id;
             return (
-              <button key={c.id} className={`cb-item ${picked ? 'picked' : ''}`} onClick={() => setPickedChallenge(c)}
-                style={{ '--accent': meta.color, '--accent-soft': meta.soft } as React.CSSProperties}>
-                <div className="cbi-info">
-                  <span className="cbi-title">{c.title}</span>
-                  <span className="cbi-meta">{c.module} • {c.difficulty}</span>
+              <button key={c.id} className={`ov1-cb-item ${picked ? 'picked' : ''}`} onClick={() => setPickedChallenge(c)}>
+                <div className="ov1-cb-item-info">
+                  <span className="ov1-cb-item-title">{c.title}</span>
+                  <span className="ov1-cb-item-meta">{c.module} · {c.difficulty}</span>
                 </div>
-                <div className="cbi-right">{picked ? <Check size={14} /> : <span className="cbi-xp">+{c.xpReward}</span>}</div>
+                <div className="ov1-cb-item-right">{picked ? <Check size={14} style={{ color: meta.color }} /> : <span className="ov1-cb-item-xp">+{c.xpReward}</span>}</div>
               </button>
             );
           })}
@@ -526,16 +533,16 @@ const ChallengeBrowser: React.FC<ChallengeBrowserProps> = ({
   }
 
   return (
-    <div className="cb">
-      <div className="cb-head">
-        <span className="cb-title">{t.oneVOne.pickCategory(categoryNames.length)}</span>
-        <span className="cb-count">{categoryNames.length}</span>
+    <div className="ov1-cb">
+      <div className="ov1-cb-header">
+        <span className="ov1-cb-title">{t.oneVOne.pickCategory(categoryNames.length)}</span>
+        <span className="ov1-cb-count">{categoryNames.length}</span>
       </div>
-      <div className="cb-cats">
+      <div className="ov1-cb-cats">
         {categoryNames.map((cat) => (
-          <button key={cat} className="cb-cat" onClick={() => setActiveCategory(cat)}>
+          <button key={cat} className="ov1-cb-cat" onClick={() => setActiveCategory(cat)}>
             <span><Lock size={12} /> {cat}</span>
-            <span className="cb-cat-count">{groups[cat].length}</span>
+            <span className="ov1-cb-cat-count">{groups[cat].length}</span>
           </button>
         ))}
       </div>

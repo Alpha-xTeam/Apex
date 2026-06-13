@@ -93,6 +93,9 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
   const [now, setNow] = useState(() => new Date());
   const [progress, setProgress] = useState<Record<string, { completions: number; required: number; ready: boolean }>>({});
   const [downloading, setDownloading] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const certRef = useRef<HTMLDivElement>(null);
 
   const CERT_CATEGORIES = [
@@ -142,6 +145,13 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
             prog[c.key] = { completions: 0, required: CERT_REQUIRED, ready: false };
           }
         }));
+        // Fetch avatar
+        try {
+          const avRes = await fetch(`${API_URL}/profile`, { headers });
+          const avData = await avRes.json();
+          if (avData.avatar_url) setAvatarUrl(avData.avatar_url);
+        } catch {}
+
         setProgress(prog);
       } catch (err) {
         console.error('Error fetching profile:', err);
@@ -217,6 +227,27 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
     }
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append('file', f);
+      const res = await fetch(`${API_URL}/profile/avatar`, {
+        method: 'POST',
+        headers: { 'Authorization': getAuthHeaders().Authorization || '' },
+        body: form,
+      });
+      const data = await res.json();
+      if (data.avatar_url) setAvatarUrl(data.avatar_url);
+    } catch (err) {
+      console.error('Avatar upload error:', err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="profile-page dash-page" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <div className="profile-grid-bg" aria-hidden="true" />
@@ -284,7 +315,36 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
               <div className="profile-hero-right">
                 <div className="profile-shield-stage">
                   <div className="profile-shield-halo" />
-                  <ShieldMark size="lg" className="profile-shield" />
+                  <div
+                    onClick={() => fileRef.current?.click()}
+                    style={{ cursor: 'pointer', position: 'relative', width: 150, height: 150, borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(34,197,94,0.3)', transition: 'all 0.3s ease', flexShrink: 0, background: 'rgba(34,197,94,0.08)' }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#22c55e'; const ov = e.currentTarget.querySelector('.avatar-ov') as HTMLElement; if (ov) ov.style.opacity = '1'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(34,197,94,0.3)'; const ov = e.currentTarget.querySelector('.avatar-ov') as HTMLElement; if (ov) ov.style.opacity = '0'; }}
+                  >
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 4 }}>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                          <circle cx="12" cy="7" r="4" />
+                        </svg>
+                        <span style={{ color: '#22c55e', fontSize: 10, fontWeight: 600 }}>إضافة</span>
+                      </div>
+                    )}
+                    <div className="avatar-ov" style={{
+                      position: 'absolute', inset: 0, borderRadius: '50%',
+                      background: 'rgba(0,0,0,0.55)',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      opacity: 0, transition: 'opacity 0.25s ease', gap: 4, pointerEvents: 'none',
+                    }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                        <circle cx="12" cy="13" r="4" />
+                      </svg>
+                      <span style={{ color: '#fff', fontSize: 11 }}>{avatarUrl ? 'تغيير' : 'إضافة'}</span>
+                    </div>
+                  </div>
                   <div className="profile-shield-orbit profile-shield-orbit-1" />
                   <div className="profile-shield-orbit profile-shield-orbit-2" />
                 </div>
@@ -292,6 +352,14 @@ export const Profile: React.FC<ProfileProps> = ({ user, onBack, onLogout }) => {
                   <Lock size={12} />
                   <span>{t.profile.shieldActive}</span>
                 </div>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  style={{ display: 'none' }}
+                  onChange={handleAvatarUpload}
+                />
+                {uploading && <div style={{ textAlign: 'center', color: '#22c55e', fontSize: 12, marginTop: 8 }}>جارٍ الرفع...</div>}
               </div>
             </div>
 
