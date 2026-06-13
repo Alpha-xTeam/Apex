@@ -195,11 +195,9 @@
 }
 
 .dash-logo-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.65);
+  width: 22px;
+  height: 26px;
+  display: block;
   flex: 0 0 auto;
 }
 
@@ -219,6 +217,15 @@
 }
 
 /* ---------- Nav Items ---------- */
+.dash-nav-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding-top: 8px;
+  width: 100%;
+}
+
 .dash-nav-center {
   flex: 1;
   display: flex;
@@ -492,49 +499,6 @@
   box-shadow: 0 6px 16px rgba(245, 158, 11, 0.25);
 }
 
-/* ─── Override sidebar for 1v1 arena and lobby pages ─── */
-.onevone-arena-header.dash-header,
-.onevone-page .dash-header {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: auto !important;
-  width: 100% !important;
-  height: auto !important;
-  min-height: 52px;
-  flex-direction: row !important;
-  border-radius: 0 !important;
-  padding: 4px 16px;
-}
-.onevone-arena-header .dash-header-inner,
-.onevone-page .dash-header-inner {
-  flex-direction: row !important;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  padding: 0;
-  overflow: visible;
-}
-.onevone-arena-header .dash-header-right,
-.onevone-page .dash-header-right {
-  flex-direction: row !important;
-  align-items: center;
-  gap: 8px;
-  width: auto;
-}
-.onevone-arena-header .dash-logo,
-.onevone-page .dash-logo {
-  font-size: 16px !important;
-}
-.onevone-arena-header .dash-logo-dot,
-.onevone-page .dash-logo-dot {
-  display: none;
-}
-.onevone-page .dash-main {
-  padding-left: 12px;
-}
-
 .profile-main {
   padding-left: 92px;
   padding-right: 12px;
@@ -548,6 +512,8 @@
   padding-left: 92px;
   padding-right: 12px;
 }
+
+/* LTR: sidebar is still on the left, so same padding applies */
 
 .dash-container {
   max-width: 1280px;
@@ -723,4 +689,102 @@
   font-weight: 600;
   color: rgba(243, 241, 236, 0.5);
   margin-top: 6px;
+}
+
+/* ─── 1v1 Game Bar (top of main content, during match) ─── */
+.onevone-game-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  background: rgba(26, 26, 26, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.ogb-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ogb-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ogb-center {
+  display: flex;
+  align-items: center;
+}
+.ogb-hud {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+.ogb-player {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(243, 241, 236, 0.8);
+}
+.ogb-player.is-self {
+  color: #f3f1ec;
+  font-weight: 600;
+}
+.ogb-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(243, 241, 236, 0.3);
+  flex-shrink: 0;
+}
+.ogb-player.is-self .ogb-dot {
+  background: var(--team-accent, #10b981);
+}
+.ogb-vs {
+  color: rgba(243, 241, 236, 0.3);
+  font-weight: 600;
+  font-size: 12px;
+}
+.ogb-right {
+  display: flex;
+  align-items: center;
+}
+.ogb-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ogb-timer strong {
+  font-family: 'IBM Plex Mono', 'Courier New', monospace;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+}
+
+/* ─── Lobby home: center hero on full page width (compensate for sidebar) ─── */
+.lobby-home-wrap {
+  text-align: center;
+  width: 100%;
+}
+.lobby-home-wrap .lobby-hero,
+.lobby-home-wrap .lobby-grid {
+  text-align: center;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
 }

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Clock, Trophy, Swords, Loader2, ChevronLeft, X } from 'lucide-react';
+import { Clock, Trophy, Swords, Loader2, ChevronLeft, X, Crosshair, Shield } from 'lucide-react';
 import { TrainingSession } from './TrainingSession';
 import { OneVOneRoomCard } from './OneVOneRoomCard';
 import { BlueTeamIcon, RedTeamIcon } from './TeamIcons';
+import { Sidebar } from './Sidebar';
 import { useI18n } from '../i18n/I18nContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
@@ -460,10 +461,19 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
   if (error) {
     return (
       <div className="onevone-page">
-        <div className="dash-container" style={{ paddingTop: 80 }}>
-          <div className="onevone-error">{error}</div>
-          <button className="dash-back-pill" onClick={onBack}><ChevronLeft size={14} /> {t.oneVOne.back}</button>
-        </div>
+        <Sidebar
+          top={
+            <button className="dash-nav-item" onClick={onBack} title={t.oneVOne.back}>
+              <ChevronLeft size={18} />
+            </button>
+          }
+        />
+        <main className="dash-main">
+          <div className="dash-container">
+            <div className="onevone-error">{error}</div>
+            <button className="dash-back-pill" onClick={onBack}><ChevronLeft size={14} /> {t.oneVOne.back}</button>
+          </div>
+        </main>
       </div>
     );
   }
@@ -474,11 +484,22 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
     const isReadyPhase = match?.state === 'ready';
     return (
       <div className="onevone-page">
-        <OneVOneHeader
-          teamColor={teamColor}
-          user={user}
-          onLeave={handleLeave}
-          state={isCountingDown ? 'countdown' : isReadyPhase ? 'ready' : 'waiting'}
+        <Sidebar
+          top={
+            <button className="dash-nav-item" onClick={handleLeave} title={t.oneVOne.back}>
+              <ChevronLeft size={18} />
+            </button>
+          }
+          bottom={
+            <>
+              <div className="dash-user-badge">
+                <div className="dash-avatar">{(user.name || user.email).charAt(0)}</div>
+              </div>
+              <button onClick={handleLeave} className="dash-nav-item" title={t.oneVOne.leave}>
+                <X size={18} />
+              </button>
+            </>
+          }
         />
         <main className="dash-main">
           <div className="dash-container" style={{ maxWidth: 720 }}>
@@ -519,11 +540,22 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
     if (!training) {
       return (
         <div className="onevone-page onevone-arena-active">
-          <OneVOneHeader
-            teamColor={teamColor}
-            user={user}
-            onLeave={handleLeave}
-            state="loading"
+          <Sidebar
+            top={
+              <button className="dash-nav-item" onClick={handleTrainingBack} title={t.oneVOne.back}>
+                <ChevronLeft size={18} />
+              </button>
+            }
+            bottom={
+              <>
+                <div className="dash-user-badge">
+                  <div className="dash-avatar">{(user.name || user.email).charAt(0)}</div>
+                </div>
+                <button onClick={handleLeave} className="dash-nav-item" title={t.oneVOne.leave}>
+                  <X size={18} />
+                </button>
+              </>
+            }
           />
           <TrainingSession
             moduleTitle={t.oneVOne.moduleTitle}
@@ -542,17 +574,57 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
 
     return (
       <div className="onevone-page onevone-arena-active">
-        <OneVOneHeader
-          teamColor={teamColor}
-          user={user}
-          onLeave={handleLeave}
-          state="playing"
-          secondsLeft={secondsLeft}
-          phaseLabel={phaseLabel}
-          isOvertime={match.state === 'overtime'}
-          players={players}
-          currentUserId={user.id}
+        <Sidebar
+          top={
+            <button className="dash-nav-item" onClick={handleTrainingBack} title={t.oneVOne.back}>
+              <ChevronLeft size={18} />
+            </button>
+          }
+          bottom={
+            <>
+              <div className="dash-user-badge">
+                <div className="dash-avatar">{(user.name || user.email).charAt(0)}</div>
+              </div>
+              <button onClick={handleLeave} className="dash-nav-item" title={t.oneVOne.leave}>
+                <X size={18} />
+              </button>
+            </>
+          }
         />
+
+        <div className="onevone-game-bar" style={{ '--team-accent': teamColor } as React.CSSProperties}>
+          <div className="ogb-left">
+            <span className="ogb-pill" style={{ borderColor: `${teamColor}55`, color: teamColor }}>
+              {room.team_role === 'red' ? <RedTeamIcon size={13} /> : <BlueTeamIcon size={13} />}
+              {room.team_role === 'red' ? t.oneVOne.teamRedFull : t.oneVOne.teamBlueFull}
+            </span>
+            <span className="ogb-pill" style={{ borderColor: 'rgba(255,255,255,0.18)', color: '#f3f1ec' }}>
+              <Swords size={13} /> {t.oneVOne.home}
+            </span>
+          </div>
+          <div className="ogb-center">
+            {players.length >= 2 && (
+              <div className="ogb-hud">
+                <span className="ogb-player is-self">
+                  <span className="ogb-dot" />
+                  {players.find((p) => p.user_id === user.id)?.display_name || t.oneVOne.you}
+                </span>
+                <span className="ogb-vs">{t.oneVOne.vs}</span>
+                <span className="ogb-player">
+                  <span className="ogb-dot" />
+                  {players.find((p) => p.user_id !== user.id)?.display_name || t.oneVOne.genericOpponent}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="ogb-right">
+            <div className="ogb-timer" style={{ color: isOvertime ? '#f59e0b' : teamColor, borderColor: `${isOvertime ? '#f59e0b' : teamColor}55` }}>
+              <Clock size={14} />
+              <span>{phaseLabel}</span>
+              <strong className="mono">{String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:{String(secondsLeft % 60).padStart(2, '0')}</strong>
+            </div>
+          </div>
+        </div>
 
         {submitError && (
           <div
@@ -647,7 +719,23 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
   }
   return (
     <div className="onevone-page">
-      <OneVOneHeader teamColor={teamColor} user={user} onLeave={handleLeave} state="finished" />
+      <Sidebar
+        top={
+          <button className="dash-nav-item" onClick={handleLeave} title={t.oneVOne.back}>
+            <ChevronLeft size={18} />
+          </button>
+        }
+        bottom={
+          <>
+            <div className="dash-user-badge">
+              <div className="dash-avatar">{(user.name || user.email).charAt(0)}</div>
+            </div>
+            <button onClick={handleLeave} className="dash-nav-item" title={t.oneVOne.leave}>
+              <X size={18} />
+            </button>
+          </>
+        }
+      />
       <main className="dash-main">
         <div className="dash-container" style={{ maxWidth: 720 }}>
           <OneVOneResultModal
@@ -662,86 +750,6 @@ export const OneVOneArena: React.FC<OneVOneArenaProps> = ({ user, code, room, on
         </div>
       </main>
     </div>
-  );
-};
-
-interface OneVOneHeaderProps {
-  teamColor: string;
-  user: User;
-  onLeave: () => void;
-  state: string;
-  secondsLeft?: number;
-  phaseLabel?: string;
-  isOvertime?: boolean;
-  players?: Player[];
-  currentUserId?: string;
-}
-
-const OneVOneHeader: React.FC<OneVOneHeaderProps> = ({
-  teamColor, user, onLeave, state, secondsLeft, phaseLabel, isOvertime, players = [], currentUserId,
-}) => {
-  const { t } = useI18n();
-  const m = Math.floor((secondsLeft || 0) / 60);
-  const s = (secondsLeft || 0) % 60;
-  const timerColor = isOvertime ? '#f59e0b' : teamColor;
-  return (
-    <header className="dash-header onevone-arena-header">
-      <div className="dash-header-inner">
-        <a href="#" className="dash-logo">CyberArena</a>
-        <div className="dash-header-right">
-          <span className="onevone-mode-pill" style={{ borderColor: `${teamColor}55`, color: teamColor }}>
-            {teamColor === '#ef4444' ? <><RedTeamIcon size={14} /> {t.oneVOne.teamRedFull}</> : <><BlueTeamIcon size={14} /> {t.oneVOne.teamBlueFull}</>}
-          </span>
-          <span className="onevone-mode-pill" style={{ borderColor: 'rgba(255,255,255,0.18)', color: '#f3f1ec' }}>
-            <Swords size={13} /> {t.oneVOne.home}
-          </span>
-          {state === 'playing' && (
-            <div className="onevone-timer" style={{ color: timerColor, borderColor: `${timerColor}55` }}>
-              <Clock size={14} />
-              <span>{phaseLabel}</span>
-              <strong className="mono">{String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}</strong>
-            </div>
-          )}
-          {state === 'countdown' && (
-            <div className="onevone-timer" style={{ color: '#10b981', borderColor: '#10b98155' }}>
-              <span>{t.oneVOne.prep}</span>
-            </div>
-          )}
-          {state === 'loading' && (
-            <div className="onevone-timer" style={{ color: '#10b981', borderColor: '#10b98155' }}>
-              <Loader2 size={14} className="onevone-spin" />
-              <span>{t.oneVOne.loading}</span>
-            </div>
-          )}
-          {state === 'ready' && (
-            <div className="onevone-timer" style={{ color: '#f59e0b', borderColor: '#f59e0b55' }}>
-              <Loader2 size={14} className="onevone-spin" />
-              <span>{t.oneVOne.waitingForOppLoad}</span>
-            </div>
-          )}
-          <div className="dash-user-badge">
-            <div className="dash-avatar">{(user.name || user.email).charAt(0)}</div>
-            <div className="dash-user-info">
-              <span className="dash-name">{user.name || user.email}</span>
-            </div>
-          </div>
-          <button onClick={onLeave} className="dash-logout">{t.oneVOne.leave}</button>
-        </div>
-      </div>
-      {state === 'playing' && players.length >= 2 && (
-        <div className="onevone-hud">
-          <div className="onevone-hud-player">
-            <div className="onevone-hud-dot is-self" />
-            <span>{players.find((p) => p.user_id === currentUserId)?.display_name || t.oneVOne.you}</span>
-          </div>
-          <div className="onevone-hud-vs">{t.oneVOne.vs}</div>
-          <div className="onevone-hud-player">
-            <div className="onevone-hud-dot" />
-            <span>{players.find((p) => p.user_id !== currentUserId)?.display_name || t.oneVOne.genericOpponent}</span>
-          </div>
-        </div>
-      )}
-    </header>
   );
 };
 

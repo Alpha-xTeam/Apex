@@ -252,18 +252,13 @@ export const BlueVsRed: React.FC<BlueVsRedProps> = ({ onSelectChallenge, onBack 
   ];
 
   return (
-    <div className="bvr-page" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-      <button onClick={onBack} className="bvr-back-float" title={t.dashboard.backToDashboard || 'العودة للوحة التحكم'}>
+    <div className="bvr-page" dir={lang === 'ar' ? 'rtl' : 'ltr'}><button onClick={onBack} className="bvr-back-float" title={t.dashboard.backToDashboard || 'العودة للوحة التحكم'}>
         {lang === 'ar' ? <ChevronRight size={22} /> : <ChevronLeft size={22} />}
-      </button>
-
-      {fetchError && (
+      </button>{fetchError && (
         <div className="bvr-error-alert">
           {fetchError}
         </div>
-      )}
-
-      {loading ? (
+      )}{loading ? (
         <div className="bvr-loading-container">
           <div className="bvr-spinner" />
           <span>{t.dashboard.loading}</span>

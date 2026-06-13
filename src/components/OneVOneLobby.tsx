@@ -3,6 +3,7 @@ import { Copy, Check, Swords, Shield, Crosshair, ChevronLeft, Loader2, Shuffle, 
 import { BlueTeamIcon, RedTeamIcon } from './TeamIcons';
 import { useI18n } from '../i18n/I18nContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { Sidebar } from './Sidebar';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090/api';
 
@@ -194,25 +195,27 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
 
     return (
       <div className="onevone-page">
-        <header className="dash-header">
-          <div className="dash-header-inner">
-            <a href="#" className="dash-logo">CyberArena</a>
-            <div className="dash-header-right">
-              <LanguageSwitcher />
+        <Sidebar
+          top={
+            <button className="dash-nav-item" onClick={() => { setCreatedRoom(null); setPlayers([]); setMode('home'); }} title={t.oneVOne.back}>
+              <ChevronLeft size={18} />
+            </button>
+          }
+          bottom={
+            <>
               <span className="header-team-pill" style={{ borderColor: `${meta.color}55`, color: meta.color }}>
                 {createdRoom.team_role === 'red' ? <RedTeamIcon size={13} /> : <BlueTeamIcon size={13} />}
-                {createdRoom.team_role === 'red' ? t.oneVOne.teamRedFull : t.oneVOne.teamBlueFull}
               </span>
+              <LanguageSwitcher />
+              <button onClick={handleLeaveCreated} className="dash-nav-item" title={t.oneVOne.cancel}>
+                <X size={18} />
+              </button>
               <div className="dash-user-badge">
                 <div className="dash-avatar">{getInitial(user.name || user.email)}</div>
-                <div className="dash-user-info">
-                  <span className="dash-name">{user.name || user.email}</span>
-                </div>
               </div>
-              <button onClick={handleLeaveCreated} className="dash-logout">{t.oneVOne.cancel}</button>
-            </div>
-          </div>
-        </header>
+            </>
+          }
+        />
         <main className="dash-main">
           <div className="dash-container" style={{ maxWidth: 780 }}>
             <section className="room-ready" style={{ '--team-accent': meta.color } as React.CSSProperties}>
@@ -278,36 +281,34 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
 
   return (
     <div className="onevone-page">
-      <header className="dash-header">
-        <div className="dash-header-inner">
-          <a href="#" className="dash-logo">CyberArena</a>
-          <div className="dash-header-right">
+      <Sidebar
+        top={
+          <button className="dash-nav-item" onClick={onBack} title={t.oneVOne.back}>
+            <ChevronLeft size={18} />
+          </button>
+        }
+        bottom={
+          <>
             <LanguageSwitcher />
-            <button onClick={onBack} className="dash-back-pill">
-              <ChevronLeft size={14} /> {t.oneVOne.back}
-            </button>
             <div className="dash-user-badge">
               <div className="dash-avatar">{getInitial(user.name || user.email)}</div>
-              <div className="dash-user-info">
-                <span className="dash-name">{user.name || user.email}</span>
-              </div>
             </div>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <main className="dash-main">
-        <div className="dash-container" style={{ maxWidth: 900 }}>
-
           {mode === 'home' && (
-            <>
-              <div className="lobby-hero">
-                <div className="lobby-kicker">
-                  <Swords size={13} /> {t.oneVOne.kicker}
-                </div>
-                <h1>{t.oneVOne.heroTitle}</h1>
-                <p>{t.oneVOne.heroSub}</p>
-              </div>
+            <div className="lobby-home-wrap">
+<div className="lobby-hero">
+  <div className="lobby-kicker">
+    <Swords size={13} /> {t.oneVOne.kicker}
+  </div>
+  <div className="lobby-hero-content">
+    <h1>{t.oneVOne.heroTitle}</h1>
+    <p>{t.oneVOne.heroSub}</p>
+  </div>
+</div>
 
               <div className="lobby-grid">
                 <button className="lobby-card" onClick={() => setMode('create')}
@@ -327,8 +328,10 @@ export const OneVOneLobby: React.FC<OneVOneLobbyProps> = ({ user, onEnterArena, 
                   <span className="lc-action">{t.oneVOne.joinBtn} <ArrowRight size={13} /></span>
                 </button>
               </div>
-            </>
+            </div>
           )}
+
+        <div className="dash-container" style={{ maxWidth: 900 }}>
 
           {mode === 'create' && (
             <div className="create-panel" style={{ '--accent': teamMeta.color, '--accent-soft': teamMeta.soft } as React.CSSProperties}>

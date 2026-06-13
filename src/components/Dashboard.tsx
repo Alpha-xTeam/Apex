@@ -4,13 +4,15 @@ import './Dashboard.css';
 import {
   Zap,
   GraduationCap,
-  Lightbulb,
   Trophy,
   Swords,
-  Sparkles,
   ArrowLeft,
   Target,
   Shield,
+  TrendingUp,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { BlueTeamIcon, RedTeamIcon } from './TeamIcons';
 import { useI18n } from '../i18n/I18nContext';
@@ -31,14 +33,14 @@ interface DashboardProps {
 
 function useLevels(t: ReturnType<typeof useI18n>['t']) {
   return [
-    { name: t.levels.beginner, minXp: 0, color: '#10b981' },
-    { name: t.levels.advanced, minXp: 200, color: '#f59e0b' },
-    { name: t.levels.expert, minXp: 600, color: '#ef4444' },
-    { name: t.levels.master, minXp: 1500, color: '#8b5cf6' },
+    { name: t.levels.beginner, minXp: 0, color: '#10b981', rank: 'NEW RECRUIT' },
+    { name: t.levels.advanced, minXp: 200, color: '#f59e0b', rank: 'CYBER OPERATIVE' },
+    { name: t.levels.expert, minXp: 600, color: '#ef4444', rank: 'ELITE HACKER' },
+    { name: t.levels.master, minXp: 1500, color: '#8b5cf6', rank: 'LEGEND' },
   ];
 }
 
-function getLevel(xp: number, levels: { name: string; minXp: number; color: string }[]) {
+function getLevel(xp: number, levels: { name: string; minXp: number; color: string; rank: string }[]) {
   let level = levels[0];
   for (const l of levels) if (xp >= l.minXp) level = l;
   return level;
@@ -50,7 +52,7 @@ function getNextLevelXp(xp: number, levels: { minXp: number }[]) {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ user, onViewProfile, onViewLeaderboard, onLogout, onOpenOneVOne, onOpenBlueVsRed }) => {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const LEVELS = useLevels(t);
   const [xp, setXp] = useState(0);
   const [completed, setCompleted] = useState(0);
@@ -89,7 +91,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onViewProfile, onVie
 
         if (!token) {
           console.warn('[Dashboard] No auth token found');
-          setFetchError('يرجى تسجيل الدخول مرة أخرى');
+          setFetchError(t.dashboard.fetchError || 'يرجى تسجيل الدخول مرة أخرى');
           setLoading(false);
           return;
         }
@@ -122,11 +124,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onViewProfile, onVie
   const nextLevelXp = getNextLevelXp(xp, LEVELS);
   const xpProgress = nextLevelXp > 0 ? Math.min((xp / nextLevelXp) * 100, 100) : 100;
 
+  const arrowIcon = lang === 'ar' ? <ChevronLeft size={16} /> : <ChevronRight size={16} />;
+
   return (
     <div className="dash-page">
-      <div className="dash-glow-orb orb-1" />
-      <div className="dash-glow-orb orb-2" />
-      <div className="dash-glow-orb orb-3" />
+      <div className="dash-orb orb-1" />
+      <div className="dash-orb orb-2" />
+      <div className="dash-orb orb-3" />
 
       <Sidebar
         bottom={
@@ -161,178 +165,189 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onViewProfile, onVie
       <main className="dash-main">
         <div className="dash-container">
 
-          {/* ───── Top Hero ───── */}
-          <section className="dash-hero">
-            <div className="dash-hero-content">
-              <div className="dash-hero-tag">
-                <Sparkles size={12} />
-                <span>SYSTEM ONLINE</span>
-              </div>
-              <h1 className="dash-hero-title">
-                {t.dashboard.greeting}، <span>{user.name}</span>
-              </h1>
-              <p className="dash-hero-sub">{t.dashboard.greetingSub}</p>
+          {fetchError && (
+            <div className="dash-alert">{fetchError}</div>
+          )}
+
+          {loading ? (
+            <div className="dash-loading">
+              <div className="dash-loading-spinner" />
+              <span>{t.dashboard.loading}</span>
             </div>
-            <div className="dash-hero-badge">
-              <Target size={14} />
-              <span>{t.dashboard.chooseTeam}</span>
-            </div>
-          </section>
+          ) : (
+            <>
+              {/* ───── Welcome Bar ───── */}
+              <section className="db-welcome">
+                <div className="db-welcome-left">
+                  <div className="db-welcome-tag">
+                    <span className="db-welcome-pulse" />
+                    <span>SYSTEM ONLINE</span>
+                  </div>
+                  <h1 className="db-welcome-title">
+                    {t.dashboard.greeting}، <span>{user.name}</span>
+                  </h1>
+                  <p className="db-welcome-sub">{t.dashboard.greetingSub}</p>
+                </div>
+                <div className="db-welcome-right">
+                  <div className="db-rank-badge" style={{ borderColor: level.color }}>
+                    <span className="db-rank-tag" style={{ background: level.color }}>{level.rank}</span>
+                    <span className="db-rank-name" style={{ color: level.color }}>{level.name}</span>
+                  </div>
+                </div>
+              </section>
 
-          {/* ───── Quick Stats Strip ───── */}
-          <section className="dash-stats-strip">
-            <div className="strip-card" onClick={onViewProfile}>
-              <div className="strip-card-icon" style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981' }}>
-                <Zap size={18} />
-              </div>
-              <div className="strip-card-body">
-                <span className="strip-card-value">{xp.toLocaleString()}</span>
-                <span className="strip-card-label">{t.dashboard.xpLabel}</span>
-              </div>
-            </div>
-            <div className="strip-card" onClick={onViewProfile}>
-              <div className="strip-card-icon" style={{ background: 'rgba(139,92,246,0.12)', color: '#8b5cf6' }}>
-                <GraduationCap size={18} />
-              </div>
-              <div className="strip-card-body">
-                <span className="strip-card-value">{completed}</span>
-                <span className="strip-card-label">{t.dashboard.completedLabel}</span>
-              </div>
-            </div>
-            <div className="strip-card strip-level" onClick={onViewProfile}>
-              <div className="strip-level-bar">
-                <div className="strip-level-fill" style={{ width: `${xpProgress}%`, background: `linear-gradient(90deg, ${level.color}, #a7f3d0)` }} />
-              </div>
-              <div className="strip-level-info">
-                <span className="strip-level-name" style={{ color: level.color }}>{level.name}</span>
-                <span className="strip-level-xp">{xp.toLocaleString()} / {nextLevelXp.toLocaleString()} XP</span>
-              </div>
-            </div>
-          </section>
-
-          {/* ───── Main Grid ───── */}
-          <div className="dash-layout-grid">
-
-            {/* ─── LEFT: Modes ─── */}
-            <div className="dash-main-content">
-
-              {fetchError && (
-                <div className="dash-error-banner">{fetchError}</div>
-              )}
-
-              {loading ? (
-                <div className="dash-loading">{t.dashboard.loading}</div>
-              ) : (
-                <div className="modes-grid">
-
-                  {/* Blue vs Red Card */}
-                  <div className="mode-card mode-card-bvr" onClick={onOpenBlueVsRed}>
-                    <div className="mode-card-glow" />
-                    <div className="mode-card-header">
-                      <span className="mode-tag tag-bvr">CAMP PRACTICE</span>
+              {/* ───── Stat Cards ───── */}
+              <section className="db-stats">
+                <div className="db-stat" onClick={onViewProfile}>
+                  <div className="db-stat-icon" style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981' }}>
+                    <TrendingUp size={20} />
+                  </div>
+                  <div className="db-stat-info">
+                    <span className="db-stat-value">{xp.toLocaleString()}</span>
+                    <span className="db-stat-label">{t.dashboard.xpLabel}</span>
+                  </div>
+                  <div className="db-stat-glow" style={{ background: 'rgba(16,185,129,0.15)' }} />
+                </div>
+                <div className="db-stat" onClick={onViewProfile}>
+                  <div className="db-stat-icon" style={{ background: 'rgba(139,92,246,0.12)', color: '#8b5cf6' }}>
+                    <GraduationCap size={20} />
+                  </div>
+                  <div className="db-stat-info">
+                    <span className="db-stat-value">{completed}</span>
+                    <span className="db-stat-label">{t.dashboard.completedLabel}</span>
+                  </div>
+                  <div className="db-stat-glow" style={{ background: 'rgba(139,92,246,0.15)' }} />
+                </div>
+                <div className="db-stat db-stat-level" onClick={onViewProfile}>
+                  <div className="db-stat-icon" style={{ background: `${level.color}12`, color: level.color }}>
+                    <Target size={20} />
+                  </div>
+                  <div className="db-stat-info">
+                    <div className="db-stat-level-header">
+                      <span className="db-stat-level-name" style={{ color: level.color }}>{level.name}</span>
+                      <span className="db-stat-level-xp">{xp.toLocaleString()} / {nextLevelXp.toLocaleString()}</span>
                     </div>
-                    <div className="mode-card-body">
-                      <div className="bvr-teams">
-                        <div className="bvr-team bvr-blue">
-                          <BlueTeamIcon size={44} />
+                    <div className="db-stat-bar">
+                      <div className="db-stat-bar-fill" style={{ width: `${xpProgress}%`, background: `linear-gradient(90deg, ${level.color}, #a7f3d0)` }} />
+                    </div>
+                  </div>
+                  <div className="db-stat-glow" style={{ background: `${level.color}15` }} />
+                </div>
+              </section>
+
+              {/* ───── Main Grid ───── */}
+              <div className="db-grid">
+
+                {/* ─── LEFT: Modes ─── */}
+                <div className="db-modes">
+
+                  {/* Blue vs Red */}
+                  <div className="db-mode db-mode-bvr" onClick={onOpenBlueVsRed}>
+                    <div className="db-mode-bg" />
+                    <div className="db-mode-top">
+                      <span className="db-mode-tag">CAMP PRACTICE</span>
+                      <span className="db-mode-featured">Featured</span>
+                    </div>
+                    <div className="db-mode-body">
+                      <div className="db-mode-teams">
+                        <div className="db-mode-team">
+                          <BlueTeamIcon size={40} />
                           <h4>{t.dashboard.blueTitle}</h4>
                           <p>{t.dashboard.blueSubtitle}</p>
                         </div>
-                        <div className="bvr-vs">
-                          <span>VS</span>
-                        </div>
-                        <div className="bvr-team bvr-red">
-                          <RedTeamIcon size={44} />
+                        <div className="db-mode-vs">VS</div>
+                        <div className="db-mode-team">
+                          <RedTeamIcon size={40} />
                           <h4>{t.dashboard.redTitle}</h4>
                           <p>{t.dashboard.redSubtitle}</p>
                         </div>
                       </div>
                     </div>
-                    <div className="mode-card-footer">
+                    <div className="db-mode-bottom">
                       <span>{t.dashboard.blueVsRedCta || 'استعرض التحديات'}</span>
-                      <ArrowLeft size={16} />
+                      {arrowIcon}
                     </div>
                   </div>
 
-                  {/* 1v1 PvP Card */}
+                  {/* 1v1 PvP */}
                   {onOpenOneVOne && (
-                    <div className="mode-card mode-card-pvp" onClick={onOpenOneVOne}>
-                      <div className="mode-card-glow" />
-                      <div className="mode-card-header">
-                        <span className="mode-tag tag-pvp">PvP CHALLENGE</span>
-                        <div className="pvp-live">
-                          <span className="pvp-live-dot" />
-                          <span>LIVE</span>
-                        </div>
+                    <div className="db-mode db-mode-pvp" onClick={onOpenOneVOne}>
+                      <div className="db-mode-bg" />
+                      <div className="db-mode-top">
+                        <span className="db-mode-tag db-mode-tag-pvp">PvP CHALLENGE</span>
+                        <span className="db-mode-live">
+                          <span className="db-mode-live-dot" />
+                          LIVE
+                        </span>
                       </div>
-                      <div className="mode-card-body">
-                        <div className="pvp-showcase">
-                          <div className="pvp-icon-ring">
-                            <Swords size={38} />
+                      <div className="db-mode-body">
+                        <div className="db-mode-pvp-header">
+                          <div className="db-mode-pvp-icon">
+                            <Swords size={32} />
                           </div>
-                          <div className="pvp-text">
+                          <div className="db-mode-pvp-text">
                             <h3>{t.dashboard.oneVOneTitle}</h3>
                             <p>{t.dashboard.oneVOneDesc}</p>
                           </div>
                         </div>
-                        <div className="pvp-pills">
+                        <div className="db-mode-pills">
                           <span>{t.dashboard.oneVOnePill1}</span>
                           <span>{t.dashboard.oneVOnePill2}</span>
                           <span>{t.dashboard.oneVOnePill3}</span>
                         </div>
                       </div>
-                      <div className="mode-card-footer">
+                      <div className="db-mode-bottom">
                         <span>{t.dashboard.oneVOneCta}</span>
-                        <ArrowLeft size={16} />
+                        {arrowIcon}
                       </div>
                     </div>
                   )}
 
                 </div>
-              )}
-            </div>
 
-            {/* ─── RIGHT: Sidebar ─── */}
-            <aside className="dash-sidebar">
-              <section className="sd-card sd-profile" onClick={onViewProfile}>
-                <div className="sd-avatar-ring">
-                  <span className="sd-avatar">{initial}</span>
-                </div>
-                <div className="sd-profile-info">
-                  <span className="sd-name">{user.name || user.email}</span>
-                  <span className="sd-level" style={{ color: level.color }}>{level.name}</span>
-                </div>
-                <Shield size={16} className="sd-shield" />
-              </section>
+                {/* ─── RIGHT: Sidebar ─── */}
+                <aside className="db-sidebar">
 
-              <section className="sd-card sd-progress">
-                <div className="sd-progress-header">
-                  <span className="sd-label">{t.dashboard.levelLabel}</span>
-                  <span className="sd-level-badge" style={{ color: level.color, background: `${level.color}15` }}>
-                    {level.name}
-                  </span>
-                </div>
-                <div className="sd-bar-track">
-                  <div className="sd-bar-fill" style={{ width: `${xpProgress}%`, background: `linear-gradient(90deg, ${level.color}, #a7f3d0)` }} />
-                </div>
-                <div className="sd-bar-labels">
-                  <span>{xp.toLocaleString()} XP</span>
-                  <span>{nextLevelXp.toLocaleString()} XP</span>
-                </div>
-              </section>
-
-              <section className="sd-card sd-tip">
-                <div className="sd-tip-header">
-                  <div className="sd-tip-icon">
-                    <Lightbulb size={16} />
+                  <div className="db-side-card db-side-profile" onClick={onViewProfile}>
+                    <div className="db-side-profile-left">
+                      <div className="db-side-avatar">{initial}</div>
+                      <div className="db-side-profile-info">
+                        <span className="db-side-name">{user.name || user.email}</span>
+                        <span className="db-side-level" style={{ color: level.color }}>{level.name}</span>
+                      </div>
+                    </div>
+                    <Shield size={16} className="db-side-shield" />
                   </div>
-                  <h3>{t.dashboard.tipTitle}</h3>
-                </div>
-                <p>{t.dashboard.tipBody}</p>
-              </section>
-            </aside>
 
-          </div>
+                  <div className="db-side-card db-side-progress">
+                    <div className="db-side-progress-top">
+                      <span className="db-side-label">{t.dashboard.levelLabel}</span>
+                      <span className="db-side-badge" style={{ color: level.color, background: `${level.color}18` }}>
+                        {level.name}
+                      </span>
+                    </div>
+                    <div className="db-side-bar">
+                      <div className="db-side-bar-fill" style={{ width: `${xpProgress}%`, background: `linear-gradient(90deg, ${level.color}, #a7f3d0)` }} />
+                    </div>
+                    <div className="db-side-bar-labels">
+                      <span>{xp.toLocaleString()} XP</span>
+                      <span>{nextLevelXp.toLocaleString()} XP</span>
+                    </div>
+                  </div>
+
+                  <div className="db-side-card db-side-tip">
+                    <div className="db-side-tip-header">
+                      <Clock size={16} className="db-side-tip-icon" />
+                      <h3>{t.dashboard.tipTitle}</h3>
+                    </div>
+                    <p>{t.dashboard.tipBody}</p>
+                  </div>
+
+                </aside>
+
+              </div>
+            </>
+          )}
         </div>
       </main>
     </div>
